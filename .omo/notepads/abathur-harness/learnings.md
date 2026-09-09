@@ -358,3 +358,41 @@ Gotchas (each cost a red test or an evidence rerun):
   (min(flag, spec)); CLI tests must set process.env.ABATHUR_CONFIG (runRun resolves config dir from real env, not fixture arg).
 - adapter.ts sits at 261 pure LOC: 241 pre-existing + the 20-line additive hook; splitting todo-5/6 keystone plumbing was
   forbidden by the 173-tests-unchanged constraint — accepted exception, do not grow it.
+
+## Todo 10 — human-gate commands: promote / tombstone / status + genome rm (2026-09-09)
+- New API surface:
+  - src/core/promote.ts `promoteGeneration(req: PromoteRequest{entry,configDir,genId,env?}): Promise<PromoteOutcome{genId,fromSha,toSha,lines}>`
+    and `LEDGER_KIND_PROMOTE="promote"`. Imported ONLY by src/commands/promote.ts (pinned by a structural test that greps every
+    src/*.ts for `from "..*/core/promote.js"` — exactly one hit). run-loop/reflect/candidate never touch it.
+  - Commands `promote <label> <genId>`, `tombstone <label> <genId> --reason <text>`, `status <label> [--last N]` wired into
+    COMMANDS (pending() placeholders retired); `genome rm <label>` case added; src/commands/run.ts got an additive `who` param
+    on resolveUniqueEntry (now exported, default "run" ⇒ existing messages byte-identical).
+- Order-of-operations IS the security property: ledger nomination check → SECOND sealed-path enforcement
+  (`git diff --name-only -z parent..commit` crossed vs compileGlob(kernel.immutableGlobs) AND vs the config-home manifest path
+  set) → fastForwardIncumbent (CAS; refuses checked-out incumbent; non-descendant ⇒ "is not an ancestor of" exit 1) → ONLY THEN
+  manifest regen from snapshotCommit(new gen tree) (never from the worktree) → append promote row {actor:"cli",genId,from,to}.
+  A forged nominated generation_complete row can never move the ref or the manifest (AC(b) pins ref + manifest bytes unchanged).
+- Gotcha: FastForwardResult.fromSha is null on FIRST promote (branch creation, not a move) — promote ledger row `from` is null
+  there, NOT the gen's parent commit. Test asserted parent first and went red for the right reason; `status` prints "new branch".
+- Gotcha: status must NOT call Ledger.open — it mkdirs <repo>/.state/abathur as a side-effect, which would poison `genome rm`'s
+  ledgerless check. status reads ledgerPath() raw (existsSync + per-line ledgerRecordSchema.safeParse; any bad row ⇒ exit 2,
+  mirroring peekPlanState). genome rm likewise checks history via the raw file (exists + trim().length>0 ⇒ refuse 'has ledger
+  history — archive instead'; rm removes ONLY the registry .jsonc — kernel manifest, repo, worktrees, commits all stay).
+- Ledger row counters from run-loop are PER-GENERATION spend (run-loop.ts:173,262 write out.spent per row) ⇒ status budget line
+  = plain sum of generation_complete counters vs spec.budget caps. No global counters exist.
+- status quarantine depth definition (documented in src/commands/status.ts): candidate generation_complete rows whose LATEST row
+  per genId is verdict==='nominated' AND whose genId has neither a promote nor a tombstone row — i.e. blocked-but-never-decided.
+  A tampered gen refused at promote correctly stays quarantined (honest depth:1 in task-10-happy.txt).
+- promote derives state ONLY from the ledger (todo-9 rule): genId args are matched against rows, never passed to git/fs;
+  unknown genId ⇒ exit 1 naming it; row without verdict ⇒ exit 1; incumbent-baseline row ⇒ exit 1; double promote ⇒ exit 1.
+  tombstone is append-only ({genId,reason,actor:"cli"}, reason stored verbatim, capped 4000 chars) and echoes a sanitized
+  one-liner ([^ -~]→space, ≤120, todo-8 sealMessage discipline — ANSI/control chars never reach stdout).
+- No --confirm/--yes on promote/tombstone: the plan's signatures carry none and the explicit human CLI invocation IS the gate
+  (border --yes gates irreversible pushes; historian README:75 --confirm gates destructive deletes — these append ledger rows +
+  move a ref nobody has checked out, reversible by design: promote a descendant later). Zero --force anywhere (grep-pinned).
+- kernel audit (todo 4) unchanged and standalone; AC(a) pins `kernel audit` exit 0 after promote because the regen re-hashes
+  grader.mjs from the promoted tree. Manifest regen re-scan is TREE-derived: sealed-but-untracked working files present at
+  registration would drop out — acceptable per plan ("regenerate the kernel manifest from the new incumbent tree").
+- Test/evidence: src/test/promote.test.ts 11 tests (real toy genome + real seals + forged rows, CLI spawned with ABATHUR_CONFIG/
+  HOME/XDG_CACHE_HOME pinned to tmp home). RED task-10-failure.txt (11/11 red pre-implementation), task-10-happy.txt full
+  transcript incl. tamper refusal + tombstone cat-file -e proof. Suite 186 → 197/197 green ×2 runs (no flakes).
