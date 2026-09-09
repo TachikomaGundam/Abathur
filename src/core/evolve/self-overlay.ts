@@ -199,8 +199,11 @@ export function parseReplayDigest(stdout: string): string | null {
     const line = lines[i] ?? "";
     if (!line.startsWith("{")) continue;
     try {
-      const parsed = JSON.parse(line) as { digest?: unknown };
-      if (typeof parsed.digest === "string" && /^[0-9a-f]{64}$/.test(parsed.digest)) return parsed.digest;
+      const value: unknown = JSON.parse(line);
+      if (typeof value === "object" && value !== null && "digest" in value) {
+        const d = value.digest;
+        if (typeof d === "string" && /^[0-9a-f]{64}$/.test(d)) return d;
+      }
     } catch {
       // not the digest line — keep scanning upward.
     }
@@ -236,7 +239,8 @@ export function readExpectedDigest(snapshotPath: string): string {
   }
   let digest: unknown;
   try {
-    digest = (JSON.parse(raw) as { digest?: unknown }).digest;
+    const value: unknown = JSON.parse(raw);
+    if (typeof value === "object" && value !== null && "digest" in value) digest = value.digest;
   } catch {
     return cannotAnswer(`self-snapshot: selfbench/expected.json in ${snapshotPath} is not valid JSON`);
   }
