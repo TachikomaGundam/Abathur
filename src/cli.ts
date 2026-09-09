@@ -10,7 +10,10 @@ import { fileURLToPath } from "node:url";
 
 import { genomeCommand } from "./commands/genome.js";
 import { kernelCommand } from "./commands/kernel.js";
+import { promoteCommand } from "./commands/promote.js";
 import { runCommand } from "./commands/run.js";
+import { statusCommand } from "./commands/status.js";
+import { tombstoneCommand } from "./commands/tombstone.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
 import {
   EXIT_CANNOT_ANSWER,
@@ -44,9 +47,9 @@ function pending(name: string, summary: string): CommandSpec {
 export const COMMANDS: readonly CommandSpec[] = [
   genomeCommand,
   runCommand,
-  pending("status", "ledger and proposal state for a genome"),
-  pending("promote", "human-gate: accept a candidate mutation"),
-  pending("tombstone", "human-gate: refuse and bury a candidate"),
+  statusCommand,
+  promoteCommand,
+  tombstoneCommand,
   pending("bundle", "export a genome + lineage as an offline bundle"),
   pending("graft", "import an offline bundle and graft its lineage"),
   pending("self-eval", "evaluate the harness itself (abathur-self genome)"),

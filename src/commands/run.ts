@@ -72,19 +72,19 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
   return { label, reps, maxCandidates, mutator, dryRun };
 }
 
-/** Labels are free (todo 4): a run needs ONE genome, so duplicates are an explicit exit 2. */
-function resolveUniqueEntry(configDir: string, label: string): RegistryEntry {
+/** Labels are free (todo 4): a command needs ONE genome, so duplicates are an explicit exit 2. */
+export function resolveUniqueEntry(configDir: string, label: string, who = "run"): RegistryEntry {
   const scan = requireGenomesByLabel(configDir, label);
   if (scan.entries.length > 1) {
     cannotAnswer(
-      `run: label '${label}' is ambiguous — ${String(scan.entries.length)} genomes share it: ${scan.entries
+      `${who}: label '${label}' is ambiguous — ${String(scan.entries.length)} genomes share it: ${scan.entries
         .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)
         .join(", ")}`,
       "give the specs distinct labels; the fingerprint is the identity",
     );
   }
   const entry = scan.entries[0];
-  if (entry === undefined) cannotAnswer(`run: no registered genome with label '${label}'`);
+  if (entry === undefined) cannotAnswer(`${who}: no registered genome with label '${label}'`);
   return entry;
 }
 
