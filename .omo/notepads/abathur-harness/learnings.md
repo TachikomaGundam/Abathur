@@ -238,3 +238,56 @@ Process lessons:
 - Trap: node `spawn` with a `cwd` that does not exist fails as `spawn <bin> ENOENT` — it blames the BINARY, not the cwd (`/usr/bin/node ENOENT` while node is installed). Hit via `prepareToyGenome(<deep/missing/parent/g>)`.
 - Fix: `prepareToyGenome` now does `mkdirSync(path.dirname(dest), {recursive:true})` before spawning init.mjs (src/bench/toy.ts). Regression test: bench-toy.test.ts "prepareToyGenome creates missing parent dirs…" (also re-asserts same-dest idempotence). RED error string for grep: `toy fixture init failed (spawn failed: spawn /usr/bin/node ENOENT): no output`.
 - Rule for todo 6+: any runChild/spawn taking a caller-chosen dir as cwd must create it first — the ENOENT message will send you debugging the wrong binary.
+
+## Todo 8 — reflection brief + constrained-diff mutator driver (2026-09-09)
+API surface (todo 9 imports ALL of this from `src/core/evolve/reflect.js` — re-exports are the contract):
+- `buildBrief(spec: GenomeSpec, units: readonly BriefUnitEvidence[], counters: BudgetCounters): string`
+  — pure (brief.ts). `BriefUnitEvidence {unit: BenchUnit, scores: readonly number[], failures: readonly string[]}`.
+  Only split==="train" units with (any score<1 | failures non-empty | empty scores=inconclusive) get a section
+  (`## <path> (unit id: <id>)`, `- scores over N reps: …`, `- failure: <oneLine 500>`). Val units → ONLY
+  `val-1, val-2…` aliases + count; ids/paths/scores/content never emitted even if present in input evidence.
+- `runMutatorSession(opts: MutatorSessionOptions): Promise<MutatorSessionResult>` —
+  opts `{spec, brief, mutatorCommand, opencodeBin?: string|null, env?, timeoutS?=spec.bench.timeoutS,
+  maxCandidates?=spec.budget.maxCandidates, ledger?=Ledger.open(spec.repoPath), now?}`;
+  result `{launchGenId, applied: AppliedCandidate[], rejected: RejectedCandidate[]}` with
+  `AppliedCandidate {candidateId, rationale, genId, worktreePath, parentCommit, commitSha, treeSha, touchedFiles}`
+  and `RejectedCandidate {candidateId, stage: "schema"|"syntax"|"path"|"apply"|"parse", reason}`.
+- `validateCandidate(raw: unknown, policy: PathPolicy, fallbackId = "candidate"): CandidateValidation` (candidate.ts);
+  `PathPolicy {immutableGlobs, artifactGlobs}`. Stages ordered schema→syntax→path; ANY violating path rejects the
+  WHOLE candidate. `ARTIFACT_GLOBS: readonly string[]` central const (dist/**, **/dist/**, node_modules/**,
+  **/node_modules/**, .state/**, **/.state/**, *.local.jsonc, **/*.local.jsonc) + repo .gitignore folded in by the
+  driver via `artifactGlobsFromGitignore(text): string[]` (dir 'x/'→['x/**','**/x/**']; bare→[x,'**/x']; `!` skipped).
+- `parseUnifiedDiff(text): {ok:true,changes:FileChange[]}|{ok:false,error}` + `applyChanges(changes, readBase):
+  {ok:true, files: Map<string,string>, touched}|{ok:false,reason}` (udiff.ts) — pure, disk never touched; v1 ops:
+  modify+create only; renames/deletes/binary/CRLF/`\ No newline`/control-bytes rejected; hunks are POSITIONAL
+  (drift → 'hunk context mismatch … refusing without force' — that IS the dirty_worktree refusal).
+- child stdout contract: `mutatorOutputSchema` = `{candidates: unknown[] (min1)}` top level; per-candidate
+  `candidateSchema` strictObject `{id?: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/, rationale: 1..4000 chars, diffs: string[] min1}`.
+  Top-level damage (non-JSON/array/bad shape) → ledger row stage parse|schema candidateId 'mutator-stdout' THEN
+  blocked exit 1. Per-candidate damage → rejected[] + ledger, session continues.
+- ledger: new stable kind `"candidate_rejected"`, data `{candidateId, stage, reason}` (+genId when a worktree existed).
+  Driver never appends generation_complete (todo 9 owns that).
+
+Gotchas:
+- Fail-closed bin check runs BEFORE openGenome/mkdtemp/newGeneration: `resolveBin` (opencode→opencodeBin else PATH
+  scan; path-style argv[0] statSync X_OK) → cannotAnswer exit 2. `node /missing/script.mjs` is NOT covered (node
+  resolves fine) — only the binary itself is pre-checked; a missing script dies later as stdout-parse exit 1. By design.
+- renderCommand placeholders provided to the template: `{worktree}` (throwaway launch dir) and `{brief}`
+  (abs path to brief.md in an os.tmpdir mkdtemp removed in finally). Probe argv with empty vars BEFORE materializing.
+- sealGeneration `git add -A`s everything in the candidate worktree — keep ALL side files (brief, capture, ledger)
+  OUTSIDE the worktree or they get sealed into the candidate commit. Ledger lives in the REAL repo .state (driver
+  writes there only); candidate worktrees never contain .state.
+- zero-effect candidates would make sealGeneration block ('nothing to seal'): driver diffs write-vs-existing and
+  rejects stage "apply" "candidate changes nothing" instead of throwing mid-session.
+- rationale is attacker data: never executed; stripped to printable ASCII, flattened to one line ≤80 chars, shipped
+  as ONE argv element `-m<msg>` (todo-3 dash guard) and JSON-escaped in ledger.
+- exit-path hygiene: launch worktree + every non-sealed candidate worktree rmSync'd in finally; stale `git worktree`
+  registry entries are pruned by cleanupStale (todo 3) — driver deliberately does NOT cleanupStale itself because
+  sealed worktrees/commits belong to the caller (todo 9 benches from worktreePath/commitSha, then cleans).
+- genIds embed now().getTime() — reruns with the same stub seed give identical candidateIds+treeShas (determinism
+  proof) but distinct genIds/dirs (no collision).
+- Test stub mutator is a runtime-written /tmp-style script (STUB_SOURCE in reflect.test.ts), NOT a shipped fixture:
+  dist/test never receives .mjs copies (copy-assets has no test-fixture row) — inline-and-write sidesteps that.
+  It reads its --dir worktree to build byte-exact hunks and mirrors scriptedPatches anchors (pinned by test).
+- 250-LOC ceiling: reflect.ts (277 at first) split into brief.ts (55) + reflect.ts (225); split is re-export-only,
+  consumer import path unchanged.
