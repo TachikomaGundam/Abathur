@@ -198,7 +198,7 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
     });
     const verdict = selfGuardVerdict(res.failures, gate.verdict);
     verdicts.push(verdict);
-    const gain = Number.isFinite(gate.gain) ? (gate.gain as number).toFixed(4) : "n/a";
+    const gain = gate.gain === null || !Number.isFinite(gate.gain) ? "n/a" : gate.gain.toFixed(4);
     writeStdout(
       `candidate ${row.data.candidateId ?? row.genId} [gen ${row.genId} tree ${(row.data.treeSha ?? "").slice(0, 12)}]: verdict ${verdict} (gain ${gain}, ${suiteText(res)}, replay observed ${res.replayDigest ?? "n/a"} expected ${res.replayExpected}, overlay ${String(res.overlaid.length)} files, dropped ${String(res.dropped.length)})`,
     );
