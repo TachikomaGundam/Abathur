@@ -12,5 +12,8 @@ node_modules/
 .DS_Store
 *.swp
 
-# codegraph MCP local index (machine-local tooling)
+# codegraph MCP local index (machine-local tooling).
+# The workspace entry is a SYMLINK, so the `.codegraph/` directory pattern
+# never matches it — pin the root path itself (matches file, symlink, or dir).
+/.codegraph
 .codegraph/
