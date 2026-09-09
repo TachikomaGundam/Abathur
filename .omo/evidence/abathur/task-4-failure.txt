@@ -1,0 +1,44 @@
+================ TODO 4 FAILURE EVIDENCE (2026-09-09T16:03:58+08:00) ================
+## 1. absent immutableGlob (ghosts/**) => exit 2, fail-closed, nothing written
+abathur: genome: kernel.immutableGlobs pattern 'ghosts/**' matches no existing file under /tmp/abathur-t4-repo-H9j6 — fail-closed: every seal pattern must cover at least one file
+exit=2
+
+## 2. zero val units => rejected
+abathur: genome: invalid spec in /tmp/opencode/t4-noval.jsonc:
+  - invalid value at "bench.units": bench.units needs at least one split: "val" unit — validation splits are mandatory
+exit=2
+
+## 3. missing stats.halfWidth => exit 2 NAMING THE KEY (hr required-entry discipline)
+abathur: genome: invalid spec in /tmp/opencode/t4-nohw.jsonc:
+  - invalid value at "bench.stats.halfWidth": Invalid input: expected number, received undefined
+exit=2
+
+## 4. garbage jsonc => exit 2, no stack
+abathur: genome: malformed JSONC in /tmp/opencode/t4-garbage.jsonc: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+exit=2
+
+## 5. unknown bench.type => exit 2 naming bench.type
+abathur: genome: invalid spec in /tmp/opencode/t4-vibes.jsonc:
+  - invalid value at "bench.type": Invalid option: expected one of "toy"|"opencode-fixture-scenarios"
+exit=2
+
+## 6. KERNEL DRIFT: mutate sealed file, audit exit 1 naming it, re-add refuses (no reseal outside promote)
+abathur: kernel audit FAILED for 'fixture-genome':
+  - fixture-genome (5ec76c134b820f23): kernel.mjs modified
+  hint: restore the named files or resolve the drift at promote — 'genome add' cannot reseal
+exit=1
+abathur: genome add refused: kernel drifted for 'fixture-genome' (5ec76c134b820f23): kernel.mjs (modified) — re-add never reseals; restore the tampered files or resolve drift at promote
+exit=1
+sealed clean: 'fixture-genome' (5ec76c134b820f23)
+exit=0-after-restore-check
+
+## 7. weakened-glob re-add (new fingerprint, same repoPath) => exit 1 naming weakened globs
+abathur: genome add refused: incoming kernel.immutableGlobs weaken existing seals for /tmp/abathur-t4-repo-H9j6: 'kernel.mjs' (no longer seals e.g. kernel.mjs) — sealed globs may only grow until a promote reseals
+exit=1
+
+## 8. label reuse, different content => distinct genomes coexist
+registered genome 'fixture-genome' (d8ce5680ffafe32d)
+exit=0
+5ec76c134b820f23  fixture-genome
+d8ce5680ffafe32d  fixture-genome
+exit=0

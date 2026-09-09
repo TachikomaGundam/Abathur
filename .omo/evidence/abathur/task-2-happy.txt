@@ -1,0 +1,405 @@
+=== Todo 2 — RED run (stubs compiled, fail at runtime) ===
+date: 2026-09-09T07:35:49Z
+note: full 'npm run build' transiently red from parallel worker src/util/git.ts (todo 3, not this task's file);
+      tsc emitted JS despite syntax errors, so scoped node --test below captures this task's RED.
+
+$ node --test --test-reporter=spec dist/test/ids.test.js dist/test/ledger.test.js dist/test/ledger-lock.test.js
+✖ canonicalJson: object key order and input whitespace never change output (4.923156ms)
+✖ canonicalJson: array order is data and is preserved verbatim (0.467227ms)
+✖ canonicalJson: object keys sort by UTF-16 code unit order, stably (0.222498ms)
+✖ canonicalJson: undefined object props dropped, array holes become null (JSON parity) (0.295332ms)
+✖ canonicalJson: finite floats serialize JSON-identically; non-finite fail closed (0.348758ms)
+✖ canonicalJson: fail-closed on non-JSON top-levels and exotic objects (2.138197ms)
+✖ fingerprint: 64-hex sha256, stable across key order, sensitive to one byte (0.664419ms)
+✖ fileTreeDigest: order-independent over paths, rejects duplicate paths (0.407493ms)
+✖ treeDigestAt (AC a): chmod + mtime touch leave digest unchanged, one content byte flips it (40.072948ms)
+✖ walkTree: sorted forward-slash relative paths, regular files only, empty tree OK (3.725558ms)
+✖ genId: g-<ulctime>-<first8 of fingerprint>, clock-injectable (0.420726ms)
+✖ runId: r-<genId>-<unitId>-<repIdx> with validated rep (0.778061ms)
+✖ live holder blocks the second acquirer: exit 2 naming holder pid (AC d) (15.45719ms)
+✖ dead-PID holder is taken over; a lock_takeover event lands in the genome ledger (AC e) (225.800064ms)
+✖ lock dir without a readable owner.json is stale (crash mid-acquire) and taken over (4.116119ms)
+✖ friction queue lives under config home and validates every append (3.029679ms)
+file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6
+    throw new Error(`not implemented: ${feature} (todo 2 RED stub)`);
+          ^
+
+Error: not implemented: appendFriction (todo 2 RED stub)
+    at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+    at appendFriction (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:76:12)
+    at file:///home/lab/workspace/harness/Abathur/dist/test/fixtures/friction-writer.js:12:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.22.1
+file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6
+    throw new Error(`not implemented: ${feature} (todo 2 RED stub)`);
+          ^
+
+Error: not implemented: appendFriction (todo 2 RED stub)
+    at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+    at appendFriction (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:76:12)
+    at file:///home/lab/workspace/harness/Abathur/dist/test/fixtures/friction-writer.js:12:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.22.1
+✖ two genomes append 200 friction records each concurrently: 400 clean zod-valid lines (AC f) (406.985964ms)
+✖ friction append waits for a live holder within budget, then exits 2 naming the pid (5.302531ms)
+✖ 1000 appends read back byte-exact via a single O_APPEND write each (AC b) (18.021475ms)
+✖ append stamps ts from the injected clock and fails closed on invalid records (9.125448ms)
+✖ pre-truncated tail is quarantined to ledger.corrupt-*, prior records preserved verbatim (AC c) (4.854728ms)
+✖ entire-file partial write (no newline anywhere) quarantines to an empty valid ledger (4.30836ms)
+✖ malformed line in the MIDDLE is an integrity failure, never silently skipped or repaired (4.672378ms)
+✖ lastCompleteGeneration: null when empty or no matching kind, latest generation_complete otherwise (5.068388ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 0
+ℹ fail 24
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1147.403992
+
+✖ failing tests:
+
+test at dist/test/ids.test.js:15:1
+✖ canonicalJson: object key order and input whitespace never change output (4.923156ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:20:16)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.start (node:internal/test_runner/test:944:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+
+test at dist/test/ids.test.js:27:1
+✖ canonicalJson: array order is data and is preserved verbatim (0.467227ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:28:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+
+test at dist/test/ids.test.js:31:1
+✖ canonicalJson: object keys sort by UTF-16 code unit order, stably (0.222498ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:32:17)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:35:1
+✖ canonicalJson: undefined object props dropped, array holes become null (JSON parity) (0.295332ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:36:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:39:1
+✖ canonicalJson: finite floats serialize JSON-identically; non-finite fail closed (0.348758ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:40:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:45:1
+✖ canonicalJson: fail-closed on non-JSON top-levels and exotic objects (2.138197ms)
+  AssertionError [ERR_ASSERTION]: The error is expected to be an instance of "TypeError". Received "Error"
+  
+  Error message:
+  
+  not implemented: canonicalJson (todo 2 RED stub)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:46:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: not implemented: canonicalJson (todo 2 RED stub)
+        at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+        at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+        at file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:46:25
+        at getActual (node:assert:609:5)
+        at Function.throws (node:assert:757:24)
+        at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:46:12)
+        at Test.runInAsyncScope (node:async_hooks:214:14)
+        at Test.run (node:internal/test_runner/test:1047:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+        at Test.postRun (node:internal/test_runner/test:1173:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at dist/test/ids.test.js:51:1
+✖ fingerprint: 64-hex sha256, stable across key order, sensitive to one byte (0.664419ms)
+  Error: not implemented: fingerprint (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at fingerprint (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:12:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:52:17)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:60:1
+✖ fileTreeDigest: order-independent over paths, rejects duplicate paths (0.407493ms)
+  Error: not implemented: fileTreeDigest (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at fileTreeDigest (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:16:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:63:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:68:1
+✖ treeDigestAt (AC a): chmod + mtime touch leave digest unchanged, one content byte flips it (40.072948ms)
+  Error: not implemented: treeDigestAt (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at treeDigestAt (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:24:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:76:16)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:88:1
+✖ walkTree: sorted forward-slash relative paths, regular files only, empty tree OK (3.725558ms)
+  Error: not implemented: walkTree (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at walkTree (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:20:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:91:22)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:103:1
+✖ genId: g-<ulctime>-<first8 of fingerprint>, clock-injectable (0.420726ms)
+  Error: not implemented: genId (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at genId (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:29:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:105:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ids.test.js:110:1
+✖ runId: r-<genId>-<unitId>-<repIdx> with validated rep (0.778061ms)
+  Error: not implemented: runId (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at runId (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:35:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ids.test.js:111:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger-lock.test.js:24:1
+✖ live holder blocks the second acquirer: exit 2 naming holder pid (AC d) (15.45719ms)
+  Error: not implemented: acquireLock (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at acquireLock (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:62:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:26:19)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+
+test at dist/test/ledger-lock.test.js:36:1
+✖ dead-PID holder is taken over; a lock_takeover event lands in the genome ledger (AC e) (225.800064ms)
+  Error: not implemented: lockDirFor (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at lockDirFor (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:58:12)
+      at seedStaleLock (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:16:17)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:42:22)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger-lock.test.js:53:1
+✖ lock dir without a readable owner.json is stale (crash mid-acquire) and taken over (4.116119ms)
+  Error: not implemented: lockDirFor (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at lockDirFor (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:58:12)
+      at seedStaleLock (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:16:17)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:55:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger-lock.test.js:62:1
+✖ friction queue lives under config home and validates every append (3.029679ms)
+  Error: not implemented: frictionQueuePath (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at frictionQueuePath (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:70:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:64:18)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger-lock.test.js:71:1
+✖ two genomes append 200 friction records each concurrently: 400 clean zod-valid lines (AC f) (406.985964ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   1,
+  +   1
+  -   0,
+  -   0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:79:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 1, 1 ],
+    expected: [ 0, 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/ledger-lock.test.js:92:1
+✖ friction append waits for a live holder within budget, then exits 2 naming the pid (5.302531ms)
+  Error: not implemented: acquireLock (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at acquireLock (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:62:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger-lock.test.js:94:18)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger.test.js:15:1
+✖ 1000 appends read back byte-exact via a single O_APPEND write each (AC b) (18.021475ms)
+  Error: not implemented: Ledger.open (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at Ledger.open (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:42:16)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:17:27)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+
+test at dist/test/ledger.test.js:28:1
+✖ append stamps ts from the injected clock and fails closed on invalid records (9.125448ms)
+  Error: not implemented: Ledger.open (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at Ledger.open (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:42:16)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:30:27)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger.test.js:44:1
+✖ pre-truncated tail is quarantined to ledger.corrupt-*, prior records preserved verbatim (AC c) (4.854728ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:46:55
+      at Function.from (<anonymous>)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:46:24)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger.test.js:69:1
+✖ entire-file partial write (no newline anywhere) quarantines to an empty valid ledger (4.30836ms)
+  Error: not implemented: ledgerPath (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at ledgerPath (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:28:12)
+      at seedLedgerFile (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:11:28)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:71:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger.test.js:76:1
+✖ malformed line in the MIDDLE is an integrity failure, never silently skipped or repaired (4.672378ms)
+  Error: not implemented: canonicalJson (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:4:11)
+      at canonicalJson (file:///home/lab/workspace/harness/Abathur/dist/core/ids.js:8:12)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:78:16)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+test at dist/test/ledger.test.js:90:1
+✖ lastCompleteGeneration: null when empty or no matching kind, latest generation_complete otherwise (5.068388ms)
+  Error: not implemented: Ledger.open (todo 2 RED stub)
+      at notImplemented (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:6:11)
+      at Ledger.open (file:///home/lab/workspace/harness/Abathur/dist/core/ledger.js:42:16)
+      at TestContext.<anonymous> (file:///home/lab/workspace/harness/Abathur/dist/test/ledger.test.js:92:27)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+
+exit=0
+
+=== Todo 2 — GREEN run (full implementations) ===
+date: 2026-09-09T08:04:25Z
+
+✔ canonicalJson: object key order and input whitespace never change output (4.394497ms)
+✔ canonicalJson: array order is data and is preserved verbatim (0.493766ms)
+✔ canonicalJson: object keys sort by UTF-16 code unit order, stably (0.322222ms)
+✔ canonicalJson: undefined object props dropped, array holes become null (JSON parity) (0.298066ms)
+✔ canonicalJson: finite floats serialize JSON-identically; non-finite fail closed (1.049888ms)
+✔ canonicalJson: fail-closed on non-JSON top-levels and exotic objects (0.422999ms)
+✔ fingerprint: 64-hex sha256, stable across key order, sensitive to one byte (1.669976ms)
+✔ fileTreeDigest: order-independent over paths, rejects duplicate paths (1.376219ms)
+✔ treeDigestAt (AC a): chmod + mtime touch leave digest unchanged, one content byte flips it (28.844955ms)
+✔ walkTree: sorted forward-slash relative paths, regular files only, empty tree OK (8.944983ms)
+✔ genId: g-<ulctime>-<first8 of fingerprint>, clock-injectable (1.229072ms)
+✔ runId: r-<genId>-<unitId>-<repIdx> with validated rep (0.5677ms)
+✔ live holder blocks the second acquirer: exit 2 naming holder pid (AC d) (19.45141ms)
+✔ dead-PID holder is taken over; a lock_takeover event lands in the genome ledger (AC e) (176.738628ms)
+✔ lock dir without a readable owner.json is stale (crash mid-acquire) and taken over (259.155007ms)
+✔ friction queue lives under config home and validates every append (13.046477ms)
+✔ two genomes append 200 friction records each concurrently: 400 clean zod-valid lines (AC f) (492.034254ms)
+✔ friction append waits for a live holder within budget, then exits 2 naming the pid (36.342167ms)
+✔ 1000 appends read back byte-exact via a single O_APPEND write each (AC b) (106.272413ms)
+✔ append stamps ts from the injected clock and fails closed on invalid records (10.120732ms)
+✔ pre-truncated tail is quarantined to ledger.corrupt-*, prior records preserved verbatim (AC c) (8.30336ms)
+✔ entire-file partial write (no newline anywhere) quarantines to an empty valid ledger (4.036619ms)
+✔ malformed line in the MIDDLE is an integrity failure, never silently skipped or repaired (3.790478ms)
+✔ lastCompleteGeneration: null when empty or no matching kind, latest generation_complete otherwise (3.447282ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1375.377796
+
+=== Repeat run (flake check, 2nd of 2) ===
+# tests 24
+# pass 24
+# fail 0
+# duration_ms 1454.014075
+
+=== Concurrency stress: 12x two-writer 200-record races ===
+result: 12/12 runs produced exactly 400 clean zod-valid lines (session log m00067; earlier pre-fix failure modes and fixes recorded in learnings.md)

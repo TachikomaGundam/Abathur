@@ -1,0 +1,38 @@
+================ TODO 4 HAPPY EVIDENCE (2026-09-09T16:03:56+08:00) ================
+$ abathur genome add /tmp/opencode/t4-spec.jsonc
+registered genome 'fixture-genome' (5ec76c134b820f23)
+exit=0
+
+$ abathur genome list
+5ec76c134b820f23  fixture-genome
+exit=0
+
+$ abathur genome show fixture-genome | head -3
+# fixture-genome (5ec76c134b820f23) — /tmp/abathur-t4-home-6ZqS/.config/abathur/genomes/5ec76c134b820f23.jsonc
+{"bench":{"graderCommand":"abathur-bench grade","runCommand":"abathur-bench run","stats":{"halfWidth":0.05,"minEffect":0.1,"nReps":{"initial":3,"max":9}},"timeoutS":120,"type":"toy","units":[{"id":"u-train","path":"bench/train.jsonl","split":"train"},{"id":"u-val","path":"bench/val.jsonl","split":"val"}]},"budget":{"maxCandidates":8,"maxModelCalls":64,"maxTokens":2000000,"maxWallS":3600},"kernel":{"immutableGlobs":["kernel.mjs","secrets/**","evolve/*.ts"]},"label":"fixture-genome","repoPath":"/tmp/abathur-t4-repo-H9j6"}
+exit=0
+
+$ abathur genome seals fixture-genome
+# effective seal globs for 'fixture-genome' (5ec76c134b820f23) under /tmp/abathur-t4-repo-H9j6
+kernel.mjs
+secrets/**
+evolve/*.ts
+exit=0
+
+$ abathur kernel audit fixture-genome
+sealed clean: 'fixture-genome' (5ec76c134b820f23)
+exit=0
+
+$ ls $HOME/.config/abathur/{genomes,kernels} (registry out-of-tree)
+/tmp/abathur-t4-home-6ZqS/.config/abathur/genomes:
+5ec76c134b820f23.jsonc
+
+/tmp/abathur-t4-home-6ZqS/.config/abathur/kernels:
+5ec76c134b820f23.json
+exit=0
+
+# git fixture: tracked+committed kernel.mjs and untracked evolve/hot.ts both sealed:
+?? evolve/
+
+# out-of-tree proof:
+no registry inside genome repo: OK
