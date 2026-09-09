@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-09T07:03:43.380Z",
+      "updated_at": "2026-09-09T08:13:21.685Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
       ],
@@ -29,6 +29,19 @@
           "status": "completed",
           "ended_at": "2026-09-09T07:03:43.380Z",
           "elapsed_ms": 244165
+        },
+        "todo:2": {
+          "task_key": "todo:2",
+          "task_label": "2",
+          "task_title": "Fingerprints + append-only ledger with lock and crash-resume",
+          "session_id": "opencode:ses_f7b02a58dffeSZgiQoTnU1G5B1",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T08:13:21.685Z",
+          "started_at": "2026-09-09T08:07:36.909Z",
+          "status": "completed",
+          "ended_at": "2026-09-09T08:13:21.685Z",
+          "elapsed_ms": 344776
         }
       }
     }
@@ -36,7 +49,7 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-09T07:03:43.380Z",
+  "updated_at": "2026-09-09T08:13:21.685Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
   ],
@@ -57,6 +70,19 @@
       "status": "completed",
       "ended_at": "2026-09-09T07:03:43.380Z",
       "elapsed_ms": 244165
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Fingerprints + append-only ledger with lock and crash-resume",
+      "session_id": "opencode:ses_f7b02a58dffeSZgiQoTnU1G5B1",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T08:13:21.685Z",
+      "started_at": "2026-09-09T08:07:36.909Z",
+      "status": "completed",
+      "ended_at": "2026-09-09T08:13:21.685Z",
+      "elapsed_ms": 344776
     }
   },
   "agent": "atlas"
