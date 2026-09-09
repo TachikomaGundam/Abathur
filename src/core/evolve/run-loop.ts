@@ -28,11 +28,15 @@ import { compactUtc, fingerprint, genId } from "../ids.js";
 import { LEDGER_KIND_GENERATION_COMPLETE, acquireGenomeLock, Ledger } from "../ledger.js";
 import type { WorktreeEnv } from "../genome-paths.js";
 import { openGenome } from "../worktree.js";
-import { clampReps, evaluate, type BudgetCaps, type BudgetCounters } from "../stats.js";
+import { clampReps, evaluate, needsExit, type BudgetCaps, type BudgetCounters } from "../stats.js";
+import { effectiveRepoPath, isEnvRepoLiteral } from "../spec.js";
 import { ChildTracker, reapOrphans } from "./child-track.js";
 import { buildBrief } from "./brief.js";
+import type { RunFrictionInput } from "./friction.js";
+import { startRunFriction } from "./run-friction.js";
 import { runMutatorSession } from "./reflect.js";
 import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./run-bench.js";
+import { selfGuardVerdict } from "./self-snapshot.js";
 import { effectiveCaps, planLines } from "./run-plan.js";
 import {
   addCounters,
@@ -54,6 +58,12 @@ export interface RunLoopOptions {
   readonly env?: WorktreeEnv | undefined;
   readonly sandboxRoot?: string | undefined;
   readonly now?: (() => Date) | undefined;
+  /**
+   * Friction sink (todo 11): called ONCE per real (non-dry-run) run with the
+   * structured summary the CLI appends to the friction queue. Absent = no-op,
+   * so every existing caller/test is byte-identical.
+   */
+  readonly friction?: ((input: RunFrictionInput) => void) | undefined;
 }
 
 export interface RunLoopOutcome {
@@ -97,7 +107,7 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
     );
   }
 
-  const ledger = Ledger.open(spec.repoPath, { now });
+  const ledger = Ledger.open(effectiveRepoPath(spec.repoPath), { now });
   const lease = acquireGenomeLock({
     ledger,
     configDir: opts.configDir,
@@ -122,9 +132,12 @@ async function evolve(
 ): Promise<RunLoopOutcome> {
   const spec = opts.entry.spec;
   const lines: string[] = [];
+  const genomeRepo = effectiveRepoPath(spec.repoPath);
+  const selfMode = isEnvRepoLiteral(spec.repoPath);
+  const fric = opts.friction === undefined ? null : startRunFriction(opts.friction);
 
   // Reap only under the genome lock: every remaining log entry belongs to a dead run.
-  const reap = reapOrphans(spec.repoPath);
+  const reap = reapOrphans(genomeRepo);
   if (reap.reaped.length > 0 || reap.skipped.length > 0 || reap.malformed > 0) {
     const killed = reap.reaped.filter((r) => r.alive).length;
     lines.push(
@@ -134,11 +147,12 @@ async function evolve(
     );
   }
 
-  const opened = await openGenome(spec.repoPath, spec.bench.units.map((u) => u.path), { env });
+  const opened = await openGenome(genomeRepo, spec.bench.units.map((u) => u.path), { env });
   const resume = readResume(ledger);
   const genomeFp = fingerprint16(spec);
   const invId = `a-${compactUtc(now())}-${genomeFp.slice(0, 8)}`;
-  const tracker = new ChildTracker(spec.repoPath);
+  const selfBenchBase = { genomeRepo, genomeFp, incumbentCommit: opened.headCommit, env };
+  const tracker = new ChildTracker(genomeRepo);
   const sandboxBase = path.join(opts.sandboxRoot ?? path.join(opts.configDir, "bench-sandboxes"), invId);
   const configEnv: ConfigEnv | undefined = env;
   let counters: BudgetCounters = resume.counters;
@@ -148,6 +162,7 @@ async function evolve(
   let incUnits: readonly UnitMatrixRow[];
   if (storedInc !== undefined) {
     incUnits = storedInc.units;
+    fric?.noteUnits(incUnits);
     lines.push(`resume: incumbent baseline @ ${opened.headCommit.slice(0, 8)} already benched — reusing ${String(incUnits.length)} unit rows`);
   } else {
     const gen = genId(fingerprint({ incumbent: opened.headCommit, at: now().getTime() }), now());
@@ -162,8 +177,10 @@ async function evolve(
       tracker,
       configDir: opts.configDir,
       ...(configEnv === undefined ? {} : { env: configEnv }),
+      ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: null } } : {}),
     });
     counters = addCounters(counters, out.spent);
+    fric?.noteBench(out);
     const data: GenerationRowData = {
       source: "incumbent",
       headCommit: opened.headCommit,
@@ -197,7 +214,7 @@ async function evolve(
     const brief = buildBrief(spec, evidence, counters);
     tracker.phase(`mutator-${invId}`, "mutator-session");
     const session = await runMutatorSession({
-      spec,
+      spec: selfMode ? { ...spec, repoPath: genomeRepo } : spec,
       brief,
       mutatorCommand,
       ...(opts.opencodeBin === undefined ? {} : { opencodeBin: opts.opencodeBin }),
@@ -207,6 +224,7 @@ async function evolve(
       now,
       onChild: tracker.onChild,
     });
+    fric?.noteSession(session.rejected, session.applied.length);
     for (const r of session.rejected) lines.push(`candidate ${r.candidateId} rejected (${r.stage}): ${r.reason}`);
     if (session.applied.length === 0 && session.rejected.length === 0) lines.push("mutator session produced no candidates");
     const nPairs = Math.max(1, session.applied.length);
@@ -235,8 +253,10 @@ async function evolve(
         tracker,
         configDir: opts.configDir,
         ...(configEnv === undefined ? {} : { env: configEnv }),
+        ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: c.commitSha } } : {}),
       });
       counters = addCounters(counters, out.spent);
+      fric?.noteBench(out);
       // The candidate's own slot is already committed by the session clamp; it
       // must not self-trip the cap inside evaluate (that would make the Nth
       // candidate of a full-budget run permanently inconclusive).
@@ -248,7 +268,11 @@ async function evolve(
         budgetCaps: caps,
         nPairs,
       });
-      considered.push(verdict.verdict);
+      const guarded = selfMode ? selfGuardVerdict(out.failures, verdict.verdict) : verdict.verdict;
+      const finalVerdict = guarded;
+      const finalExit = guarded === verdict.verdict ? verdict.exitCode : needsExit(guarded);
+      fric?.noteCandidate(c.candidateId, verdict.failures, guarded === verdict.verdict ? null : `${verdict.verdict} -> ${guarded}`);
+      considered.push(finalVerdict);
       const data: GenerationRowData = {
         source: "candidate",
         candidateId: c.candidateId,
@@ -261,8 +285,8 @@ async function evolve(
         units: out.units.map(cloneMatrixRow),
         counters: out.spent,
         manifest: out.manifest.map((m) => ({ glob: m.glob, path: m.path, sha256: m.sha256 })),
-        verdict: verdict.verdict,
-        exitCode: verdict.exitCode,
+        verdict: finalVerdict,
+        exitCode: finalExit,
         gain: Number.isFinite(verdict.gain) ? verdict.gain : null,
         gateFailures: [...verdict.failures],
         benchProvenance: copyProvenance(out.provenance),
@@ -270,7 +294,7 @@ async function evolve(
       ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, genId: c.genId, runId: invId, data });
       reported.add(c.treeSha);
       const gain = verdict.gain === null ? "n/a (truncated)" : verdict.gain.toFixed(4);
-      lines.push(`candidate ${c.candidateId} [tree ${c.treeSha.slice(0, 12)}]: ${verdict.verdict} (gain ${gain}, reps ${String(reps)}${out.complete ? "" : ", BUDGET-TRUNCATED"})`);
+      lines.push(`candidate ${c.candidateId} [tree ${c.treeSha.slice(0, 12)}]: ${finalVerdict} (gain ${gain}, reps ${String(reps)}${out.complete ? "" : ", BUDGET-TRUNCATED"})`);
       for (const f of verdict.failures) lines.push(`  gate: ${f}`);
     }
 
@@ -285,6 +309,8 @@ async function evolve(
   lines.push(
     `budget spent: candidates=${String(counters.candidates)} tokens=${String(counters.tokens)} wallS=${String(counters.wallS)} (caps candidates=${String(caps.maxCandidates)} tokens=${String(caps.maxTokens)} wallS=${String(caps.maxWallS)})`,
   );
-  return { exitCode: runExitCode(considered), lines };
+  const exit = runExitCode(considered);
+  fric?.emit({ genomeFp, runId: invId, exit, considered, orphanGroups: reap.reaped.length });
+  return { exitCode: exit, lines };
 }
 

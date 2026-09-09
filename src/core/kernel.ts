@@ -12,7 +12,7 @@ import { z } from "zod";
 import { cannotAnswer } from "../exit.js";
 import type { RegistryEntry } from "./genome.js";
 import { compileGlob, listFiles } from "./glob.js";
-import { errorText } from "./spec.js";
+import { effectiveRepoPath, errorText } from "./spec.js";
 
 export const manifestEntrySchema = z.strictObject({
   glob: z.string().min(1),
@@ -135,7 +135,7 @@ export function auditKernel(entry: RegistryEntry, configDir: string): KernelAudi
       `kernel audit: ${errorText(cause)} — genome '${entry.spec.label}' (${entry.fingerprint})`,
     );
   }
-  const fresh = buildManifest(path.resolve(entry.spec.repoPath), entry.spec.kernel.immutableGlobs);
+  const fresh = buildManifest(effectiveRepoPath(entry.spec.repoPath), entry.spec.kernel.immutableGlobs);
   const drifted = compareManifest(saved, fresh);
   return { ok: drifted.length === 0, drifted };
 }

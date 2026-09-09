@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// CLI spine (todo 1). Extension seam for todos 2-15: each group below is a
-// CommandSpec in COMMANDS; replace the `pending(...)` entry with a real handler
-// (put group logic in src/commands/<group>.ts, keep this file a thin router).
+// CLI spine (todo 1). Every command group is a CommandSpec in COMMANDS (group
+// logic lives in src/commands/<group>.ts; this file stays a thin router).
 // Handlers return EXIT_OK or throw ExitSignal (see src/exit.ts) — never touch
 // process themselves, so they stay unit-testable.
 
@@ -14,6 +13,7 @@ import { graftCommand } from "./commands/graft.js";
 import { kernelCommand } from "./commands/kernel.js";
 import { promoteCommand } from "./commands/promote.js";
 import { runCommand } from "./commands/run.js";
+import { selfEvalCommand } from "./commands/self-eval.js";
 import { statusCommand } from "./commands/status.js";
 import { tombstoneCommand } from "./commands/tombstone.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
@@ -37,14 +37,6 @@ export interface CommandSpec {
   readonly run: (context: CommandContext) => ExitCode | Promise<ExitCode>;
 }
 
-function pending(name: string, summary: string): CommandSpec {
-  return {
-    name,
-    summary,
-    run: () => cannotAnswer(`command group '${name}' is not implemented yet`, summary),
-  };
-}
-
 // Router order mirrors the plan; summaries appear verbatim in --help.
 export const COMMANDS: readonly CommandSpec[] = [
   genomeCommand,
@@ -54,7 +46,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   tombstoneCommand,
   bundleCommand,
   graftCommand,
-  pending("self-eval", "evaluate the harness itself (abathur-self genome)"),
+  selfEvalCommand,
   kernelCommand,
 ];
 

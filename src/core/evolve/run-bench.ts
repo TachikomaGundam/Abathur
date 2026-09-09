@@ -13,7 +13,9 @@ import { FixtureScenariosAdapter } from "../../bench/fixture.js";
 import type { BenchAdapter, BenchProvenance, ChildHandle } from "../../bench/adapter.js";
 import type { ChildTracker } from "./child-track.js";
 import type { ConfigEnv } from "../../config.js";
+import type { WorktreeEnv } from "../genome-paths.js";
 import { round3, unitMatrixRowSchema, type GenerationRowData, type UnitMatrixRow } from "./run-rows.js";
+import { selfBench } from "./self-snapshot.js";
 
 export function cloneMatrixRow(u: UnitMatrixRow): UnitMatrixRow {
   return { unitId: u.unitId, split: u.split, scores: [...u.scores], runIds: [...u.runIds], failures: [...u.failures] };
@@ -91,6 +93,19 @@ export interface BenchTargetOptions {
   readonly configDir: string;
   readonly env?: ConfigEnv | undefined;
   readonly opencodeBin?: string | undefined;
+  /**
+   * Snapshot-overlay mode (todo 11 self genome): when present the bench runs
+   * selfBench against the harness snapshots instead of any bench adapter —
+   * the candidate is scored ONLY through the trusted overlay build, so the
+   * adapter's sandbox paths and the literal repoPath never touch a child.
+   */
+  readonly selfBench?: {
+    readonly genomeRepo: string;
+    readonly genomeFp: string;
+    readonly incumbentCommit: string;
+    readonly candidateCommit: string | null;
+    readonly env: WorktreeEnv;
+  } | undefined;
 }
 
 export interface BenchTargetOutcome {
@@ -111,6 +126,27 @@ export interface BenchTargetOutcome {
  * (excluded from distributions per the hr discipline, never zeroed).
  */
 export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOutcome> {
+  if (o.selfBench !== undefined) {
+    const res = await selfBench({
+      spec: o.spec,
+      genomeRepo: o.selfBench.genomeRepo,
+      genomeFp: o.selfBench.genomeFp,
+      incumbentCommit: o.selfBench.incumbentCommit,
+      candidateCommit: o.selfBench.candidateCommit,
+      genId: o.genId,
+      reps: o.reps,
+      env: o.selfBench.env,
+      onChild: o.tracker.onChild,
+    });
+    return {
+      units: res.units,
+      spent: res.spent,
+      provenance: res.provenance,
+      complete: res.complete,
+      manifest: buildManifest(o.selfBench.genomeRepo, o.spec.kernel.immutableGlobs),
+      failures: res.failures,
+    };
+  }
   const rows = new Map<string, { unitId: string; split: "train" | "val"; scores: number[]; runIds: string[]; failures: string[] }>();
   for (const unit of o.spec.bench.units) {
     rows.set(unit.id, { unitId: unit.id, split: unit.split, scores: [], runIds: [], failures: [] });
