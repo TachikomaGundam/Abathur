@@ -1,0 +1,29 @@
+=== task-13 RED evidence — before graft implementation (HEAD aa963c4, src tip 34d332a) ===
+
+--- [RED-0] graft slot is the todo-1 pending placeholder (real CLI, toy home) ---
+abathur: command group 'graft' is not implemented yet
+  hint: import an offline bundle and graft its lineage
+exit=2
+
+--- [RED-1] npm run build: graft.test.ts cannot resolve the unimplemented modules ---
+npm warn Unknown builtin config "globalignorefile". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> abathur@0.1.0 build
+> tsc && node scripts/copy-assets.mjs
+
+src/test/graft.test.ts(34,1): error TS6133: 'LedgerRecord' is declared but its value is never read.
+src/test/graft.test.ts(50,3): error TS6133: 'listGraftQueue' is declared but its value is never read.
+src/test/graft.test.ts(52,8): error TS2307: Cannot find module '../core/graft-support.js' or its corresponding type declarations.
+src/test/graft.test.ts(31,1): error TS2307: Cannot find module '../core/graft.js' or its corresponding type declarations.
+src/test/graft.test.ts(32,1): error TS2307: Cannot find module '../core/graft-support.js' or its corresponding type declarations.
+  → test-only compile error (module absent = the behavior is not implemented); rest of suite untouched.
+
+--- [RED-2] honest note ---
+RED-2 'full suite at HEAD' could not be re-captured cleanly because the first test run
+(TS2307, above) already blocked the build; baseline 213/213 green at HEAD aa963c4 was
+proven by the todo-12 closeout. The authoritative RED for every graft AC is the
+test-only TS2307 module-missing failure above (behavior does not exist yet), plus:
+
+--- [RED-3] status placeholder (AC(c) must make it real) ---
+139:  writeStdout("pending-bench graft queue: 0 (todo 12 — no queue file convention yet)");
+NOTE: RED-1 was the authoritative red (TS2307 module missing). RED-0/RED-2/RED-3 are labeled context.
