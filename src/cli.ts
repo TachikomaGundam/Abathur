@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { genomeCommand } from "./commands/genome.js";
 import { kernelCommand } from "./commands/kernel.js";
+import { runCommand } from "./commands/run.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
 import {
   EXIT_CANNOT_ANSWER,
@@ -42,7 +43,7 @@ function pending(name: string, summary: string): CommandSpec {
 // Router order mirrors the plan; summaries appear verbatim in --help.
 export const COMMANDS: readonly CommandSpec[] = [
   genomeCommand,
-  pending("run", "evolve one genome: observe, mutate, re-bench, select"),
+  runCommand,
   pending("status", "ledger and proposal state for a genome"),
   pending("promote", "human-gate: accept a candidate mutation"),
   pending("tombstone", "human-gate: refuse and bury a candidate"),

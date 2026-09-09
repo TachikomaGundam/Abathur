@@ -7,7 +7,7 @@
 import { cannotAnswer } from "../exit.js";
 import { loadConfig, type ConfigEnv } from "../config.js";
 import type { GenomeSpec } from "../core/spec.js";
-import { firstLine, runChild, type ProvenanceVersion } from "./adapter.js";
+import { firstLine, runChild, type ChildHandle, type ProvenanceVersion } from "./adapter.js";
 import { compareSemver, parseSemver, semverFromText, type SemverVersion } from "./fixture-support.js";
 
 const PROBE_TIMEOUT_S = 30;
@@ -21,12 +21,18 @@ export function resolveOpencodeBin(
   return loadConfig(opts.env ?? process.env).config.opencodeBin ?? "opencode";
 }
 
+export interface ProbeOptions {
+  /** Receives a handle for every probe child (the run-loop records these too). */
+  readonly onChild?: ((handle: ChildHandle) => void) | undefined;
+}
+
 export async function probeEngines(
   spec: GenomeSpec,
   bin: string,
   repoRoot: string,
+  opts: ProbeOptions = {},
 ): Promise<readonly ProvenanceVersion[]> {
-  const observed = await probeOpencodeVersion(bin, repoRoot);
+  const observed = await probeOpencodeVersion(bin, repoRoot, opts);
   const min = spec.opencodeBinVersion?.minVersion;
   if (min !== undefined) {
     const minVersion = parseSemver(min);
@@ -45,7 +51,7 @@ export async function probeEngines(
     { bin, version: observed.raw },
   ];
   for (const req of spec.requires ?? []) {
-    versions.push(await probeRequires(req, repoRoot));
+    versions.push(await probeRequires(req, repoRoot, opts));
   }
   return versions;
 }
@@ -53,8 +59,14 @@ export async function probeEngines(
 async function probeOpencodeVersion(
   bin: string,
   cwd: string,
+  opts: ProbeOptions,
 ): Promise<{ raw: string; version: SemverVersion }> {
-  const probe = await runChild({ argv: [bin, "--version"], cwd, timeoutS: PROBE_TIMEOUT_S });
+  const probe = await runChild({
+    argv: [bin, "--version"],
+    cwd,
+    timeoutS: PROBE_TIMEOUT_S,
+    ...(opts.onChild === undefined ? {} : { onChild: opts.onChild }),
+  });
   if (probe.kind !== "exited" || probe.exitCode !== 0) {
     cannotAnswer(
       `fixture: '${bin} --version' failed (${probe.reason}) — no unit will run`,
@@ -70,11 +82,16 @@ async function probeOpencodeVersion(
   return observed;
 }
 
-async function probeRequires(req: RequiredPrereq, cwd: string): Promise<ProvenanceVersion> {
+async function probeRequires(
+  req: RequiredPrereq,
+  cwd: string,
+  opts: ProbeOptions,
+): Promise<ProvenanceVersion> {
   const outcome = await runChild({
     argv: [req.cmd, ...(req.args ?? ["--version"])],
     cwd,
     timeoutS: PROBE_TIMEOUT_S,
+    ...(opts.onChild === undefined ? {} : { onChild: opts.onChild }),
   });
   if (outcome.kind === "spawn_failed") {
     cannotAnswer(

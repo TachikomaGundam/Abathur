@@ -1,0 +1,132 @@
+=== RED PHASE — todo 9 TDD (npm run build, modules absent) — 2026-09-09T11:12:11Z ===
+
+> abathur@0.1.0 build
+> tsc && node scripts/copy-assets.mjs
+
+src/test/run-loop.test.ts(33,10): error TS6133: 'loadGenomeSpecFile' is declared but its value is never read.
+src/test/run-loop.test.ts(39,8): error TS2307: Cannot find module '../core/evolve/run-bench.js' or its corresponding type declarations.
+src/test/run-loop.test.ts(43,8): error TS2307: Cannot find module '../core/evolve/run-loop.js' or its corresponding type declarations.
+src/test/run-loop.test.ts(49,8): error TS2307: Cannot find module '../core/evolve/child-track.js' or its corresponding type declarations.
+src/test/run-loop.test.ts(52,28): error TS2307: Cannot find module '../commands/run.js' or its corresponding type declarations.
+src/test/run-loop.test.ts(159,39): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/test/run-loop.test.ts(159,42): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/test/run-loop.test.ts(235,41): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/test/run-loop.test.ts(236,39): error TS2339: Property 'scores' does not exist on type '{}'.
+src/test/run-loop.test.ts(237,39): error TS2339: Property 'scores' does not exist on type '{}'.
+src/test/run-loop.test.ts(238,39): error TS2339: Property 'scores' does not exist on type '{}'.
+src/test/run-loop.test.ts(239,39): error TS2339: Property 'scores' does not exist on type '{}'.
+src/test/run-loop.test.ts(240,37): error TS2339: Property 'failures' does not exist on type '{}'.
+src/test/run-loop.test.ts(245,34): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/test/run-loop.test.ts(249,26): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/test/run-loop.test.ts(249,49): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/test/run-loop.test.ts(347,39): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/test/run-loop.test.ts(350,39): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/test/run-loop.test.ts(413,36): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/test/run-loop.test.ts(414,36): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/test/run-loop.test.ts(415,35): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/test/run-loop.test.ts(484,5): error TS2353: Object literal may only specify known properties, and 'onChild' does not exist in type 'ChildOptions'.
+src/test/run-loop.test.ts(497,47): error TS2554: Expected 1 arguments, but got 2.
+src/test/run-loop.test.ts(498,15): error TS7006: Parameter 'h' implicitly has an 'any' type.
+
+RED verdict: build fails with TS2307 Cannot find module run-bench/run-loop/child-track/commands/run — the orchestrator did not exist yet.
+
+====================================================================
+TASK 9 EVIDENCE — FAILURE / ADVERSARIAL PATHS (todo 9 run-loop)
+first 31 lines: RED capture (pre-implementation). CLI scenarios below
+generated 2026-09-09 via /tmp/opencode/e9-evidence.sh — 32/32 checks PASS.
+====================================================================
+=== SECTION 1 (AC a): toy 2-candidate E2E via real CLI ===
+--- run1 stdout ---
+--- run1 ledger ---
+PASS: E2E exit 0 (fix-add nominated)
+ledger summary after run1: {"rows":3,"tokens":2596,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: ledger holds incumbent + 2 candidate rows with verdicts
+PASS: active-children.jsonl empty after clean run
+PASS: no stray processes
+=== SECTION 2: resume — rerun adds zero rows, counters never double ===
+PASS: run2 stdout shows incumbent + candidate reuse
+ledger summary after run2: {"rows":3,"tokens":2596,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: exactly-once: ledger byte-equivalent accounting after rerun (rows/tokens/samples/verdicts)
+PASS: run2 exit 0
+=== SECTION 3 (AC d): --dry-run prints plan, zero file mutations ===
+run plan — genome 'toy-smoke' (c7904024a6483f4f)
+  repo: /tmp/opencode/e9-fail-ws2/genome
+  bench: toy — timeoutS=10 stats minEffect=0.5 halfWidth=0.25
+  units: add(train) mul(train) explode(train) sub(val)
+  reps: 2
+  budget caps: maxCandidates=4 maxModelCalls=16 maxTokens=100000 maxWallS=300
+  resume: no completed generation — full run
+  resume: incumbent bench: missing (baseline will be benched)
+  resume: spent candidates=0 modelCalls=0 tokens=0 wallS=0
+  candidate source: NOT CONFIGURED — a real run requires --mutator <template> (exit 2 before any spawn)
+  kernel audit: clean (dry-run mutates nothing: no ledger touch, no lock, no reap, no spawns)
+PASS: dry-run exit 0
+PASS: plan lists units/reps/caps/resume/candidate source
+PASS: zero mutations: no ledger, no children log, no worktrees/sandboxes (find-count 1==1)
+PASS: dry-run shows --max-candidates clamp
+=== SECTION 4 (AC e): tampered kernel file — refuse at startup, nothing spawned ===
+abathur: run refused: kernel drift for 'toy-smoke' (c7904024a6483f4f): grader.mjs (modified)
+  hint: restore the sealed files or resolve drift via 'abathur kernel' — the run-loop never reseals
+PASS: exit 1 naming the drifted kernel file
+PASS: nothing spawned: no mutator marker, no children log, no worktree cache
+=== SECTION 5: dirty bench-target path refuses before any generation ===
+abathur: worktree: refusing to open /tmp/opencode/e9-fail-ws3/genome: dirty target path(s):  M units/add.mjs
+PASS: exit 1 on dirty units/add.mjs (openGenome blocked before bench)
+=== SECTION 6 (AC c): maxTokens=1 → inconclusive exit 2, never a zero-score success ===
+incumbent baseline: 4 units x 2 reps (BUDGET-TRUNCATED)
+candidate touch-kernel rejected (path): path 'grader.mjs' touches kernel-immutable glob 'grader.mjs' — whole candidate rejected
+candidate annotate-add [tree 92c794a92cd9]: inconclusive (gain n/a (truncated), reps 2, BUDGET-TRUNCATED)
+  gate: budget exhausted: tokens=146/1
+candidate fix-add [tree 13d0ae416d20]: inconclusive (gain n/a (truncated), reps 2, BUDGET-TRUNCATED)
+  gate: budget exhausted: tokens=146/1
+budget spent: candidates=2 tokens=146 wallS=0.186 (caps candidates=4 tokens=1 wallS=300)
+PASS: exit 2 naming the tripped cap
+PASS: candidate verdicts inconclusive (not score-0 success)
+PASS: ledger: all candidate rows inconclusive with gain null
+=== SECTION 7 (AC b): SIGKILL mid-bench while child alive → rerun reaps, completes, exactly-once ===
+PASS: child unit process is live (pid 2473856) before driver kill
+children log pre-kill: {"at":"2026-09-09T12:17:35.408Z","genId":"g-20260909T121733Z-eeebada4","kind":"incumbent-bench","pgid":2473856,"pid":2473856,"v":1}
+children log pre-kill: {"at":"2026-09-09T12:17:35.408Z","genId":"g-20260909T121733Z-eeebada4","kind":"incumbent-bench","pgid":2473856,"pid":2473856,"v":1}
+PASS: SIGKILL of the driver left the detached child group ALIVE (the orphan)
+reap: 1 recorded group(s), 1 alive killed
+incumbent baseline: 4 units x 2 reps
+candidate touch-kernel rejected (path): path 'grader.mjs' touches kernel-immutable glob 'grader.mjs' — whole candidate rejected
+candidate annotate-add [tree 1c68fd874fdf]: culled (gain 0.0000, reps 2)
+  gate: gain 0.0000 < minEffect 0.5000
+candidate fix-add [tree c65b1994b5e6]: nominated (gain 0.5000, reps 2)
+budget spent: candidates=2 tokens=2236 wallS=51.434 (caps candidates=4 tokens=100000 wallS=300)
+PASS: rerun reaped the dead run's recorded group (1 alive killed)
+PASS: orphan process group gone after rerun (pgrep empty)
+ledger after crash+rerun: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+ledger after crash+rerun: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: crash did not corrupt generations: 3 clean rows, fix-add nominated (exit rc=0)
+=== SECTION 8: repeated interruptions — kill mid candidate-bench too ===
+PASS: caught the driver mid candidate-bench
+PASS: final run reused incumbent + annotate rows (only the missing tree re-benched)
+ledger after two interruptions + resume: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+ledger after two interruptions + resume: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: exactly-once across repeated interruptions: accounting identical to the clean crash+reap result
+=== SECTION 9: malformed garbage in active-children.jsonl — repaired, no crash, no random kill ===
+PASS: garbage lines counted + dropped (rc=0)
+PASS: malformed log reap added no rows / no spend
+PASS: no other node processes were signalled
+=== SECTION 10: --max-candidates 1 — clamp + cap already spent on rerun ===
+max1 ledger: {"rows":2,"tokens":1746,"samples":12,"cands":"annotate-add:culled"} (rc=1)
+max1 ledger: {"rows":2,"tokens":1746,"samples":12,"cands":"annotate-add:culled"} (rc=1)
+PASS: --max-candidates 1 benched exactly one candidate
+PASS: rerun honours spent budget: no new candidates
+PASS: budget never exceeded after resume (identical accounting)
+=== SECTION 11: cleanup receipt ===
+PASS: pgrep: no stray run-loop/evidence processes
+=== VERDICT: PASS=32 FAIL=0 ===
+
+== adversarial class verdicts ==
+hung_commands: PASS (S7/S8 — driver SIGKILL mid-bench, detached group survives, rerun reaps kill(-pgid), pgrep empty after)
+stale_state: PASS (S2/S8 — full & partial reruns add zero rows, identical tokens/samples; interrupted candidate re-benched once)
+misleading_success_output: PASS (S6 — budget trip ⇒ exit 2, gain null, zero-sample rows; never a score-0 success)
+dirty_worktree: PASS (S4 tampered kernel refused pre-lock/pre-spawn; S5 uncommitted unit change refused by openGenome)
+repeated_interruptions: PASS (S8 — second SIGKILL during candidate-bench; resume still completes to 3 rows with no dupes)
+malformed_input: PASS (S9 — garbage + invalid-pid records dropped by reaper, log truncated, no random kills)
+cancellation_resume: PASS (S10 — --max-candidates 1 clamps and rerun honours spend)
+flaky_tests: PASS (3× full suite, 186/186 every time)
+prompt_injection: N/A — todo 9 parses no new untrusted text; mutator stdout stays behind todo-8's zod boundary (already fuzzed); active-children.jsonl is harness-written and the reaper validates schema + self-pid guard before any kill()
