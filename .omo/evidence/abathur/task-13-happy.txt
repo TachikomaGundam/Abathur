@@ -1,0 +1,122 @@
+=== task-13 GREEN evidence — graft (export→graft→status→promote chain; quarantine; pending-bench) ===
+workspace: /tmp/abathur-task13-evidence-JtQwfv
+
+--- [AC(a)] honest cross-instance graft: LOCAL re-bench rules, bundle claims are peerClaim ---
+source evolve: fix-add nominated (g-20260909T171407Z-f95fdfae), annotate-add culled (g-20260909T171407Z-b3cd0de0)
+bundle exported: /tmp/abathur-task13-evidence-JtQwfv/bundles-a/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz
+bundle name pins genome fingerprint: abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz
+peer claims TAMPERED (verdict inconclusive, nRepeats 99) — graft must ignore them, ledger must keep them as peerClaim
+twin instance: config home /tmp/abathur-task13-evidence-JtQwfv/cfg-dst, genome re-initialized at the same path (new git history), local fingerprint cc3876ec9f596f8d…
+
+$ abathur graft /tmp/abathur-task13-evidence-JtQwfv/bundles-a/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz --genome toy-smoke
+graft applied: bundle 89066e2ad45a → fresh worktree g-20260909T171414Z-ecbde7d9 (commit ec783148027f, tree a116963e24a6)
+graft nominated: local score is authoritative (gain 0.5000, reps 2, LOCAL thresholds) — peer claimed inconclusive @ nRepeats 99; imported:true + source cc3876ec9f596f8d… booked
+  human gate: 'abathur promote toy-smoke g-20260909T171414Z-ecbde7d9' — graft itself never promotes
+[exit 0]
+ledger graft_import row: {"bundlePath":"/tmp/abathur-task13-evidence-JtQwfv/bundles-a/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz","bundleSha256":"89066e2ad45a9268de6c25052a5f4bbe793b671c681c588da7996856cc41bff5","commitSha":"ec783148027f96ee2c223e1e904b4c5199e645bd","decision":"nominated","genomeLabel":"toy-smoke","graftGenId":"g-20260909T171414Z-ecbde7d9","imported":true,"peerClaim":{"agentModel":null,"judgeModel":null,"nRepeats":99,"opencodeVersion":null,"rationale":"peer says: do not trust, we were inconclusive at 99 reps","statsConfigDigest":"ef2cd7eaac8e262a6300e365ccd17ef05b18c79814a545b36131f37957b75e76","verdict":"inconclusive"},"reason":"local re-bench: verdict nominated, gain 0.5000, r
+
+$ abathur status toy-smoke
+genome: toy-smoke (cc3876ec9f596f8d)  repo: /tmp/abathur-task13-evidence-JtQwfv/shared/genome
+incumbent: none
+quarantine depth: 1
+  pending: g-20260909T171414Z-ecbde7d9
+pending-bench graft queue: 0
+graft decisions: 1
+  # 89066e2ad45a nominated source cc3876ec9f59 local re-bench: verdict nominated, gain 0.5000, reps 2 (LOCAL spec) peer claimed inconclusive @ nRep…
+generations (last 2 of 2):
+  # g-20260909T171414Z-e664d14a  incumbent-baseline  verdict=—  gain=—  cand=0 model=0 tok=870 wall=1.52s
+  # g-20260909T171414Z-ecbde7d9  candidate graft-89066e2ad45a  verdict=nominated  gain=+0.500  cand=1 model=0 tok=850 wall=1.47s
+budget: candidates 1/4, modelCalls 0/16, tokens 1720/100000, wallS 3.00/300
+[exit 0]
+$ abathur promote toy-smoke g-20260909T171414Z-ecbde7d9
+promoted 'toy-smoke' (cc3876ec9f596f8d): incumbent branch created -> ec783148027f (gen g-20260909T171414Z-ecbde7d9)
+manifest: rewrote cfg-dst/kernels/cc3876ec9f596f8d.json from tree ec783148027f (1 sealed entry)
+ledger: appended 'promote' row (actor: cli) to /tmp/abathur-task13-evidence-JtQwfv/shared/genome/.state/abathur/ledger.jsonl
+[exit 0]
+$ abathur status toy-smoke
+genome: toy-smoke (cc3876ec9f596f8d)  repo: /tmp/abathur-task13-evidence-JtQwfv/shared/genome
+incumbent: ec783148027f (abathur/incumbent)
+  last promote: g-20260909T171414Z-ecbde7d9 new branch -> ec783148027f at 2026-09-09T17:14:21.761Z
+quarantine depth: 0
+pending-bench graft queue: 0
+graft decisions: 1
+  # 89066e2ad45a nominated source cc3876ec9f59 local re-bench: verdict nominated, gain 0.5000, reps 2 (LOCAL spec) peer claimed inconclusive @ nRep…
+generations (last 2 of 2):
+  # g-20260909T171414Z-e664d14a  incumbent-baseline  verdict=—  gain=—  cand=0 model=0 tok=870 wall=1.52s
+  # g-20260909T171414Z-ecbde7d9  candidate graft-89066e2ad45a  verdict=nominated  gain=+0.500  cand=1 model=0 tok=850 wall=1.47s
+budget: candidates 1/4, modelCalls 0/16, tokens 1720/100000, wallS 3.00/300
+[exit 0]
+provenance: imported=true, source=cc3876ec9f596f8d…, local reps=2 (peer claimed 99), local verdict=nominated (peer claimed inconclusive), peerClaim kept={"agentModel":null,"judgeModel":null,"nRepeats":99,"opencodeVersion":null,"rationale":"peer says: do not trust, we were inconclusive at 99 reps","statsConfigDigest":"ef2cd7eaac8e262a6300e365ccd17ef05b
+dup rule: re-grafting the same bundle refuses:
+$ abathur graft /tmp/abathur-task13-evidence-JtQwfv/bundles-a/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz --genome toy-smoke
+
+abathur: graft: bundle 89066e2ad45a already grafted under genome 'toy-smoke' (decision 'nominated') — the ledger is append-only
+  hint: export a newer bundle for new work; re-running the same bundle never re-benches
+[exit 1]
+
+--- [AC(b)] tampered benchDigest: quarantined, zero worktrees, status lists it ---
+tamper: trees/g-20260909T171407Z-f95fdfae/units/mul.mjs mutated + files[] re-pinned honestly; manifest.benchDigest left STALE
+$ abathur graft /tmp/abathur-task13-evidence-JtQwfv/bundles-b/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz --genome toy-smoke
+graft: quarantined — bundle d2f4b6469ee8 refused under genome 'toy-smoke'
+  gate: integrity: bundle inspect: benchDigest mismatch contained tree recomputes to 364546dbdfdd3c6fe459a26f8c99c4d32133029db3de05a6ae1a92291f6b84ba, manifest claims 6b3910e89a830af76f81e888cece73b29c641a91926c07a7fff17543ac1e3a55
+  decision booked to the ledger as graft_import (imported:true); review with 'abathur status toy-smoke'
+  NEVER applied, NEVER benched — v1 has no noise-tolerance band and no bypass flag (docs/federation.md)
+[exit 1]
+zero-worktree proof: /tmp/abathur-task13-evidence-JtQwfv/xdg-dst-b/abathur/worktrees exists? false  |  zero-bench proof: /tmp/abathur-task13-evidence-JtQwfv/cfg-dst-b/bench-sandboxes exists? false
+ledger rows: [{"kind":"graft_import","decision":"quarantined"}]
+$ abathur status toy-smoke
+genome: toy-smoke (cc3876ec9f596f8d)  repo: /tmp/abathur-task13-evidence-JtQwfv/shared/genome
+incumbent: none
+quarantine depth: 0
+pending-bench graft queue: 0
+graft decisions: 1
+  # d2f4b6469ee8 quarantined source cc3876ec9f59 integrity: bundle inspect: benchDigest mismatch contained tree recomputes to 364546dbdfdd3c6fe459a26…
+generations (last 0 of 0):
+budget: candidates 0/4, modelCalls 0/16, tokens 0/100000, wallS 0.00/300
+[exit 0]
+
+--- [AC(c)] genome absent: pending-bench queue, zero bench; register + re-run resolves ---
+$ abathur graft /tmp/abathur-task13-evidence-JtQwfv/bundles-c/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz --genome toy-smoke
+graft: pending-bench — bundle 15af659816be queued for genome 'toy-smoke'
+  reason: genome 'toy-smoke' is not registered locally
+  queue: /tmp/abathur-task13-evidence-JtQwfv/cfg-dst-c/graft-queue/15af659816be2c972ed85eb340ca73ba80093d8a9af4386cae8b95a7832b67e3.json
+  zero bench runs launched; the eligible path is to register/repair the local genome, then re-run 'abathur graft <this bundle> --genome toy-smoke'
+[exit 1]
+queue file /tmp/abathur-task13-evidence-JtQwfv/cfg-dst-c/graft-queue/15af659816be2c972ed85eb340ca73ba80093d8a9af4386cae8b95a7832b67e3.json exists? true
+queue content: {
+  "bundleSha256": "15af659816be2c972ed85eb340ca73ba80093d8a9af4386cae8b95a7832b67e3",
+  "bundlePath": "/tmp/abathur-task13-evidence-JtQwfv/bundles-c/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz",
+  "genomeLabel": "toy-smoke",
+  "reason": "genome 'toy-smoke' is not registered locally",
+  "queuedAt": "2026-09-09T17:14:24.013Z",
+  "sourceGenomeFingerprint": "cc3876ec9f596f8d52c9d766ca483532e30549af58a6988ce8ef562c3a38e3a5"
+}
+zero bench proof: /tmp/abathur-task13-evidence-JtQwfv/cfg-dst-c/bench-sandboxes exists? false; genome path exists? false
+$ abathur status toy-smoke
+genome: toy-smoke — not registered locally (pending-bench graft queue view)
+pending-bench graft queue: 1
+  # 15af659816be bundle /tmp/abathur-task13-evidence-JtQwfv/bundles-c/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz reason genome 'toy-smoke' is not registered locally queued 2026-09-09T17:14:24.013Z
+[exit 0]
+// operator registers the genome, re-runs graft:
+$ abathur graft /tmp/abathur-task13-evidence-JtQwfv/bundles-c/abathur-cc3876ec9f596f8d-g-20260909T171407Z-f95fdfae.bundle.tgz --genome toy-smoke
+graft applied: bundle 15af659816be → fresh worktree g-20260909T171425Z-0032f119 (commit d4b353350af7, tree a116963e24a6)
+graft nominated: local score is authoritative (gain 0.5000, reps 2, LOCAL thresholds) — peer claimed nominated @ nRepeats 2; imported:true + source cc3876ec9f596f8d… booked
+  human gate: 'abathur promote toy-smoke g-20260909T171425Z-0032f119' — graft itself never promotes
+[exit 0]
+queue consumed: /tmp/abathur-task13-evidence-JtQwfv/cfg-dst-c/graft-queue/15af659816be2c972ed85eb340ca73ba80093d8a9af4386cae8b95a7832b67e3.json exists? false
+$ abathur status toy-smoke
+genome: toy-smoke (cc3876ec9f596f8d)  repo: /tmp/abathur-task13-evidence-JtQwfv/shared/genome
+incumbent: none
+quarantine depth: 1
+  pending: g-20260909T171425Z-0032f119
+pending-bench graft queue: 0
+graft decisions: 1
+  # 15af659816be nominated source cc3876ec9f59 local re-bench: verdict nominated, gain 0.5000, reps 2 (LOCAL spec) peer claimed nominated @ nRepeat…
+generations (last 2 of 2):
+  # g-20260909T171425Z-8c2f0dc3  incumbent-baseline  verdict=—  gain=—  cand=0 model=0 tok=870 wall=1.52s
+  # g-20260909T171425Z-0032f119  candidate graft-15af659816be  verdict=nominated  gain=+0.500  cand=1 model=0 tok=850 wall=1.44s
+budget: candidates 1/4, modelCalls 0/16, tokens 1720/100000, wallS 2.96/300
+[exit 0]
+
+--- [LOCAL-settings rule] bundle claiming reps=99/minEffect:0 benched at LOCAL (reps=2, minEffect=0.5) ---
+see AC(a): candidate row reps=2, verdict=nominated with gate thresholds from the local spec (peerClaim nRepeats=99 recorded on the graft_import row only)

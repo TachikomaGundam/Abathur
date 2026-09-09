@@ -8,31 +8,35 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-09T09:21:51.554Z",
+      "updated_at": "2026-09-09T17:18:04.128Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
-        "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1"
+        "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1",
+        "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
+        "opencode:ses_f7a841572ffe7yo6i3t440zuUg"
       ],
       "session_origins": {
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM": "appended",
-        "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended"
+        "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended",
+        "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
+        "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
         "todo:1": {
           "task_key": "todo:1",
           "task_label": "1",
-          "task_title": "Scaffold package, CLI spine, config loader with exit-code contract",
-          "session_id": "opencode:ses_f7b2189acffer2gtAzSjQ96Hao",
+          "task_title": "FULL inspect first (todo-12 inspectBundle) — any integrity failure ⇒ exit 1/2 immediately, nothing else touched.",
+          "session_id": "opencode:ses_f79322a4cffe5z5xepP1ONbtvA",
           "agent": "Sisyphus-Junior",
           "category": "deep",
-          "updated_at": "2026-09-09T07:03:43.380Z",
           "started_at": "2026-09-09T06:59:39.215Z",
+          "ended_at": "2026-09-09T17:18:04.128Z",
+          "elapsed_ms": 37104913,
           "status": "completed",
-          "ended_at": "2026-09-09T07:03:43.380Z",
-          "elapsed_ms": 244165
+          "updated_at": "2026-09-09T17:18:04.128Z"
         },
         "todo:2": {
           "task_key": "todo:2",
@@ -58,6 +62,56 @@
           "updated_at": "2026-09-09T09:21:51.554Z",
           "ended_at": "2026-09-09T09:21:51.554Z",
           "elapsed_ms": 988698
+        },
+        "todo:6": {
+          "task_key": "todo:6",
+          "task_label": "6",
+          "task_title": "opencode-fixture-scenarios adapter (historian-shaped, config-driven)",
+          "session_id": "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T10:37:12.897Z",
+          "started_at": "2026-09-09T10:33:21.857Z",
+          "status": "completed",
+          "ended_at": "2026-09-09T10:37:12.897Z",
+          "elapsed_ms": 231040
+        },
+        "todo:9": {
+          "task_key": "todo:9",
+          "task_label": "9",
+          "task_title": "Run-loop orchestrator (generate → bench → select, resumable)",
+          "session_id": "opencode:ses_f7a3d4b1dffelkTBzCRv5DGdY6",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T12:39:07.999Z",
+          "started_at": "2026-09-09T12:29:31.939Z",
+          "status": "completed",
+          "ended_at": "2026-09-09T12:39:07.999Z",
+          "elapsed_ms": 576060
+        },
+        "todo:10": {
+          "task_key": "todo:10",
+          "task_label": "10",
+          "task_title": "promote / tombstone / status human-gate commands",
+          "session_id": "opencode:ses_f79cef0b9ffeRLr7PZ6h5e3FPa",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T13:44:45.541Z",
+          "started_at": "2026-09-09T13:38:48.090Z",
+          "status": "completed",
+          "ended_at": "2026-09-09T13:44:45.540Z",
+          "elapsed_ms": 357450
+        },
+        "todo:11": {
+          "task_key": "todo:11",
+          "task_label": "11",
+          "task_title": "Self-evolution: abathur-self genome + friction digest",
+          "session_id": "opencode:ses_f79928864fferngWpO5SzDKgQU",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T15:24:21.380Z",
+          "started_at": "2026-09-09T15:24:21.380Z",
+          "status": "running"
         }
       }
     }
@@ -65,31 +119,35 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-09T09:21:51.554Z",
+  "updated_at": "2026-09-09T17:18:04.128Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
-    "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1"
+    "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1",
+    "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
+    "opencode:ses_f7a841572ffe7yo6i3t440zuUg"
   ],
   "session_origins": {
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM": "appended",
-    "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended"
+    "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended",
+    "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
+    "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended"
   },
   "plan_name": "abathur-harness",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Scaffold package, CLI spine, config loader with exit-code contract",
-      "session_id": "opencode:ses_f7b2189acffer2gtAzSjQ96Hao",
+      "task_title": "FULL inspect first (todo-12 inspectBundle) — any integrity failure ⇒ exit 1/2 immediately, nothing else touched.",
+      "session_id": "opencode:ses_f79322a4cffe5z5xepP1ONbtvA",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-09-09T07:03:43.380Z",
       "started_at": "2026-09-09T06:59:39.215Z",
+      "ended_at": "2026-09-09T17:18:04.128Z",
+      "elapsed_ms": 37104913,
       "status": "completed",
-      "ended_at": "2026-09-09T07:03:43.380Z",
-      "elapsed_ms": 244165
+      "updated_at": "2026-09-09T17:18:04.128Z"
     },
     "todo:2": {
       "task_key": "todo:2",
@@ -115,6 +173,56 @@
       "updated_at": "2026-09-09T09:21:51.554Z",
       "ended_at": "2026-09-09T09:21:51.554Z",
       "elapsed_ms": 988698
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "opencode-fixture-scenarios adapter (historian-shaped, config-driven)",
+      "session_id": "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T10:37:12.897Z",
+      "started_at": "2026-09-09T10:33:21.857Z",
+      "status": "completed",
+      "ended_at": "2026-09-09T10:37:12.897Z",
+      "elapsed_ms": 231040
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Run-loop orchestrator (generate → bench → select, resumable)",
+      "session_id": "opencode:ses_f7a3d4b1dffelkTBzCRv5DGdY6",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T12:39:07.999Z",
+      "started_at": "2026-09-09T12:29:31.939Z",
+      "status": "completed",
+      "ended_at": "2026-09-09T12:39:07.999Z",
+      "elapsed_ms": 576060
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "promote / tombstone / status human-gate commands",
+      "session_id": "opencode:ses_f79cef0b9ffeRLr7PZ6h5e3FPa",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T13:44:45.541Z",
+      "started_at": "2026-09-09T13:38:48.090Z",
+      "status": "completed",
+      "ended_at": "2026-09-09T13:44:45.540Z",
+      "elapsed_ms": 357450
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Self-evolution: abathur-self genome + friction digest",
+      "session_id": "opencode:ses_f79928864fferngWpO5SzDKgQU",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T15:24:21.380Z",
+      "started_at": "2026-09-09T15:24:21.380Z",
+      "status": "running"
     }
   },
   "agent": "atlas"

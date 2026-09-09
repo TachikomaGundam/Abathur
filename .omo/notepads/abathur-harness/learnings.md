@@ -447,3 +447,50 @@ Gotchas (each cost a red test or an evidence rerun):
 - Tests: src/test/bundle.test.ts 16 tests (3 pure-unit: benchDigest/tar/mask; 13 integration with real toy evolve+promote+CLI spawn,
   planted transcripts, hand-built evil tar, handSeal third gen). Suite 197 → 213 ×2 green, no flakes. Evidence task-12-{failure,happy}.txt
   (driver: node /tmp/opencode/task12-evidence.mjs happy|failure — leak refusal names 4 members pre-write + `[]` written after refusal).
+
+## Todo 13 — graft: cross-instance crystallization merge with local re-bench (2026-09-09)
+- New API surface: src/core/graft.ts `graftBundle(req{entry:RegistryEntry|null,configDir,bundlePath,genomeLabel,home,opencodeBin?,env?,now?})→{exitCode,lines}`
+  (orchestrator, 229 pure LOC); src/core/graft-gates.ts (bundle IO + 4 gates + dup refusal; exports GraftRequest/GraftOutcome/VerifiedBundle/readBundleBytes/
+  parseBundleBytes/bestEffortClaim/localBenchDigest/provenanceGateFailures/probeGraftPrerequisites/assertNotGrafted); src/core/graft-rebench.ts (graftAndBench:
+  worktree+apply+seal+local bench+rows); src/core/graft-support.ts (queue convention + graft_import row codec + echo sanitizer — fs/text ONLY so status can
+  render without Ledger.open); src/commands/graft.ts CLI; status.ts additive.
+- LEDGER_KIND_GRAFT_IMPORT='graft_import' lives in graft-support.ts (own module const; ledger.ts untouched). Row data: {decision,genomeLabel,bundleSha256,
+  bundlePath,sourceGenomeFingerprint,sourceBenchDigest,reason,imported:true,graftGenId,commitSha,treeSha,peerClaim} — generation_complete rows stay
+  schema-stable (provenance rides the graft_import row only).
+- Queue convention: <configDir>/graft-queue/<bundle-sha256>.json {bundleSha256,bundlePath,genomeLabel,reason,queuedAt,sourceGenomeFingerprint}; filename-key
+  cross-checked inside (foreign key = tampering, cannotAnswer); any terminal decision removes it; listGraftQueue fail-closed like status's ledger reads.
+  status.ts: 'pending-bench graft queue: N' + entry lines + 'graft decisions: N' section; UNREGISTERED label with queue entries gets a queue-view exit 0;
+  without them the identical resolveUniqueEntry exit-2 message stays (AC(d) '/pending-bench graft queue: 0/' pin survives — virgin home prints the 0 line).
+- Exit map: nominated 0; culled/indeterminate/quarantined/already-grafted/pending-unregistered 1; inconclusive/probe-pending/malformed-container/unknown-flag 2.
+  Inspect integrity-fail (code 1) ⇒ quarantine booked when a local ledger exists, then the same message echoed; code 2 (garbage) rethrows WITHOUT booking —
+  and WITHOUT queue (queue is for bundles awaiting setup, not garbage). Unregistered+integrity-fail ⇒ throw 1 clean, zero state.
+- GATE SEMANTICS that cost analysis time: benchDigest gate = benchDigestFor(LOCAL spec, bundle's CONTAINED primary tree) vs manifest.benchDigest — NOT a
+  digest of the incumbent HEAD tree. Candidate patches change unit content ⇒ incumbent-vs-bundle would quarantine every honest graft. The gate pins the
+  BENCH SURFACE the peer measured, anchored on the local spec (inspect already pins contained==claimed; graft re-derives locally so export/inspect can
+  never drift from verification — parseBundleBytes uses the same bundleManifestSchema + bundle-common).
+- AC(a) cross-instance trick (toy fingerprints embed repoPath): same ABSOLUTE genome path in a DIFFERENT config home — export from instance A at P,
+  rm -rf P, prepareToyGenome(P) again (init.mjs is idempotent-per-dir so the wipe is mandatory), register into home B: identical spec bytes ⇒ identical
+  fingerprint, different git history. Evidence + test prove nominated/culled per LOCAL score with peer claims lying the other way (manifest.json edits are
+  self-consistent because manifest.json is NOT sha-pinned — files[] tampering would die at inspect first).
+- Provenance gate: 5 recomputables (agentModel/judgeModel/statsConfigDigest/adapterConfigDigest/fixtureSeedId) byte-equal THREE ways — local-derived vs
+  peer-contained-spec-derived vs manifest-claim (lying claim ⇒ quarantine); opencodeVersion via parseSemver+compareSemver equality, both-null honest for toy;
+  local side reads the newest incumbent generation row's versions (no rows ⇒ [] ⇒ null side). deriveBenchProvenance demands a real GenerationRowData —
+  built schema-valid minimal row (provenanceRow()), never a cast.
+- requires[] probes: fixture type ⇒ probeEngines(bin=resolveOpencodeBin, repoRoot) verbatim (opencode --version + minVersion + requires). TOY must NOT call
+  probeEngines (its opencode --version probe is unconditional — a toy genome without opencode would pending forever); local mirror reproduces
+  fixture-probe's probeRequires exactly (runChild argv-spawn, 30s, spawn_failed/exit≠probeExit ⇒ cannotAnswer before any worktree/bench).
+  Pending-rows do NOT trip the dup rule; terminal ones do ('already grafted', exit 1) — stale_state pinned.
+- Re-bench = single-shot run-loop clone: reapOrphans under genome lock, openGenome(repo,[],env) (empty targetPaths ⇒ dirt never blocks; incumbent benched
+  from snapshotCommit(HEAD), NOT the worktree — dirty_worktree AC proves bundle bytes win), ChildTracker+drain, benchTarget incumbent→candidate,
+  evalCounters minus own slot, evaluate nPairs:1, clampReps(undefined, local nReps.initial). sandboxBase=<configDir>/bench-sandboxes/<invId> with
+  invId=graft-<compactUtc>-<sha8> so todo-12 evidence export walks graft transcripts. applyBundleTree = byte-truth: rm tracked-not-in-tree (git ls-tree -r -z
+  HEAD) + write every member (safeJoin belts readTar's refusal); porcelain-clean tree ⇒ no seal attempt (sealGeneration blocks on empty) ⇒ graft commit =
+  incumbent HEAD sha, bench still runs (no-op graft culled by minEffect — honest verdict beats a fabricated refusal).
+- Adversarial round: prompt_injection — echo()/flat() everywhere (ANSI/newline hostile rationale+matrix strings never reach stdout/stderr/status; ledger text
+  JSON-escaped, pinned by raw-ESC-byte scan); malformed — junk/stripped-manifest/evil-traversal-tar/--force/missing-flag all exit 2 single-line, zero rows,
+  zero queue dir; hung_commands — covered by proxy (adapter runChild 30s-timeout group-kill machinery unchanged, graft spawns bench through it only);
+  cancellation_resume — NOT-APPLICABLE by design: graft is single-shot, durable state = queue file + graft_import row; 'resume' = re-run (pinned header
+  comment in graft.ts; the dup/pending rules make re-runs safe).
+- Tests: src/test/graft.test.ts 12 tests (real dual-instance toy evolve+export+CLI graft; tamper surgeries incl. honest-files[]-stale-digest repack and
+  hand-built traversal tar header). Suite 213 → 225/225 ×2 green, no flakes. Evidence .omo/evidence/abathur/task-13-{failure,happy}.txt (driver:
+  node /tmp/opencode/task13-evidence.mjs — full export→graft→status→promote chain + quarantine + pending-queue transcripts).
