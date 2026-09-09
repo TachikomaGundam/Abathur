@@ -291,3 +291,18 @@ test("init.mjs is idempotent: re-init keeps the git repo and rewrites repoPath",
   await prepareToyGenome(genomeDir); // .git already exists ⇒ must NOT re-init
   assert.equal(head(), before);
 });
+
+test("prepareToyGenome creates missing parent dirs (regression: missing cwd masquerades as spawn ENOENT)", async (t) => {
+  const dest = path.join(await freshDir(t, "toyparent"), "missing", "nested-g");
+  await prepareToyGenome(dest);
+  assert.ok(existsSync(path.join(dest, "genome.jsonc")));
+  assert.ok(existsSync(path.join(dest, ".git")));
+  const head = (): string => {
+    const run = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dest, encoding: "utf8" });
+    assert.equal(run.status, 0);
+    return (run.stdout ?? "").trim();
+  };
+  const before = head();
+  await prepareToyGenome(dest); // same dest again ⇒ still idempotent, .git preserved
+  assert.equal(head(), before);
+});

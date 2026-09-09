@@ -176,6 +176,9 @@ export async function prepareToyGenome(
   templateDir: string = toyTemplateDir(),
 ): Promise<string> {
   const dest = path.resolve(destDir);
+  // init.mjs runs with cwd = parent of dest; a missing cwd surfaces as a
+  // misleading `spawn <bin> ENOENT`, so materialize the parent first.
+  mkdirSync(path.dirname(dest), { recursive: true });
   const outcome = await runChild({
     argv: [process.execPath, path.join(templateDir, "init.mjs"), dest],
     cwd: path.dirname(dest),
