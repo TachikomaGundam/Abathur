@@ -17,25 +17,25 @@ import { cannotAnswer } from "../exit.js";
 import { walkTree } from "../core/ids.js";
 import type { BenchUnit, GenomeSpec } from "../core/spec.js";
 import {
+  childStatus,
+  firstLine,
+  inconclusive,
+  parseGraderLine,
   renderCommand,
   runChild,
   sandboxVars,
   unitVars,
+  ZERO_METRICS,
   type BenchAdapter,
   type BenchProvenance,
-  type ChildKind,
   type RunMetrics,
   type RunResult,
-  type RunStatus,
   type ScoreOutcome,
-  type ScoreResult,
 } from "./adapter.js";
 
 /** Model-free token heuristic pinned by the grader too: 1 token ~ 4 source bytes. */
 const BYTES_PER_TOKEN = 4;
 const HOOK_TIMEOUT_S = 60;
-
-const ZERO_METRICS: RunMetrics = { tokensEst: 0, turns: 0 };
 
 export class ToyBenchAdapter implements BenchAdapter {
   private readonly repoRoot: string;
@@ -193,58 +193,4 @@ export async function prepareToyGenome(
 }
 
 // --------------------------------------------------------------- grader JSON
-
-type ParsedScore = Pick<ScoreResult, "score" | "pass" | "metrics">;
-
-/** Grader contract: the LAST stdout line parses to {unit, score 0..1, pass, metrics}. */
-function parseGraderLine(stdoutText: string): ParsedScore | null {
-  const last = stdoutText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .at(-1);
-  if (last === undefined) return null;
-  let doc: unknown;
-  try {
-    doc = JSON.parse(last);
-  } catch {
-    return null;
-  }
-  if (!isRecord(doc) || typeof doc.unit !== "string") return null;
-  if (!isFiniteNumber(doc.score) || doc.score < 0 || doc.score > 1) return null;
-  if (typeof doc.pass !== "boolean") return null;
-  const metrics = doc.metrics;
-  if (!isRecord(metrics) || !isCount(metrics.tokensEst) || !isCount(metrics.turns)) return null;
-  return { score: doc.score, pass: doc.pass, metrics: { tokensEst: metrics.tokensEst, turns: metrics.turns } };
-}
-
-function childStatus(kind: ChildKind): RunStatus {
-  switch (kind) {
-    case "exited":
-      return "ok";
-    case "timeout":
-      return "timeout";
-    case "spawn_failed":
-      return "infra_failed";
-  }
-}
-
-function inconclusive(unitId: string, reason: string): ScoreOutcome {
-  return { kind: "inconclusive", unitId, reason };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isCount(value: unknown): value is number {
-  return isFiniteNumber(value) && value >= 0;
-}
-
-function firstLine(text: string): string {
-  return (text.split("\n", 1)[0] ?? "").trim();
-}
+// parseGraderLine + the score contract live in adapter.ts (shared with todo 6).
