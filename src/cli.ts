@@ -8,6 +8,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { genomeCommand } from "./commands/genome.js";
+import { kernelCommand } from "./commands/kernel.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
 import {
   EXIT_CANNOT_ANSWER,
@@ -39,7 +41,7 @@ function pending(name: string, summary: string): CommandSpec {
 
 // Router order mirrors the plan; summaries appear verbatim in --help.
 export const COMMANDS: readonly CommandSpec[] = [
-  pending("genome", "add/list/diff genome specs and their bench seals"),
+  genomeCommand,
   pending("run", "evolve one genome: observe, mutate, re-bench, select"),
   pending("status", "ledger and proposal state for a genome"),
   pending("promote", "human-gate: accept a candidate mutation"),
@@ -47,7 +49,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   pending("bundle", "export a genome + lineage as an offline bundle"),
   pending("graft", "import an offline bundle and graft its lineage"),
   pending("self-eval", "evaluate the harness itself (abathur-self genome)"),
-  pending("kernel", "audit frozen kernel vs hot-reload layer"),
+  kernelCommand,
 ];
 
 export function usage(): string {
