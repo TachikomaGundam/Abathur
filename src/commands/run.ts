@@ -4,8 +4,9 @@
 
 import { resolveConfigDir } from "../config.js";
 import { readRegistry, requireGenomesByLabel, type RegistryEntry } from "../core/genome.js";
+import { appendRunFriction, type RunFrictionInput } from "../core/evolve/friction.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
-import { cannotAnswer, type ExitCode } from "../exit.js";
+import { cannotAnswer, ExitSignal, type ExitCode } from "../exit.js";
 import type { CommandContext, CommandSpec } from "../cli.js";
 import { writeStdout } from "../out.js";
 
@@ -88,21 +89,59 @@ export function resolveUniqueEntry(configDir: string, label: string, who = "run"
   return entry;
 }
 
+const ZERO_COUNTS = { applied: 0, rejected: 0, benched: 0, inconclusive: 0, nominated: 0, timeouts: 0, reaped: 0 };
+
 async function runRun(context: CommandContext): Promise<ExitCode> {
   const flags = parseRunFlags(context.args);
   const configDir = resolveConfigDir();
   for (const warning of readRegistry(configDir).warnings) writeStdout(`warning: ${warning}`);
   const entry = resolveUniqueEntry(configDir, flags.label);
-  const outcome = await runEvolution({
-    entry,
-    configDir,
-    opencodeBin: context.loaded.config.opencodeBin,
-    ...(flags.reps === null ? {} : { reps: flags.reps }),
-    ...(flags.maxCandidates === null ? {} : { maxCandidates: flags.maxCandidates }),
-    ...(flags.mutator === null ? {} : { mutatorCommand: flags.mutator }),
-    ...(flags.dryRun ? { dryRun: true } : {}),
-  });
+  const warnings: string[] = [];
+  const frictionSink = (input: RunFrictionInput): void => {
+    try {
+      appendRunFriction(configDir, input);
+    } catch (error) {
+      warnings.push(`friction: append failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  // Friction is the self-evolution SIGNAL channel (todo 11): every real run
+  // books one structured run-summary record, and every refusal that happens
+  // after the registry resolved books a cli-error record — in both cases the
+  // queue append can never break or change the run's own exit status.
+  let outcome;
+  try {
+    outcome = await runEvolution({
+      entry,
+      configDir,
+      opencodeBin: context.loaded.config.opencodeBin,
+      ...(flags.reps === null ? {} : { reps: flags.reps }),
+      ...(flags.maxCandidates === null ? {} : { maxCandidates: flags.maxCandidates }),
+      ...(flags.mutator === null ? {} : { mutatorCommand: flags.mutator }),
+      ...(flags.dryRun ? { dryRun: true } : {}),
+      friction: frictionSink,
+    });
+  } catch (error) {
+    if (error instanceof ExitSignal) {
+      try {
+        appendRunFriction(configDir, {
+          genomeFp: entry.fingerprint,
+          cause: "cli-error",
+          exit: error.code,
+          complete: false,
+          counts: ZERO_COUNTS,
+          rejected: [],
+          units: [],
+          reasons: [error.message],
+          stall: { budgetTruncated: false, orphanGroups: 0 },
+        });
+      } catch {
+        // the refusal stands on its own; a dead queue never masks it.
+      }
+    }
+    throw error;
+  }
   for (const line of outcome.lines) writeStdout(line);
+  for (const warning of warnings) writeStdout(warning);
   return outcome.exitCode;
 }
 

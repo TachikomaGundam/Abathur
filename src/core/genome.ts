@@ -21,6 +21,7 @@ import {
   type ManifestEntry,
 } from "./kernel.js";
 import {
+  effectiveRepoPath,
   errorText,
   formatZodIssues,
   genomeSpecSchema,
@@ -58,7 +59,7 @@ export function fingerprint16(spec: GenomeSpec): string {
 }
 
 function requireRepoPath(spec: GenomeSpec): string {
-  const root = path.resolve(spec.repoPath);
+  const root = effectiveRepoPath(spec.repoPath);
   let isDirectory = false;
   try {
     isDirectory = statSync(root).isDirectory();
@@ -97,7 +98,7 @@ function enforceGlobSuperset(configDir: string, spec: GenomeSpec, repoRoot: stri
   const weakened: string[] = [];
   for (const entry of readRegistry(configDir).entries) {
     if (entry.fingerprint === self) continue; // same-fp re-add ⇒ manifest byte-compare
-    if (path.resolve(entry.spec.repoPath) !== repoRoot) continue;
+    if (effectiveRepoPath(entry.spec.repoPath) !== repoRoot) continue;
     for (const existing of entry.spec.kernel.immutableGlobs) {
       const uncovered = filesMatching(repoRoot, [existing]).filter((f) => !incoming.has(f));
       if (uncovered.length > 0 && !weakened.some((w) => w.startsWith(`'${existing}'`))) {

@@ -6,6 +6,7 @@
 // "missing entry = explicit config error", never a silent default).
 
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 
 import { cannotAnswer } from "../exit.js";
@@ -135,6 +136,52 @@ export function formatZodIssues(issues: readonly SpecIssue[]): readonly string[]
 
 export function errorText(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+// ------------------------------------------------ env-literal repo paths (todo 11)
+
+/**
+ * `${VAR}` repo-path literal: the abathur-self seed stores repoPath as the
+ * UNRESOLVED literal `${ABATHUR_SELF_REPO}` so the spec bytes — and therefore
+ * its content fingerprint and registry stem — stay machine-independent
+ * (graft matching requires identical specs across machines). The env var is
+ * resolved ONLY at FS boundaries, never inside the spec.
+ */
+const ENV_REPO_LITERAL = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+
+export interface EnvRepoLookup {
+  readonly ABATHUR_SELF_REPO?: string | undefined;
+  readonly [name: string]: string | undefined;
+}
+
+/** True when the spec stores an unresolved `${VAR}` env literal (self-genome marker). */
+export function isEnvRepoLiteral(repoPath: string): boolean {
+  return ENV_REPO_LITERAL.test(repoPath);
+}
+
+/** The literal itself when self, else null. */
+export function envRepoName(repoPath: string): string | null {
+  const match = ENV_REPO_LITERAL.exec(repoPath);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Resolve a spec repoPath to a filesystem path. Non-literals behave exactly as
+ * `path.resolve` before; `${VAR}` literals demand the env var to be set (missing
+ * or empty ⇒ clean exit 2 naming the variable — never a silently-created
+ * directory named `${ABATHUR_SELF_REPO}`).
+ */
+export function effectiveRepoPath(repoPath: string, env: EnvRepoLookup = process.env): string {
+  const name = envRepoName(repoPath);
+  if (name === null) return path.resolve(repoPath);
+  const value = env[name];
+  if (value === undefined || value.length === 0) {
+    cannotAnswer(
+      `genome: repoPath literal '\${${name}}' requires env var ${name} to be set (absolute path to the harness repo)`,
+      `export ${name}=/path/to/abathur before running genomes that reference the harness itself`,
+    );
+  }
+  return path.resolve(value);
 }
 
 /** Parse + strict-validate a GenomeSpec document; every failure is a clean exit 2. */

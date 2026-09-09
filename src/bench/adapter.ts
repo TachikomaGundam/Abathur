@@ -165,8 +165,13 @@ export interface ChildOptions {
   readonly argv: readonly string[];
   readonly cwd: string;
   readonly timeoutS: number;
-  /** Extra env overlaid on process.env (sandbox HOME etc.); LC_ALL=C always wins. */
-  readonly env?: Readonly<Record<string, string>> | undefined;
+  /**
+   * Extra env overlaid on process.env (sandbox HOME etc.); LC_ALL=C always
+   * wins. A key explicitly set to undefined is REMOVED from the child env
+   * (spawn omits undefined values) — required to clear NODE_TEST_CONTEXT when
+   * self-bench nests `node --test` inside an outer test runner.
+   */
+  readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   /** Invoked synchronously post-spawn with the child handle, before any await. */
   readonly onChild?: ((handle: ChildHandle) => void) | undefined;
 }
