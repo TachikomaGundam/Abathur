@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-09T06:27:40.928Z",
+      "updated_at": "2026-09-09T07:03:43.380Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
       ],
@@ -16,13 +16,27 @@
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct"
       },
       "agent": "atlas",
-      "task_sessions": {}
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "Scaffold package, CLI spine, config loader with exit-code contract",
+          "session_id": "opencode:ses_f7b2189acffer2gtAzSjQ96Hao",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-09T07:03:43.380Z",
+          "started_at": "2026-09-09T06:59:39.215Z",
+          "status": "completed",
+          "ended_at": "2026-09-09T07:03:43.380Z",
+          "elapsed_ms": 244165
+        }
+      }
     }
   },
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-09T06:27:40.928Z",
+  "updated_at": "2026-09-09T07:03:43.380Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
   ],
@@ -30,6 +44,20 @@
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct"
   },
   "plan_name": "abathur-harness",
-  "task_sessions": {},
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Scaffold package, CLI spine, config loader with exit-code contract",
+      "session_id": "opencode:ses_f7b2189acffer2gtAzSjQ96Hao",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-09T07:03:43.380Z",
+      "started_at": "2026-09-09T06:59:39.215Z",
+      "status": "completed",
+      "ended_at": "2026-09-09T07:03:43.380Z",
+      "elapsed_ms": 244165
+    }
+  },
   "agent": "atlas"
 }
