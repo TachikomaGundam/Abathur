@@ -1,0 +1,18 @@
+=== Todo 1 failure/QA battery — exit-code contract (0 ok / 1 blocked / 2 cannot-answer) ===
+$ date -Is
+2026-09-09T14:54:42+08:00
+
+--- AC-2: unknown key in $ABATHUR_CONFIG must exit 2 AND name the key ---
+$ ABATHUR_CONFIG=/tmp/abathur-todo1-qa/bad.jsonc node dist/cli.js status
+exit=2
+
+--- unreadable/missing $ABATHUR_CONFIG (fail-closed, no fallback) ---
+$ ABATHUR_CONFIG=/tmp/abathur-todo1-qa/nonexistent.jsonc node dist/cli.js status
+exit=2
+
+--- malformed JSONC => exit 2, no stack trace ---
+$ ABATHUR_CONFIG=/tmp/abathur-todo1-qa/broken.jsonc node dist/cli.js status
+abathur: config: malformed JSONC in /tmp/abathur-todo1-qa/broken.jsonc: Unexpected token '}', "{ "opencodeBin": }
+" is not valid JSON
+exit=2
+stack_trace_lines=0
