@@ -26,10 +26,10 @@
 //  - Pareto over (trainScore, tokens, wallS); budget-truncated generations
 //    (complete:false) never enter the set.
 //
-// The inverse Student-t is implemented here (bisection on the regularized
-// incomplete beta, Numerical-Recipes-style continued fraction) — a new dep is
-// forbidden by the plan. Accuracy: |t − table| < 1e-3 for the t-distribution
-// table values checked in stats.test.ts (df=1..30, α=0.05).
+// The inverse Student-t lives in stats-math.ts and the Pareto ranking in
+// stats-pareto.ts; both are re-exported here so the public surface of this
+// module — the one todos 9/10/12 consume — is unchanged. Accuracy: |t − table|
+// < 1e-3 for the t-distribution rows checked in stats.test.ts (df=1..30, α=0.05).
 
 import { EXIT_BLOCKED, EXIT_CANNOT_ANSWER, EXIT_OK, type ExitCode } from "../exit.js";
 import type { BenchStats } from "./spec.js";
@@ -50,6 +50,11 @@ export interface BudgetCaps {
 }
 
 /** Per-unit replicate scores (train and val units alike). */
+import { studentTQuantile } from "./stats-math.js";
+import { seededRandom, paretoFrontier } from "./stats-pareto.js";
+export { studentTQuantile, seededRandom, paretoFrontier };
+export type { ParetoPoint } from "./stats-pareto.js";
+
 export interface UnitReplicates {
   readonly unitId: string;
   readonly split: "train" | "val";
@@ -111,13 +116,6 @@ export interface EvaluateInput {
   readonly nPairs: number; // simultaneous finalist pairs sharing the family alpha
 }
 
-export interface ParetoPoint {
-  readonly id: string;
-  readonly trainScore: number;
-  readonly tokens: number;
-  readonly wallS: number;
-  readonly complete: boolean; // false ⇒ budget-truncated generation, never in the set
-}
 
 /** Family-wise alpha across finalist pairs (bonferroniAlpha divides it). */
 export const FAMILY_ALPHA = 0.05;
@@ -142,93 +140,6 @@ export function bonferroniAlpha(nPairs: number): number {
 }
 
 // --- Student-t quantile (no deps: bisection on the regularized incomplete beta) ---
-
-const BISECTION_ITERATIONS = 60;
-const LANCZOS: readonly number[] = [
-  0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
-  -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
-  1.5056327351493116e-7,
-];
-
-// Lanczos g=7 pairs with the 9 coefficients (c0..c8) above.
-const LANCZOS_G = 7;
-
-function logGamma(z: number): number {
-  let x = z - 1;
-  let acc = LANCZOS[0] as number;
-  for (let i = 1; i < LANCZOS.length; i++) {
-    acc += (LANCZOS[i] as number) / (x + i);
-  }
-  const t = x + LANCZOS_G + 0.5;
-  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(acc);
-}
-
-/** Continued fraction for the regularized incomplete beta (Lentz, NR 6.4.2). */
-function betacf(a: number, b: number, x: number): number {
-  const MAXIT = 200;
-  const EPS = 3e-14;
-  const FPMIN = 1e-300;
-  const qab = a + b;
-  const qap = a + 1;
-  const qam = a - 1;
-  let c = 1;
-  let d = 1 - (qab * x) / qap;
-  if (Math.abs(d) < FPMIN) d = FPMIN;
-  d = 1 / d;
-  let h = d;
-  for (let m = 1; m <= MAXIT; m++) {
-    const m2 = 2 * m;
-    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < FPMIN) d = FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < FPMIN) c = FPMIN;
-    d = 1 / d;
-    h *= d * c;
-    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < FPMIN) d = FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < FPMIN) c = FPMIN;
-    d = 1 / d;
-    const del = d * c;
-    h *= del;
-    if (Math.abs(del - 1) < EPS) break;
-  }
-  return h;
-}
-
-/** Regularized incomplete beta I_x(a, b), b=1/2 in every call here. */
-function betai(a: number, b: number, x: number): number {
-  if (x <= 0) return 0;
-  if (x >= 1) return 1;
-  const front = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
-  if (x < (a + 1) / (a + b + 2)) return (front * betacf(a, b, x)) / a;
-  return 1 - (front * betacf(b, a, 1 - x)) / b;
-}
-
-/**
- * Two-sided Student-t critical value: the t such that P(|T| ≤ t) = 1 − alpha
- * with T ~ t(df). Planned accuracy: matches t-table values to < 1e-3 for the
- * checked rows (stats.test.ts). alpha in (0,1), df ≥ 1.
- */
-export function studentTQuantile(alpha: number, df: number): number {
-  if (!(alpha > 0 && alpha < 1)) throw new RangeError(`studentTQuantile: alpha=${String(alpha)} must be in (0, 1)`);
-  if (!(df >= 1)) throw new RangeError(`studentTQuantile: df=${String(df)} must be >= 1`);
-  // T ~ t(ν): P(T ≤ t) = 1 − ½·I_{ν/(ν+t²)}(ν/2, ½). For the two-sided critical
-  // value I_{ν/(ν+t²)}(ν/2, ½) = alpha ⇒ t = √(ν(1−z)/z) with z = ν/(ν+t²).
-  const a = df / 2;
-  const b = 0.5;
-  let lo = 0;
-  let hi = 1;
-  for (let i = 0; i < BISECTION_ITERATIONS; i++) {
-    const mid = (lo + hi) / 2;
-    if (betai(a, b, mid) < alpha) lo = mid;
-    else hi = mid;
-  }
-  const z = (lo + hi) / 2;
-  return Math.sqrt((df * (1 - z)) / z);
-}
 
 /** Per-unit summary: mean, unbiased variance, 95% two-sided CI half-width. */
 export function summarizeUnit(scores: readonly number[], alpha: number = FAMILY_ALPHA): UnitStat {
@@ -369,56 +280,3 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   return { ...base, verdict, exitCode: needsExit(verdict), gain, unitComparisons, failures };
 }
 
-/** mulberry32 — dependency-free deterministic PRNG for tie-breaks. */
-export function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function dominates(q: ParetoPoint, p: ParetoPoint): boolean {
-  return q.trainScore >= p.trainScore && q.tokens <= p.tokens && q.wallS <= p.wallS && (q.trainScore > p.trainScore || q.tokens < p.tokens || q.wallS < p.wallS);
-}
-
-/**
- * Non-dominated complete candidates, ranked for the human: trainScore desc,
- * then tokens asc, then wallS asc; exact ties share a seeded rank order
- * (same seed ⇒ same order). Budget-truncated generations never enter the set.
- */
-export function paretoFrontier(points: readonly ParetoPoint[], seed: number = 1): readonly string[] {
-  const complete = points.filter((p) => p.complete);
-  const frontier = complete.filter((p) => !complete.some((q) => dominates(q, p)));
-  frontier.sort((a, b) => {
-    if (a.trainScore !== b.trainScore) return b.trainScore - a.trainScore;
-    if (a.tokens !== b.tokens) return a.tokens - b.tokens;
-    return a.wallS - b.wallS;
-  });
-  const rng = seededRandom(seed);
-  const ids: string[] = [];
-  let i = 0;
-  while (i < frontier.length) {
-    let j = i + 1;
-    while (
-      j < frontier.length &&
-      frontier[j]!.trainScore === frontier[i]!.trainScore &&
-      frontier[j]!.tokens === frontier[i]!.tokens &&
-      frontier[j]!.wallS === frontier[i]!.wallS
-    ) {
-      j += 1;
-    }
-    const group = frontier.slice(i, j);
-    // Fisher–Yates shuffle: deterministic per seed.
-    for (let k = group.length - 1; k > 0; k--) {
-      const r = Math.floor(rng() * (k + 1));
-      [group[k], group[r]] = [group[r] as ParetoPoint, group[k] as ParetoPoint];
-    }
-    for (const p of group) ids.push(p.id);
-    i = j;
-  }
-  return ids;
-}
