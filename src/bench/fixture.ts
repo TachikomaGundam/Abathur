@@ -37,6 +37,7 @@ import {
   unitVars,
   ZERO_METRICS,
   type BenchAdapter,
+  type ChildHandle,
   type ProvenanceVersion,
   type RunResult,
   type ScoreOutcome,
@@ -74,6 +75,8 @@ export interface FixtureAdapterOptions {
   readonly configDir?: string | undefined;
   /** Overrides config opencodeBin (which itself defaults to PATH "opencode"). */
   readonly opencodeBin?: string | undefined;
+  /** Receives a handle for every child the adapter spawns, probes included. */
+  readonly onChild?: ((handle: ChildHandle) => void) | undefined;
   /** Real HOME to mirror; defaults to env.HOME else os.homedir(). */
   readonly home?: string | undefined;
   /** Operator gate for val-split scenarios; CLI wiring arrives in todo 10+. */
@@ -139,6 +142,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       cwd: sandboxDir,
       timeoutS,
       env: this.sandboxEnv(sandboxDir, unit),
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     const status = childStatus(outcome.kind);
     return {
@@ -167,6 +171,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       cwd: sandbox,
       timeoutS: this.spec.bench.timeoutS,
       env: this.sandboxEnv(sandbox),
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited") {
       return inconclusive(unit.id, `grader ${outcome.kind}: ${outcome.reason}`);
@@ -215,7 +220,9 @@ export class FixtureScenariosAdapter implements BenchAdapter {
   private async startProbes(): Promise<void> {
     this.acquireFlight();
     try {
-      this.versions = await probeEngines(this.spec, this.opencodeBinName(), this.repoRoot);
+      this.versions = await probeEngines(this.spec, this.opencodeBinName(), this.repoRoot, {
+        ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
+      });
     } catch (cause) {
       this.release();
       throw cause;
@@ -270,6 +277,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       cwd: sandboxDir,
       timeoutS: HOOK_TIMEOUT_S,
       env: this.sandboxEnv(sandboxDir),
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited" || outcome.exitCode !== 0) {
       cannotAnswer(

@@ -311,3 +311,50 @@ Gotchas:
   It reads its --dir worktree to build byte-exact hunks and mirrors scriptedPatches anchors (pinned by test).
 - 250-LOC ceiling: reflect.ts (277 at first) split into brief.ts (55) + reflect.ts (225); split is re-export-only,
   consumer import path unchanged.
+
+## Todo 9 — resumable run-loop orchestrator (CLI `abathur run`)
+API surface (consumers: cli.ts COMMANDS + todo-10 promotion):
+- runEvolution(opts: RunLoopOptions{entry,configDir,mutatorCommand?,reps?,maxCandidates?,dryRun?,opencodeBin?,env?,sandboxRoot?,now?})
+  → Promise<RunLoopOutcome{exitCode,lines:string[]}> in src/core/evolve/run-loop.ts (290 lines, 243 pure, split: run-plan.ts dry-run text,
+  run-rows.ts ledger row schema + resume/peek, run-bench.ts adapter factory + replicate bench, child-track.ts reap/tracker,
+  src/commands/run.ts CLI parse).
+- generation_complete data = generationRowDataSchema (run-rows.ts): source incumbent|candidate, headCommit, commitSha?/treeSha?
+  (candidate-required), complete, reps, units[{unitId,split,scores,runIds,failures}], counters{candidates,modelCalls,tokens,wallS},
+  manifest[{glob,path,sha256}], verdict?/exitCode?/gain?/gateFailures?, dirtyWorktree?, benchProvenance. Mutator driver never
+  appends these — todo 9 owns the write.
+- exit semantics (runExitCode): any nominated this-run ⇒ 0; else any inconclusive ⇒ 2 (cannot-answer, budget-tripped included);
+  else candidates considered ⇒ 1; none ⇒ 0. Gate order is load-bearing: auditKernel BEFORE Ledger.open/lock/reap/spawn, so a
+  drifted kernel leaves .state/ untouched (asserted by absence, not mtime-only).
+- Child tracking: additive ChildOptions.onChild?:(h:ChildHandle{pid,exited:Promise<void>})=>void in runChild — invoked
+  synchronously after spawn (pid==pgid, detached), ChildOutcome shape untouched so all todo-5/6/8 tests stay green unchanged.
+  ChildTracker appends canonical-JSON lines (compact, no spaces — grepping the log needs '"kind":"candidate-bench"' style),
+  removes on child exit via atomic tmp+rename rewrite; run-loop drains pending removals before finishing. reapOrphans: kill-0
+  first, kill(-pgid) SIGKILL only for records in <repo>/.state/abathur/active-children.jsonl, self pid always skipped,
+  unparseable/invalid-pid lines counted malformed and dropped, file truncated AFTER kills (crash mid-reap re-kills idempotently).
+Gotchas (each cost a red test or an evidence rerun):
+- Driver slices raws to maxCandidates BEFORE validation AND before todo-9 dedups by treeSha ⇒ a full-budget resume can never
+  re-deliver an already-recorded candidate; the exit status must CARRY stored verdicts for the current head
+  ('carried into this run's exit status' line) or a completed run flips 0→1 on every rerun. resume.candidatesByTree rows are
+  head-filtered: other heads' verdicts are history, not this outcome.
+- Candidate budget slot must be excluded from evaluate's running counters (evalCounters = counters - own row spend) or the
+  Nth candidate of a full run self-trips the cap ⇒ permanently inconclusive. Same reason benchTarget's per-rep budget check
+  counts countersBefore.candidates only.
+- Unscored units (run timeout/infra_failed, inconclusive grader, budget cut) must be FILTERED from UnitReplicates
+  (scores.length>0) before stats.evaluate — empty replicate lists poison aggregateScore with NaN, and gain null then renders
+  'n/a (truncated)' but the val gates silently pass a garbage candidate.
+- Dry-run must not call Ledger.open (its ctor mkdirs .state/abathur ⇒ breaks zero-mutation) — peekPlanState reads the ledger
+  file read-only instead; plan runs before lock/reap/openGenome/spawns; sandbox dirs also stay uncreated.
+- benchTarget pre-creates a row for EVERY spec unit incl. val (includeVal:true on the fixture adapter) — the val gate has no
+  data otherwise; toy val unit sub() therefore contributes scores like train (18 samples for 2 reps × 2 candidates + incumbent
+  on toy-smoke, explode contributes 0 — it always times out).
+- modelCalls is booked 0 everywhere: adapters don't yet meter opencode calls (real accounting is a later todo); budget math
+  exercises on tokens/wallS.
+- Fixture lock keys on genome fingerprint: the candidate override {...spec, repoPath: worktreePath} changes fingerprint16, so
+  consecutive candidate benches take DIFFERENT lock keys — fine for the sequential loop, wrong for future parallel workers.
+- Evidence-workspace gotchas: editing genome.jsonc AFTER 'genome add' re-registers a new fingerprint ⇒ two label entries ⇒
+  run exit2 ambiguous (edit first, register once); editing a bench-target file (units/explode.mjs) without committing ⇒
+  openGenome dirty-target refusal (correct behavior — commit evidence tweaks).
+- src/commands/run.ts parseRunFlags rejects value-looking flag args ('--reps --x' ⇒ exit2), --max-candidates clamps DOWN only
+  (min(flag, spec)); CLI tests must set process.env.ABATHUR_CONFIG (runRun resolves config dir from real env, not fixture arg).
+- adapter.ts sits at 261 pure LOC: 241 pre-existing + the 20-line additive hook; splitting todo-5/6 keystone plumbing was
+  forbidden by the 173-tests-unchanged constraint — accepted exception, do not grow it.

@@ -150,12 +150,25 @@ export interface ChildOutcome {
   readonly reason: string;
 }
 
+/**
+ * Synchronous handle reported to ChildOptions.onChild the instant a child is
+ * spawned (todo 9's reaper needs the pid BEFORE exec becomes observable). The
+ * child is detached, so pid === pgid: killing -pid kills its whole group.
+ * `exited` resolves on 'close' (same event that settles the ChildOutcome).
+ */
+export interface ChildHandle {
+  readonly pid: number;
+  readonly exited: Promise<void>;
+}
+
 export interface ChildOptions {
   readonly argv: readonly string[];
   readonly cwd: string;
   readonly timeoutS: number;
   /** Extra env overlaid on process.env (sandbox HOME etc.); LC_ALL=C always wins. */
   readonly env?: Readonly<Record<string, string>> | undefined;
+  /** Invoked synchronously post-spawn with the child handle, before any await. */
+  readonly onChild?: ((handle: ChildHandle) => void) | undefined;
 }
 
 const STREAM_CAP_BYTES = 1024 * 1024;
@@ -198,6 +211,13 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
     let stderr = "";
     let timedOut = false;
     let spawnError: string | null = null;
+    let notifyExit: () => void = () => {};
+    const exited = new Promise<void>((resolve) => {
+      notifyExit = resolve;
+    });
+    if (opts.onChild !== undefined && child.pid !== undefined) {
+      opts.onChild({ pid: child.pid, exited }); // record BEFORE anything can wait on it
+    }
     const cap = (buffer: string, chunk: Buffer): string =>
       buffer.length >= STREAM_CAP_BYTES ? buffer : buffer + String(chunk);
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -216,6 +236,7 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      notifyExit();
       const kind: ChildKind =
         spawnError !== null ? "spawn_failed" : timedOut ? "timeout" : "exited";
       const reason =

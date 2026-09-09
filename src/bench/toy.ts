@@ -28,6 +28,7 @@ import {
   ZERO_METRICS,
   type BenchAdapter,
   type BenchProvenance,
+  type ChildHandle,
   type RunMetrics,
   type RunResult,
   type ScoreOutcome,
@@ -37,11 +38,19 @@ import {
 const BYTES_PER_TOKEN = 4;
 const HOOK_TIMEOUT_S = 60;
 
+export interface ToyAdapterOptions {
+  /** Receives a handle for every child the adapter spawns (todo 9 reaper). */
+  readonly onChild?: ((handle: ChildHandle) => void) | undefined;
+}
+
 export class ToyBenchAdapter implements BenchAdapter {
   private readonly repoRoot: string;
   private activeSandbox: string | null = null;
 
-  constructor(private readonly spec: GenomeSpec) {
+  constructor(
+    private readonly spec: GenomeSpec,
+    private readonly opts: ToyAdapterOptions = {},
+  ) {
     const root = path.resolve(spec.repoPath);
     if (!statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
       cannotAnswer(`toy: repoPath '${spec.repoPath}' is not a readable directory`);
@@ -75,6 +84,7 @@ export class ToyBenchAdapter implements BenchAdapter {
       argv: renderCommand(this.spec.bench.runCommand, unitVars(unit, sandboxDir)),
       cwd: sandboxDir,
       timeoutS,
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     const status = childStatus(outcome.kind);
     return {
@@ -100,6 +110,7 @@ export class ToyBenchAdapter implements BenchAdapter {
       argv: renderCommand(this.spec.bench.graderCommand, unitVars(unit, sandbox)),
       cwd: sandbox,
       timeoutS: this.spec.bench.timeoutS,
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited") {
       return inconclusive(unit.id, `grader ${outcome.kind}: ${outcome.reason}`);
@@ -144,6 +155,7 @@ export class ToyBenchAdapter implements BenchAdapter {
       argv: renderCommand(template, sandboxVars(sandboxDir)),
       cwd: sandboxDir,
       timeoutS: HOOK_TIMEOUT_S,
+      ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited" || outcome.exitCode !== 0) {
       cannotAnswer(

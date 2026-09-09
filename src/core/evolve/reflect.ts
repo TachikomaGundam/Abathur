@@ -17,7 +17,7 @@ import * as os from "node:os";
 import path from "node:path";
 
 import { blocked, cannotAnswer } from "../../exit.js";
-import { renderCommand, runChild } from "../../bench/adapter.js";
+import { renderCommand, runChild, type ChildHandle } from "../../bench/adapter.js";
 import { fingerprint, genId } from "../ids.js";
 import { Ledger } from "../ledger.js";
 import { fingerprint16 } from "../genome.js";
@@ -58,6 +58,8 @@ export interface MutatorSessionOptions {
   readonly maxCandidates?: number;
   readonly ledger?: Ledger;
   readonly now?: () => Date;
+  /** Receives a handle for the mutator child so the caller can record it pre-exec. */
+  readonly onChild?: ((handle: ChildHandle) => void) | undefined;
 }
 
 export interface AppliedCandidate {
@@ -194,7 +196,12 @@ export async function runMutatorSession(opts: MutatorSessionOptions): Promise<Mu
     const launch = await newGeneration(genome, opened.headCommit, launchGenId, { env });
     try {
       const argv = renderCommand(opts.mutatorCommand, { worktree: launch.worktreePath, brief: briefFile });
-      const child = await runChild({ argv: [bin, ...argv.slice(1)], cwd: launch.worktreePath, timeoutS });
+      const child = await runChild({
+        argv: [bin, ...argv.slice(1)],
+        cwd: launch.worktreePath,
+        timeoutS,
+        ...(opts.onChild === undefined ? {} : { onChild: opts.onChild }),
+      });
       if (child.kind !== "exited") {
         blocked(`mutator: child ${child.kind}: ${child.reason}`);
       }

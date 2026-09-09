@@ -1,0 +1,90 @@
+TASK 9 EVIDENCE — HAPPY PATH (run-loop orchestrator)
+generated 2026-09-09 via /tmp/opencode/e9-evidence.sh against tip a653abf + todo-9 working tree
+
+== GREEN: full test suite (npm run build && npm test) — three consecutive runs, flaky_tests verdict STABLE ==
+# tests 186 / suites 16 / pass 186 / fail 0  (run 1: 54.34s)
+  run2| # pass 186
+  run2| # fail 0
+  run2| # cancelled 0
+  run2| # skipped 0
+  run2| # todo 0
+  run2| # duration_ms 54026.95857
+  run3| # pass 186
+  run3| # fail 0
+  run3| # cancelled 0
+  run3| # skipped 0
+  run3| # todo 0
+  run3| # duration_ms 53180.853559
+
+== RED capture (pre-implementation compile failure) is preserved in task-9-failure.txt ==
+
+=== SECTION 1 (AC a): toy 2-candidate E2E via real CLI ===
+--- run1 stdout ---
+incumbent baseline: 4 units x 2 reps
+candidate touch-kernel rejected (path): path 'grader.mjs' touches kernel-immutable glob 'grader.mjs' — whole candidate rejected
+candidate annotate-add [tree 98b0bf6a6bc0]: culled (gain 0.0000, reps 2)
+  gate: gain 0.0000 < minEffect 0.5000
+candidate fix-add [tree 870804b2253a]: nominated (gain 0.5000, reps 2)
+budget spent: candidates=2 tokens=2596 wallS=4.359 (caps candidates=4 tokens=100000 wallS=300)
+--- run1 ledger ---
+PASS: E2E exit 0 (fix-add nominated)
+ledger summary after run1: {"rows":3,"tokens":2596,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: ledger holds incumbent + 2 candidate rows with verdicts
+PASS: active-children.jsonl empty after clean run
+PASS: no stray processes
+=== SECTION 2: resume — rerun adds zero rows, counters never double ===
+PASS: run2 stdout shows incumbent + candidate reuse
+ledger summary after run2: {"rows":3,"tokens":2596,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: exactly-once: ledger byte-equivalent accounting after rerun (rows/tokens/samples/verdicts)
+PASS: run2 exit 0
+=== SECTION 3 (AC d): --dry-run prints plan, zero file mutations ===
+PASS: dry-run exit 0
+PASS: plan lists units/reps/caps/resume/candidate source
+PASS: zero mutations: no ledger, no children log, no worktrees/sandboxes (find-count 1==1)
+PASS: dry-run shows --max-candidates clamp
+=== SECTION 4 (AC e): tampered kernel file — refuse at startup, nothing spawned ===
+PASS: exit 1 naming the drifted kernel file
+PASS: nothing spawned: no mutator marker, no children log, no worktree cache
+=== SECTION 5: dirty bench-target path refuses before any generation ===
+PASS: exit 1 on dirty units/add.mjs (openGenome blocked before bench)
+=== SECTION 6 (AC c): maxTokens=1 → inconclusive exit 2, never a zero-score success ===
+PASS: exit 2 naming the tripped cap
+PASS: candidate verdicts inconclusive (not score-0 success)
+PASS: ledger: all candidate rows inconclusive with gain null
+=== SECTION 7 (AC b): SIGKILL mid-bench while child alive → rerun reaps, completes, exactly-once ===
+PASS: child unit process is live (pid 2473856) before driver kill
+children log pre-kill: {"at":"2026-09-09T12:17:35.408Z","genId":"g-20260909T121733Z-eeebada4","kind":"incumbent-bench","pgid":2473856,"pid":2473856,"v":1}
+PASS: SIGKILL of the driver left the detached child group ALIVE (the orphan)
+PASS: rerun reaped the dead run's recorded group (1 alive killed)
+PASS: orphan process group gone after rerun (pgrep empty)
+ledger after crash+rerun: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: crash did not corrupt generations: 3 clean rows, fix-add nominated (exit rc=0)
+=== SECTION 8: repeated interruptions — kill mid candidate-bench too ===
+PASS: caught the driver mid candidate-bench
+PASS: final run reused incumbent + annotate rows (only the missing tree re-benched)
+ledger after two interruptions + resume: {"rows":3,"tokens":2236,"samples":18,"cands":"annotate-add:culled,fix-add:nominated"}
+PASS: exactly-once across repeated interruptions: accounting identical to the clean crash+reap result
+=== SECTION 9: malformed garbage in active-children.jsonl — repaired, no crash, no random kill ===
+PASS: garbage lines counted + dropped (rc=0)
+PASS: malformed log reap added no rows / no spend
+PASS: no other node processes were signalled
+=== SECTION 10: --max-candidates 1 — clamp + cap already spent on rerun ===
+max1 ledger: {"rows":2,"tokens":1746,"samples":12,"cands":"annotate-add:culled"} (rc=1)
+PASS: --max-candidates 1 benched exactly one candidate
+PASS: rerun honours spent budget: no new candidates
+PASS: budget never exceeded after resume (identical accounting)
+=== SECTION 11: cleanup receipt ===
+PASS: pgrep: no stray run-loop/evidence processes
+=== VERDICT: PASS=32 FAIL=0 ===
+
+== AC (a) post-run artifacts ==
+ledger lines: 5 (3 generation_complete [incumbent + annotate-add culled + fix-add nominated] + 2 candidate_rejected booked by the todo-8 driver; run2 rerun added zero rows — full listing below)
+active-children bytes: 0
+pgrep -af "e9-happy-ws|units/explode": no matches (receipt re-run; earlier 'STRAY' line was pgrep self-matching the probe's own cmdline)
+
+== ledger listing after run1+run2 (kind genId) ==
+generation_complete g-20260909T121716Z-503a4894
+candidate_rejected -
+generation_complete g-20260909T121719Z-b3c13ac9
+generation_complete g-20260909T121719Z-bcef1008
+candidate_rejected -
