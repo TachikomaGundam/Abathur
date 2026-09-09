@@ -74,7 +74,7 @@ Your next move: 批准本计划（或先跑高精度双评审）。Full executio
 ## Todos
 > Implementation + Test = ONE todo. Never separate.
 <!-- APPEND TASK BATCHES BELOW THIS LINE WITH edit/apply_patch - never rewrite the headers above. -->
-- [ ] 1. Scaffold package, CLI spine, config loader with exit-code contract
+- [x] 1. Scaffold package, CLI spine, config loader with exit-code contract
   What to do: git init in /home/lab/workspace/harness/Abathur; package.json (name "abathur", type module, engines >=22, bin abathur→dist/cli.js, deps: zod only; devDeps typescript/@types/node; scripts: build=tsc && node scripts/copy-assets.mjs (copies src/core/evolve/stub-mutators.mjs + genomes/toy-smoke/** into dist/), test=build && node --test dist/test/; package.json `files`: ["dist","config","graders","docs"] allowlist + `prepack`: build (dist is gitignored and npm honors gitignore without files[] — without this the tarball ships no bin, oracle #9)); strict tsconfig (NodeNext); src/cli.ts subcommand router (genome|run|status|promote|tombstone|bundle|graft|self-eval|kernel) returning exit 0 ok / 1 blocked-failed / 2 cannot-answer; src/config.ts loading $ABATHUR_CONFIG else ~/.config/abathur/config.jsonc else repo config/abathur.jsonc, zod-STRICT (unknown key = exit 2 naming the key); machine-local values only via `*.local.jsonc` deep-merge overlay (gitignored); .gitignore (dist, node_modules, .state, *.local.jsonc); anchor commit per Commit line.
   Must NOT: no hardcoded absolute workspace paths anywhere in src/; no second runtime dep; no opencode invocation yet.
   Parallelization: Wave 1 | Blocked by: - | Blocks: 2,3,4,5
