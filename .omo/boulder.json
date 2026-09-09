@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "active_work_id": "abathur-harness-387f8c45",
+  "works": {
+    "abathur-harness-387f8c45": {
+      "work_id": "abathur-harness-387f8c45",
+      "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
+      "plan_name": "abathur-harness",
+      "status": "active",
+      "started_at": "2026-09-09T06:27:40.928Z",
+      "updated_at": "2026-09-09T06:27:40.928Z",
+      "session_ids": [
+        "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
+      ],
+      "session_origins": {
+        "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {}
+    }
+  },
+  "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
+  "started_at": "2026-09-09T06:27:40.928Z",
+  "status": "active",
+  "updated_at": "2026-09-09T06:27:40.928Z",
+  "session_ids": [
+    "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm"
+  ],
+  "session_origins": {
+    "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct"
+  },
+  "plan_name": "abathur-harness",
+  "task_sessions": {},
+  "agent": "atlas"
+}
