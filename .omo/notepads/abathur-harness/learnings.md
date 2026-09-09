@@ -396,3 +396,54 @@ Gotchas (each cost a red test or an evidence rerun):
 - Test/evidence: src/test/promote.test.ts 11 tests (real toy genome + real seals + forged rows, CLI spawned with ABATHUR_CONFIG/
   HOME/XDG_CACHE_HOME pinned to tmp home). RED task-10-failure.txt (11/11 red pre-implementation), task-10-happy.txt full
   transcript incl. tamper refusal + tombstone cat-file -e proof. Suite 186 → 197/197 green ×2 runs (no flakes).
+
+## Todo 12 — lineage bundles: export + inspect with provenance + redacted evidence (2026-09-09)
+- New API surface (import from src/core/bundle.js barrel): `exportBundle(req{entry,configDir,select:{genIds}|{last},outDir,home})`,
+  `inspectBundle(req{bundlePath,home})`, `bundleManifestSchema` (plan field set EXACT, key order = serialized byte order, tests pin it),
+  `DIGEST_ALGO="sha256-canonical-v1"`, `benchDigest(input)` + `ADAPTER_IFACE_VERSION="abathur-bench-adapter-v1"` (ADDITIVE in ids.ts;
+  iface const = todo 5/6 adapter contract, bump on breaking adapter-shape change so digests stop comparing), spec.ts ADDITIVE
+  `bundle:{maskLiterals:string[]}` optional section; bundle-tar.ts `writeTar/readTar/TarError` (pure-node, NO tar child — single-shot
+  commands, in-memory ≤64MiB, precise member-level errors are the adversarial ACs: truncated/evil/checksum); bundle-mask.ts
+  `buildMaskPlan/scanMemberLeaks`.
+- Bundle layout: manifest.json (NOT self-pinned) + README.md + lineage.json + patch.diff + trees/<genId>/** + evidence/<genId>/<runId>.jsonl.
+  files[] = every member except manifest.json, {path,sha256,len} sorted. Name `abathur-<fp16>-<genIds joined '_'>.bundle.tgz`.
+  GEN CONTENT READ FROM GIT ONLY: `git -C repo archive --format=tar <commit>` via own execFile(encoding:"buffer") — util/git is
+  STRING-stdout only, binary needs the local variant (same argv-only/30s-SIGKILL/LC_ALL=C guards). Dirty worktree impossible by
+  construction (AC proven: tree member == `git show commit:path` while worktree bytes differ).
+- PRIMARY GEN = lexicographically max genId among selected (ids embed compactUtc). Export AND inspect share primaryGenId() — a per-gen
+  manifest scalar set (parent/stats/rationale/benchDigest/benchProvenance.nRepeats) describes ONLY the primary; older selected gens
+  ship as trees/<gid>/** + lineage.json summaries. --last N = N newest CANDIDATE rows (ledger append order, latest row per genId),
+  clamped; incumbent rows never exported. --gen/--last XOR; unknown genId ⇒ exit 1 NAMED.
+- Self-describing: manifest.genome.fingerprint = fingerprint(spec parsed from trees/<primary>/genome.jsonc) at EXPORT (registry value
+  unused) ⇒ inspect recomputes from contained bytes ⇒ wrong-genome graft detected exit 1 even with honest files[] re-pins. benchDigest
+  likewise recomputed from contained tree at inspect; sha gate can be bypassed by a repacker — the digest/fingerprint gates catch it (both AC-tested).
+- Masking contract: literals = HOME + genome repoPath ALWAYS (spec.bundle.maskLiterals EXTENDS → <MASKED-1>,<MASKED-2>… by declared
+  order; placeholders <HOME>/<GENOME>). trees/<gid>/** members are EXEMPT from mask+scan by design: byte-truth of git objects, and
+  genome.jsonc necessarily carries the machine-local repoPath (integrity > leak there; fingerprint check pins it). Every masked member
+  is scanned over FINAL SERIALIZED BYTES, pre-write: surviving declared literals OR any generic /<root>/ absolute path (roots list in
+  bundle-mask MACHINE_PATH_ROOTS; /dev excluded so "/dev/null" diff headers are legal). First hit per member reported as
+  member:<1-based-line> + ≤120-char sanitized snippet; ANY hit ⇒ blocked(1), NOTHING written (tmp-file + rename is the backstop).
+  Inspect rebuilds the same scan from CONTAINED specs (repoPath+maskLiterals) + this machine's HOME.
+- Evidence: walks ONLY train rows' runIds from the ledger (split!=="train" never touched — val transcripts structurally unreferencable);
+  transcript store layout mirrored from todo-6/9: <configDir>/bench-sandboxes/<invId=a-…>/<genId|incumbent>/<unitId>-<rep>/.bench/transcripts/<unitId>.jsonl,
+  latest invId (lex-max = chronological) wins; missing transcript (toy benches) = no member. >2MiB ⇒ refuse exit 1 naming member (never truncate).
+  Inspect additionally rejects evidence members matching r-…-<valId>-<rep>.jsonl against the contained spec's val ids.
+- GOTCHA (cost a red test): editing genome.jsonc BEFORE registerGenome does NOT make tree==registry spec — init.mjs already committed it;
+  export self-describes from the COMMIT tree, so fixture must `git commit -am` the spec edit (maskLiterals then land in tree spec).
+- GOTCHA: readTar treats the two 512B zero end-blocks as terminator — truncation INSIDE the padding looks valid unless the reader
+  requires ≥2 full zero blocks + block-multiple remainder at the break (my first impl silently accepted good.slice(0,-17)).
+- GOTCHA: rationale/frictionDigests reach the manifest inside a JSON.stringify — JSON does NOT escape '/', so HOME/path literals
+  survive into the serialized bytes verbatim ⇒ pre-mask fields AND final bytes (belt), scan over bytes catches both.
+- Inspect exit map: missing file / not-gzip / not-tar / traversal member / manifest missing|garbage|schema-fail / unknown digest_algo ⇒ 2;
+  sha|len mismatch, missing/extra member, fingerprint|label mismatch, benchDigest mismatch, mask leak, val evidence, patch.diff absent ⇒ 1.
+  Malformed inputs never stack-trace (cli funnel) — AC-tested with junk bytes, half tgz, hand-built traversal-header tar (test crafts raw
+  512B header because writeTar itself refuses traversal — good dogfood signal).
+- Deterministic tar (mtime 0, uid/gid 0, mode 0644, sorted members, JSON.stringify indent-2 + '\n' manifest) ⇒ re-export of unchanged
+  ledger is BYTE-IDENTICAL (AC-asserted). PAX 'x' path-override supported in reader for >100-char names; USTAR prefix split is the writer default.
+- benchProvenance v1 mapping: opencodeVersion from ledger row versions[bin==="opencode"] (toy ⇒ null), mutatorModel null until todo 11;
+  adapterConfigDigest = fingerprint of bench command surface + iface const; fixtureSeedId = fingerprint(seedCommand) when set;
+  statsConfigDigest = fingerprint(spec.bench.stats). Plan wording "everything that can move a score": unit CONTENTS, script CONTENTS
+  (grader/seed/reset files read from the gen tree), command templates, models, timeout, iface version — all in benchDigest.
+- Tests: src/test/bundle.test.ts 16 tests (3 pure-unit: benchDigest/tar/mask; 13 integration with real toy evolve+promote+CLI spawn,
+  planted transcripts, hand-built evil tar, handSeal third gen). Suite 197 → 213 ×2 green, no flakes. Evidence task-12-{failure,happy}.txt
+  (driver: node /tmp/opencode/task12-evidence.mjs happy|failure — leak refusal names 4 members pre-write + `[]` written after refusal).
