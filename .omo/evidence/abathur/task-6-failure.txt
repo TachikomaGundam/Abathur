@@ -1,0 +1,10 @@
+=== RED run 2026-09-09T09:42:23Z — todo 6 tests written first; module absent ===
+src/test/bench-fixture.test.ts(29,69): error TS2307: Cannot find module '../bench/fixture.js' or its corresponding type declarations.
+src/test/bench-fixture.test.ts(30,60): error TS2307: Cannot find module '../bench/fixture.js' or its corresponding type declarations.
+src/test/bench-fixture.test.ts(289,41): error TS2339: Property 'transcriptPath' does not exist on type 'RunResult'.
+
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 335.057166

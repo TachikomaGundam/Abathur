@@ -41,6 +41,8 @@ export interface RunResult {
   readonly exitCode: number | null;
   /** Recorded reason for timeout / infra_failed; absent for clean ok runs. */
   readonly note?: string | undefined;
+  /** Adapter-convention path where the run's transcript was captured, if any. */
+  readonly transcriptPath?: string | undefined;
 }
 
 export interface ScoreResult {
@@ -152,6 +154,8 @@ export interface ChildOptions {
   readonly argv: readonly string[];
   readonly cwd: string;
   readonly timeoutS: number;
+  /** Extra env overlaid on process.env (sandbox HOME etc.); LC_ALL=C always wins. */
+  readonly env?: Readonly<Record<string, string>> | undefined;
 }
 
 const STREAM_CAP_BYTES = 1024 * 1024;
@@ -185,7 +189,10 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
       cwd: opts.cwd,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, LC_ALL: "C" },
+      env:
+        opts.env === undefined
+          ? { ...process.env, LC_ALL: "C" }
+          : { ...process.env, ...opts.env, LC_ALL: "C" },
     });
     let stdout = "";
     let stderr = "";
@@ -220,4 +227,64 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
       resolve({ kind, exitCode: kind === "exited" ? code : null, stdout, stderr, reason });
     });
   });
+}
+
+// ------------------------------------------------- shared adapter plumbing
+
+/** Metrics for a run that produced no measurement (timeout / infra_failed). */
+export const ZERO_METRICS: RunMetrics = { tokensEst: 0, turns: 0 };
+
+export function childStatus(kind: ChildKind): RunStatus {
+  switch (kind) {
+    case "exited":
+      return "ok";
+    case "timeout":
+      return "timeout";
+    case "spawn_failed":
+      return "infra_failed";
+  }
+}
+
+export function inconclusive(unitId: string, reason: string): ScoreOutcome {
+  return { kind: "inconclusive", unitId, reason };
+}
+
+export function firstLine(text: string): string {
+  return (text.split("\n", 1)[0] ?? "").trim();
+}
+
+export type ParsedScore = Pick<ScoreResult, "score" | "pass" | "metrics">;
+
+/** Grader contract (toy + fixture): the LAST stdout line parses to {unit, score 0..1, pass, metrics}. */
+export function parseGraderLine(stdoutText: string): ParsedScore | null {
+  const last = stdoutText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .at(-1);
+  if (last === undefined) return null;
+  let doc: unknown;
+  try {
+    doc = JSON.parse(last);
+  } catch {
+    return null;
+  }
+  if (!isRecord(doc) || typeof doc.unit !== "string") return null;
+  if (!isFiniteNumber(doc.score) || doc.score < 0 || doc.score > 1) return null;
+  if (typeof doc.pass !== "boolean") return null;
+  const metrics = doc.metrics;
+  if (!isRecord(metrics) || !isCount(metrics.tokensEst) || !isCount(metrics.turns)) return null;
+  return { score: doc.score, pass: doc.pass, metrics: { tokensEst: metrics.tokensEst, turns: metrics.turns } };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isCount(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0;
 }
