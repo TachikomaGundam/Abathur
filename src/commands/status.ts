@@ -14,6 +14,13 @@ import { ledgerPath, ledgerRecordSchema, type LedgerRecord } from "../core/ledge
 import { gitOpts } from "../core/genome-paths.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
 import { tryGit } from "../util/git.js";
+import { readRegistry } from "../core/genome.js";
+import {
+  LEDGER_KIND_GRAFT_IMPORT,
+  decodeGraftImport,
+  listGraftQueue,
+  type GraftImportRow,
+} from "../core/graft-support.js";
 import type { CommandSpec } from "../cli.js";
 import { resolveUniqueEntry } from "./run.js";
 
@@ -106,7 +113,21 @@ async function runStatus(args: readonly string[]): Promise<ExitCode> {
   if (label === undefined || positional.length !== 1) cannotAnswer("status: expected exactly <label>", USAGE);
 
   const configDir = resolveConfigDir();
-  const entry = resolveUniqueEntry(configDir, label, "status");
+  // Todo 13: the pending-bench graft queue is a raw <configDir>/graft-queue/*
+  // read (graft-support owns the convention; status never Ledger.opens). An
+  // unregistered label with queued bundles still gets a queue view — the
+  // operator's "is my graft waiting?" question must be answerable by label.
+  const queue = listGraftQueue(configDir).filter((q) => q.genomeLabel === label);
+  const matches = readRegistry(configDir).entries.filter((e) => e.label === label);
+  if (matches.length > 1 || (matches.length === 0 && queue.length === 0)) {
+    resolveUniqueEntry(configDir, label, "status"); // identical ambiguity / not-registered exits
+  }
+  const entry = matches[0] ?? null;
+  if (entry === null) {
+    writeStdout(`genome: ${flat(label)} — not registered locally (pending-bench graft queue view)`);
+    renderQueue(queue);
+    return EXIT_OK;
+  }
   const repo = entry.spec.repoPath;
   const records = readLedgerRecords(ledgerPath(repo));
   const gens = generations(records);
@@ -134,9 +155,8 @@ async function runStatus(args: readonly string[]): Promise<ExitCode> {
   const quarantine = quarantineEntries(gens, records);
   writeStdout(`quarantine depth: ${String(quarantine.length)}`);
   if (quarantine.length > 0) writeStdout(`  pending: ${quarantine.slice(0, 10).join(", ")}${quarantine.length > 10 ? ` (+${String(quarantine.length - 10)} more)` : ""}`);
-  // Todo 12 owns the pending-bench graft queue; no queue-file convention exists
-  // yet, so the honest depth is 0 — status never fabricates queue entries.
-  writeStdout("pending-bench graft queue: 0 (todo 12 — no queue file convention yet)");
+  renderQueue(queue);
+  renderGraftDecisions(records);
 
   writeStdout(`generations (last ${String(Math.min(last, gens.length))} of ${String(gens.length)}):`);
   for (const g of gens.slice(-last)) {
@@ -154,6 +174,29 @@ async function runStatus(args: readonly string[]): Promise<ExitCode> {
   const caps = entry.spec.budget;
   writeStdout(`budget: candidates ${String(spent.candidates)}/${String(caps.maxCandidates)}, modelCalls ${String(spent.modelCalls)}/${String(caps.maxModelCalls)}, tokens ${String(spent.tokens)}/${String(caps.maxTokens)}, wallS ${spent.wallS.toFixed(2)}/${String(caps.maxWallS)}`);
   return EXIT_OK;
+}
+
+function renderQueue(queue: readonly { readonly bundleSha256: string; readonly bundlePath: string; readonly reason: string; readonly queuedAt: string }[]): void {
+  writeStdout(`pending-bench graft queue: ${String(queue.length)}`);
+  for (const q of queue) {
+    writeStdout(`  # ${sha12(q.bundleSha256)} bundle ${flat(q.bundlePath, 160)} reason ${flat(q.reason, 80)} queued ${flat(q.queuedAt, 40)}`);
+  }
+}
+
+// Quarantine section extension (todo 13): graft_import decision rows render
+// under their own heading — the generation-based quarantine depth above keeps
+// its exact todo-10 semantics. Undecodable rows are announced, never fabricated.
+function renderGraftDecisions(records: readonly LedgerRecord[]): void {
+  const rows = records.filter((r) => r.kind === LEDGER_KIND_GRAFT_IMPORT);
+  const decisions = rows.map((r) => decodeGraftImport(r.data)).filter((d): d is GraftImportRow => d !== null);
+  writeStdout(`graft decisions: ${String(decisions.length)}`);
+  if (decisions.length !== rows.length) {
+    writeStdout(`  warning: ${String(rows.length - decisions.length)} graft_import row(s) unreadable — shown as depth, never invented`);
+  }
+  for (const d of decisions.slice(-10)) {
+    const source = d.sourceGenomeFingerprint === null ? "?" : sha12(d.sourceGenomeFingerprint);
+    writeStdout(`  # ${sha12(d.bundleSha256)} ${d.decision} source ${source} ${flat(d.reason, 100)}`);
+  }
 }
 
 export const statusCommand: CommandSpec = {

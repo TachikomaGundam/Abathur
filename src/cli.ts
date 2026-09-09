@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { bundleCommand } from "./commands/bundle.js";
 import { genomeCommand } from "./commands/genome.js";
+import { graftCommand } from "./commands/graft.js";
 import { kernelCommand } from "./commands/kernel.js";
 import { promoteCommand } from "./commands/promote.js";
 import { runCommand } from "./commands/run.js";
@@ -52,7 +53,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   promoteCommand,
   tombstoneCommand,
   bundleCommand,
-  pending("graft", "import an offline bundle and graft its lineage"),
+  graftCommand,
   pending("self-eval", "evaluate the harness itself (abathur-self genome)"),
   kernelCommand,
 ];
