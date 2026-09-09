@@ -71,6 +71,18 @@ export const benchSchema = z
   });
 export type BenchSpec = z.infer<typeof benchSchema>;
 
+/**
+ * Bundle section (todo 12, additive): machine-local literals that `bundle export`
+ * masks out of every manifest/patch/evidence/README member (placeholders
+ * <HOME>/<GENOME>/<MASKED-n>). HOME and the genome repoPath are ALWAYS masked by
+ * the exporter; entries here EXTEND that set — typically from the gitignored
+ * *.local.jsonc overlay, keeping the committed spec machine-independent.
+ */
+export const bundleSectionSchema = z.strictObject({
+  maskLiterals: z.array(z.string().min(1)),
+});
+export type BundleSection = z.infer<typeof bundleSectionSchema>;
+
 export const genomeSpecSchema = z.strictObject({
   /** Free-form identity; genomes are distinguished by fingerprint, never by label. */
   label: z.string().min(1),
@@ -98,6 +110,7 @@ export const genomeSpecSchema = z.strictObject({
     )
     .optional(),
   opencodeBinVersion: z.strictObject({ minVersion: z.string().min(1) }).optional(),
+  bundle: bundleSectionSchema.optional(),
 });
 export type GenomeSpec = z.infer<typeof genomeSpecSchema>;
 

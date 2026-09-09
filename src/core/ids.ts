@@ -126,3 +126,63 @@ export function runId(genId: string, unitId: string, repIdx: number): string {
   }
   return `r-${genId}-${unitId}-${repIdx}`;
 }
+
+/**
+ * Version of the BenchAdapter interface contract (todo 5 `src/bench/adapter.ts`:
+ * reset/seed/run/score + RunResult/ScoreOutcome shapes). The todo 5 toy adapter and
+ * todo 6 fixture adapter both implement this iface; any breaking change to that
+ * surface must bump this constant so benchDigest values stop comparing across
+ * incompatible adapter generations.
+ */
+export const ADAPTER_IFACE_VERSION = "abathur-bench-adapter-v1";
+
+export interface BenchDigestUnit {
+  readonly unitId: string;
+  readonly content: Uint8Array | string;
+}
+
+export interface BenchDigestScript {
+  readonly path: string;
+  readonly content: Uint8Array | string;
+}
+
+/** Everything that can move a score, per plan oracle Major #6 (todo 12). */
+export interface BenchDigestInput {
+  readonly units: readonly BenchDigestUnit[];
+  /** FILE CONTENTS of grader/seed/reset scripts (absent command ⇒ absent entry). */
+  readonly scripts: readonly BenchDigestScript[];
+  readonly graderCommand: string;
+  readonly runCommand: string;
+  readonly judgeCommand?: string | undefined;
+  readonly agentModel?: string | undefined;
+  readonly judgeModel?: string | undefined;
+  readonly timeoutS: number;
+}
+
+function sha256Of(data: Uint8Array | string): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * Deterministic bench-configuration digest: sha256 over canonical JSON of the
+ * unit list (sorted by unitId), script contents (sorted by path), the command
+ * templates, models, timeout and the adapter iface version. Reordering units or
+ * scripts never moves it; any content or config change always does.
+ */
+export function benchDigest(input: BenchDigestInput): string {
+  return fingerprint({
+    adapterIface: ADAPTER_IFACE_VERSION,
+    agentModel: input.agentModel ?? null,
+    graderCommand: input.graderCommand,
+    judgeCommand: input.judgeCommand ?? null,
+    judgeModel: input.judgeModel ?? null,
+    runCommand: input.runCommand,
+    scripts: [...input.scripts]
+      .sort((a, b) => (a.path < b.path ? -1 : 1))
+      .map((s) => ({ path: s.path, sha256: sha256Of(s.content) })),
+    timeoutS: input.timeoutS,
+    units: [...input.units]
+      .sort((a, b) => (a.unitId < b.unitId ? -1 : 1))
+      .map((u) => ({ unitId: u.unitId, sha256: sha256Of(u.content) })),
+  });
+}
