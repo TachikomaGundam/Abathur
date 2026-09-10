@@ -1,7 +1,15 @@
 # The Immutable Kernel — what self-evolution may and may not touch
 
-This is the human-facing contract of `genomes/abathur-self.jsonc` (plan todo 11).
-It is finalized by todo 15; until then it is the seed's authoritative companion.
+This is the human-facing contract of the shipped seed `genomes/abathur-self.jsonc`
+and of `src/core/evolve/self-overlay.ts` / `self-snapshot.ts`. The seed's header
+comments restate the same contract in spec-adjacent form; where they are terse,
+this document is the expansion. Registration is fail-closed by design: every
+seal glob must cover at least one real file (the `graders/**` contract directory
+satisfies that since todo 14), and the seed stays byte-stable — its `repoPath` is
+the unresolved literal `${ABATHUR_SELF_REPO}`, so the spec fingerprint
+(`1913fcec…`) is identical on every machine and the checkout only resolves at
+filesystem seams. Point that variable at a git checkout with `npm ci` done; unset
+exits 2, naming the variable.
 
 ## The sealed set
 
@@ -23,6 +31,9 @@ Self cannot unseal: a candidate diff touching any sealed file is rejected at the
 path stage (`validateCandidate`), the kernel audit refuses runs against a drifted
 working tree (exit 1, before any state exists), and only the human `promote`
 command ever reseals the manifest — from the promoted tree, never the worktree.
+The sealed hashes live in a per-genome manifest under `<configDir>/kernels/`
+(written at registration, re-checked at every bench and `self-eval` entry);
+`abathur kernel audit <label>` compares that manifest against the working tree.
 
 **Consequence (accepted):** v1 self-evolution cannot change dependencies or
 build configuration. `package.json` and `tsconfig.json` ride outside the
@@ -51,6 +62,17 @@ by and score better while getting worse. The self-bench therefore composes:
    the golden toy-replay digest (`selfbench/replay.mjs`, expected from the
    TRUSTED copy). Pure incumbent-vs-incumbent is degenerate and forbidden; the
    incumbent build is the baseline, candidates are the overlaid builds.
+
+The seed's two bench units make the goalposts concrete: `suite` (train) is
+`node --test dist/test/**/*.test.js` built from the overlaid candidate sources;
+`golden-replay` (val) replays `selfbench/replay.mjs` and compares the digest
+against `selfbench/expected.json` — taken from the TRUSTED copy, so a candidate
+cannot move the val goalpost it is measured against. Both units score binary per
+rep, which is why the seed pins `stats.halfWidth 0.05, minEffect 0, nReps 2..4`:
+a nomination means "candidate src passes the incumbent-pinned suite AND the
+golden digest holds, non-degenerately, across reps". A pure incumbent-vs-incumbent
+comparison is degenerate and forbidden; an overlay with no effective change is
+downgraded to `indeterminate` by the overlay-empty guard, never nominated.
 
 The candidate worktree's own tests are never executed, and the scorer is invoked
 with snapshot paths only — structurally, nothing in `self-eval`/`self-snapshot`

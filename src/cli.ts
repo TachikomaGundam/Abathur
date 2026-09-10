@@ -4,6 +4,7 @@
 // Handlers return EXIT_OK or throw ExitSignal (see src/exit.ts) — never touch
 // process themselves, so they stay unit-testable.
 
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -114,7 +115,16 @@ async function main(argv: readonly string[]): Promise<void> {
   }
 }
 
-const invokedDirectly =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+// Node passes the symlink path (npm's global bin shim) as argv[1], so compare
+// realpaths — a plain resolve() made `npm i -g` installs silently no-op (todo 15
+// pack→install proof). realpathSync throws for missing files; the catch keeps
+// the guard false there, which is the pre-existing behavior.
+let invokedDirectly = false;
+try {
+  invokedDirectly =
+    process.argv[1] !== undefined &&
+    realpathSync(path.resolve(process.argv[1])) === fileURLToPath(import.meta.url);
+} catch {
+  invokedDirectly = false;
+}
 if (invokedDirectly) await main(process.argv.slice(2));
