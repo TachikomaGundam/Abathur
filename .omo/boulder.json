@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-10T05:53:02.371Z",
+      "updated_at": "2026-09-10T10:56:43.984Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -17,7 +17,10 @@
         "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
         "opencode:ses_f78bd978effeI97ScVflKvg4S3",
         "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
-        "opencode:ses_f761f933fffeOe9fwSZVw5TYka"
+        "opencode:ses_f761f933fffeOe9fwSZVw5TYka",
+        "opencode:ses_f7564a614ffeAgXvcIgA0Q8h8L",
+        "opencode:ses_f756382ffffemXSSXFhd56K68V",
+        "opencode:ses_f7519a72bffeg54SGHMVEeTT37"
       ],
       "session_origins": {
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
@@ -27,7 +30,10 @@
         "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
         "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
         "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended",
-        "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended"
+        "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended",
+        "opencode:ses_f7564a614ffeAgXvcIgA0Q8h8L": "appended",
+        "opencode:ses_f756382ffffemXSSXFhd56K68V": "appended",
+        "opencode:ses_f7519a72bffeg54SGHMVEeTT37": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -129,6 +135,17 @@
           "agent": "Sisyphus-Junior",
           "category": "deep",
           "updated_at": "2026-09-10T05:53:02.371Z"
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "Plan compliance audit",
+          "session_id": "opencode:ses_f7519a72bffeg54SGHMVEeTT37",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "started_at": "2026-09-10T07:18:37.905Z",
+          "status": "running",
+          "updated_at": "2026-09-10T10:56:43.984Z"
         }
       }
     }
@@ -136,7 +153,7 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-10T05:53:02.371Z",
+  "updated_at": "2026-09-10T10:56:43.984Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -145,7 +162,10 @@
     "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
     "opencode:ses_f78bd978effeI97ScVflKvg4S3",
     "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
-    "opencode:ses_f761f933fffeOe9fwSZVw5TYka"
+    "opencode:ses_f761f933fffeOe9fwSZVw5TYka",
+    "opencode:ses_f7564a614ffeAgXvcIgA0Q8h8L",
+    "opencode:ses_f756382ffffemXSSXFhd56K68V",
+    "opencode:ses_f7519a72bffeg54SGHMVEeTT37"
   ],
   "session_origins": {
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
@@ -155,7 +175,10 @@
     "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
     "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
     "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended",
-    "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended"
+    "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended",
+    "opencode:ses_f7564a614ffeAgXvcIgA0Q8h8L": "appended",
+    "opencode:ses_f756382ffffemXSSXFhd56K68V": "appended",
+    "opencode:ses_f7519a72bffeg54SGHMVEeTT37": "appended"
   },
   "plan_name": "abathur-harness",
   "task_sessions": {
@@ -257,6 +280,17 @@
       "agent": "Sisyphus-Junior",
       "category": "deep",
       "updated_at": "2026-09-10T05:53:02.371Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan compliance audit",
+      "session_id": "opencode:ses_f7519a72bffeg54SGHMVEeTT37",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "started_at": "2026-09-10T07:18:37.905Z",
+      "status": "running",
+      "updated_at": "2026-09-10T10:56:43.984Z"
     }
   },
   "agent": "atlas"
