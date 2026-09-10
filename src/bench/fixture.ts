@@ -19,6 +19,12 @@
 //     operator CLI switch `abathur run --include-val`. Without it the manifest
 //     keeps val entries as opaque aliases, even while those units are benched.
 // Scenario content stays opaque — no harness-specific parsing anywhere here.
+//
+// Pure-LOC documented exception (F2 review, 2026-09-10): 253 pure LOC, above the
+// 250 ceiling — the LOOP_VAL_AUTHORITY benching seam must live in-fixture beside
+// the exposure axis it is deliberately independent from (F1-fix2 pins both through
+// this module's surface; a minimal seam was mandated over splitting). Accepted
+// exception: do not grow this file; split at the next real feature.
 
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import os from "node:os";
