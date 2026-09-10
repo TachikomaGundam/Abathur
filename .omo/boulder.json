@@ -6,9 +6,9 @@
       "work_id": "abathur-harness-387f8c45",
       "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
       "plan_name": "abathur-harness",
-      "status": "active",
+      "status": "completed",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-10T10:56:43.984Z",
+      "updated_at": "2026-09-10T11:01:29.375Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -147,13 +147,15 @@
           "status": "running",
           "updated_at": "2026-09-10T10:56:43.984Z"
         }
-      }
+      },
+      "ended_at": "2026-09-10T11:01:29.375Z",
+      "elapsed_ms": 102828447
     }
   },
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
-  "status": "active",
-  "updated_at": "2026-09-10T10:56:43.984Z",
+  "status": "completed",
+  "updated_at": "2026-09-10T11:01:29.375Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -293,5 +295,7 @@
       "updated_at": "2026-09-10T10:56:43.984Z"
     }
   },
-  "agent": "atlas"
+  "agent": "atlas",
+  "ended_at": "2026-09-10T11:01:29.375Z",
+  "elapsed_ms": 102828447
 }
