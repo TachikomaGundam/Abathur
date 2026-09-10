@@ -71,7 +71,7 @@ function selectGens(rows: readonly GenRow[], select: BundleExportRequest["select
     for (const id of select.genIds) {
       const row = byId.get(id);
       if (row === undefined) {
-        blocked(`bundle export: no candidate generation_complete row for genId '${id}' in this ledger`, "list history with 'abathur status'");
+        cannotAnswer(`bundle export: no candidate generation_complete row for genId '${id}' in this ledger`, "list history with 'abathur status'");
       }
       if (!picked.some((r) => r.genId === id)) picked.push(row);
     }
@@ -130,7 +130,7 @@ function maskMemberText(plan: MaskPlan, text: string): Uint8Array {
 export async function exportBundle(req: BundleExportRequest): Promise<BundleExportOutcome> {
   const repo = req.entry.spec.repoPath;
   const chosen = selectGens(candidateRowsByGenId(repo), req.select);
-  if (chosen.length === 0) blocked("bundle export: the ledger holds no candidate generations yet");
+  if (chosen.length === 0) cannotAnswer("bundle export: the ledger holds no candidate generations yet", `abathur run --genome ${req.entry.spec.label} --mutator <template>`);
   for (const gen of chosen) {
     if (!PATH_SAFE.test(gen.genId)) {
       blocked(`bundle export: ledger genId '${gen.genId}' is not path-safe for member names or the output filename`, "repair or quarantine the tampered ledger row before exporting");
