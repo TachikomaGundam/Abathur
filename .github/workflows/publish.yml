@@ -1,0 +1,73 @@
+# npm Trusted Publishing (OIDC) — zero long-lived credentials on GitHub.
+#
+# One-time setup required in the npmjs.com UI (Publishing access →
+# "Trusted publisher" → Add publisher → GitHub Actions):
+#   Owner / user:   TachikomaGundam
+#   Repository:     Abathur
+#   Workflow name:  publish.yml
+#   Environment:    (leave empty unless you gate it)
+#   Release type:   progressive
+# The event this workflow publishes on is `push` (of a v* tag);
+# the action is `npm publish --provenance --access public`.
+#
+# If the trusted publisher is not registered, `npm publish` fails with
+# a 401/EPUBLISHCONFLICT — that is expected until the UI step is done.
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for npm Trusted Publishing (OIDC provenance)
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 24 ships npm >= 11.5.1, the minimum version that supports
+          # Trusted Publishing. Older npm silently falls back to token auth.
+          # NOTE: deliberately NO registry-url here — setting it injects
+          # NODE_AUTH_TOKEN and defeats OIDC (documented pitfall).
+          node-version: 24
+          cache: npm
+
+      - name: Enforce tag == package.json version
+        env:
+          GH_REF: ${{ github.ref }}
+          GH_EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "${GH_EVENT}" = "workflow_dispatch" ]; then
+            # A dispatch lands on the default-branch tip, which carries no tag,
+            # so the describe-based check below would ALWAYS fail there. Skip it:
+            # the npm-side trusted-publisher event config remains the real gate.
+            echo "::warning::manual dispatch publish — npm Trusted Publishing event config will reject this unless a workflow_dispatch publisher is registered"
+          elif [ "${GH_REF#refs/tags/}" != "${GH_REF}" ]; then
+            # push of a v* tag: HEAD must sit exactly on that tag and the tag
+            # (minus the leading v) must equal package.json version.
+            TAG="$(git describe --tags --exact-match HEAD)"
+            VERSION="$(node -p "require('./package.json').version")"
+            if [ "${TAG#v}" != "${VERSION}" ]; then
+              echo "::error::git tag '${TAG}' does not match package.json version '${VERSION}'"
+              exit 1
+            fi
+            echo "Publishing abathur@${VERSION} (tag ${TAG})"
+          else
+            echo "::error::unexpected event '${GH_EVENT}' on ref '${GH_REF}' — refusing to publish"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm publish --provenance --access public
