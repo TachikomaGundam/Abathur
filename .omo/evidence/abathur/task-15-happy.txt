@@ -1,0 +1,140 @@
+# task-15 happy evidence — npm pack -> tmp-HOME install -> toy loop run from a cwd OUTSIDE the repo
+# date: 2026-09-10 | Node v22.22.1 / npm 11.19.1 | base HEAD 8f73647 (tree adds README.md, docs/federation.md,
+#   finalizes docs/immutable-kernel.md, CHANGELOG.md, LICENSE + src/cli.ts bin-symlink realpath fix)
+# scratch env: tarball /tmp/abathur-t15/abathur-0.1.0.tgz -> npm i -g --prefix /tmp/abathur-t15/root;
+#   HOME=/tmp/abathur-t15/home  XDG_CACHE_HOME=/tmp/abathur-t15/xdg  cwd=/tmp/abathur-t15/work (external).
+# Below: the README quick-start commands executed verbatim against the INSTALLED package (opencode-free stub mutator).
+# Script: /tmp/opencode/t15-proof.sh (deleted after this capture).
+
+$ npm pack --dry-run 2>&1 | grep -E "dist/cli.js|stub-mutators|dist/genomes/toy-smoke|config/genomes|graders/|docs/|npm notice [0-9]+ files"
+copy-assets: src/core/evolve/stub-mutators.mjs -> dist/core/evolve/stub-mutators.mjs
+copy-assets: genomes/toy-smoke -> dist/genomes/toy-smoke
+npm notice 6.2kB config/genomes/historian.example.jsonc
+npm notice 4.3kB dist/cli.js
+npm notice 4.0kB dist/core/evolve/stub-mutators.mjs
+npm notice 765B dist/genomes/toy-smoke/genome.jsonc
+npm notice 2.1kB dist/genomes/toy-smoke/grader.mjs
+npm notice 2.4kB dist/genomes/toy-smoke/init.mjs
+npm notice 582B dist/genomes/toy-smoke/units/add.mjs
+npm notice 237B dist/genomes/toy-smoke/units/explode.mjs
+npm notice 640B dist/genomes/toy-smoke/units/hang.mjs
+npm notice 449B dist/genomes/toy-smoke/units/mul.mjs
+npm notice 625B dist/genomes/toy-smoke/units/mutate.mjs
+npm notice 461B dist/genomes/toy-smoke/units/sub.mjs
+npm notice 988B dist/test/stub-mutators.test.js
+npm notice 11.7kB docs/federation.md
+npm notice 5.5kB docs/immutable-kernel.md
+npm notice 2.0kB graders/historian/grader-core.d.mts
+npm notice 11.1kB graders/historian/grader-core.mjs
+npm notice 1.8kB graders/historian/grader-support.d.mts
+npm notice 5.7kB graders/historian/grader-support.mjs
+npm notice 4.5kB graders/historian/grader.mjs
+npm notice 5.1kB graders/historian/mutate.sh
+npm notice 2.7kB graders/historian/reset-sandbox.sh
+npm notice 2.4kB graders/historian/run-scenario.sh
+npm notice 1.7kB graders/historian/seed-wrapped.sh
+# Rationale (oracle Minor #9): the tarball ships dist/cli.js, dist/core/evolve/
+# stub-mutators.mjs, dist/genomes/toy-smoke/** (toy materialization), config/**,
+# docs/**, graders/** (shipped but inert without a checkout). Top-level genomes/
+# and selfbench/ are intentionally NOT in package.json "files": abathur-self is
+# registered from a git checkout (README Install), because its self-bench needs
+# .git + graders + installed node_modules — the package alone cannot run it.
+# The toy quick-start uses dist/genomes/toy-smoke, which ships. No files change needed.
+$ npm pack --pack-destination /tmp/abathur-t15 && npm i -g --prefix /tmp/abathur-t15/root /tmp/abathur-t15/abathur-0.1.0.tgz
+1 package is looking for funding
+  run `npm fund` for details
+$ ls $(npm root -g-equivalent)/abathur/bin symlink:
+total 0
+lrwxrwxrwx 1 lab lab 39 Sep 10 14:35 abathur -> ../lib/node_modules/abathur/dist/cli.js
+$ abathur --help | head -5
+abathur — OpenCode genome evolution harness
+
+usage: abathur <command> [args...]
+
+commands:
+$ node "$ABATHUR_PKG/dist/genomes/toy-smoke/init.mjs" ./genome && abathur genome add ./genome/genome.jsonc
+/tmp/abathur-t15/work/genome
+registered genome 'toy-smoke' (f29a8f653648ce82)
+exit:0
+$ abathur run --genome toy-smoke --max-candidates 2 --mutator "node $PWD/toy-stub.mjs --lib ... --dir {worktree} --brief {brief}"
+incumbent baseline: 4 units x 2 reps
+candidate fix-add [tree cbc27a991cf9]: nominated (gain 0.5000, reps 2)
+candidate break-mul [tree 52b89d61da91]: culled (gain -0.3333, reps 2)
+  gate: gain -0.3333 < minEffect 0.5000
+budget spent: candidates=2 tokens=2592 wallS=4.286 (caps candidates=2 tokens=100000 wallS=300)
+exit:0
+$ abathur status toy-smoke
+genome: toy-smoke (f29a8f653648ce82)  repo: /tmp/abathur-t15/work/genome
+incumbent: none
+quarantine depth: 1
+  pending: g-20260910T063601Z-22978057
+pending-bench graft queue: 0
+graft decisions: 0
+generations (last 3 of 3):
+  # g-20260910T063557Z-eb80c954  incumbent-baseline  verdict=—  gain=—  cand=0 model=0 tok=870 wall=1.48s
+  # g-20260910T063601Z-22978057  candidate fix-add  verdict=nominated  gain=+0.500  cand=1 model=0 tok=850 wall=1.38s
+  # g-20260910T063601Z-6f915346  candidate break-mul  verdict=culled  gain=-0.333  cand=1 model=0 tok=872 wall=1.42s
+budget: candidates 2/4, modelCalls 0/16, tokens 2592/100000, wallS 4.29/300
+$ abathur bundle export toy-smoke --gen "$NOM" --out ./bundles   (twice, into two dirs)
+bundle export: bundles/abathur-f29a8f653648ce82-g-20260910T063601Z-22978057.bundle.tgz
+  genome toy-smoke fingerprint f29a8f653648ce82…, gens: g-20260910T063601Z-22978057
+  13 members, patch 47902241..e184e333, benchDigest 6b3910e89a830af7…
+bundle export: bundles2/abathur-f29a8f653648ce82-g-20260910T063601Z-22978057.bundle.tgz
+  genome toy-smoke fingerprint f29a8f653648ce82…, gens: g-20260910T063601Z-22978057
+  13 members, patch 47902241..e184e333, benchDigest 6b3910e89a830af7…
+# byte-equality of deterministic re-export:
+772fedfc1eb35ab1c793b06daa8ecc70310be44f3911601a7f92d17d06fa1a86  bundles/abathur-f29a8f653648ce82-g-20260910T063601Z-22978057.bundle.tgz
+772fedfc1eb35ab1c793b06daa8ecc70310be44f3911601a7f92d17d06fa1a86  bundles2/abathur-f29a8f653648ce82-g-20260910T063601Z-22978057.bundle.tgz
+$ abathur bundle inspect bundles/*.bundle.tgz
+bundle inspect: OK — toy-smoke fingerprint f29a8f653648ce82…
+  gens: g-20260910T063601Z-22978057 (primary g-20260910T063601Z-22978057, parent 47902241…)
+  13 members re-hashed, benchDigest + mask scan re-verified, verdict: nominated
+exit:0
+$ abathur graft bundles2/abathur-*.bundle.tgz --genome toy-smoke   (LOCAL re-bench; peer claim never trusted)
+notice: 2 unrelated dirty path(s) in the genome repo — graft benches the SEALED bundle tree only
+graft applied: bundle 772fedfc1eb3 → fresh worktree g-20260910T063609Z-274677af (commit 5dfac9b559ba, tree cbc27a991cf9)
+incumbent baseline @ 4790224153f5 already benched — reusing 4 unit rows
+graft nominated: local score is authoritative (gain 0.5000, reps 2, LOCAL thresholds) — peer claimed nominated @ nRepeats 2; imported:true + source f29a8f653648ce82… booked
+  human gate: 'abathur promote toy-smoke g-20260910T063609Z-274677af' — graft itself never promotes
+exit:0
+$ abathur promote toy-smoke "$NOM"
+promoted 'toy-smoke' (f29a8f653648ce82): incumbent branch created -> e184e333aa02 (gen g-20260910T063601Z-22978057)
+manifest: rewrote ../home/.config/abathur/kernels/f29a8f653648ce82.json from tree e184e333aa02 (1 sealed entry)
+ledger: appended 'promote' row (actor: cli) to /tmp/abathur-t15/work/genome/.state/abathur/ledger.jsonl
+exit:0
+$ abathur run --genome toy-smoke --dry-run   (plan + requires[] probes, zero spawns)
+run plan — genome 'toy-smoke' (f29a8f653648ce82)
+  repo: /tmp/abathur-t15/work/genome
+  bench: toy — timeoutS=10 stats minEffect=0.5 halfWidth=0.25
+  units: add(train) mul(train) explode(train) sub(val)
+  reps: 2
+  budget caps: maxCandidates=4 maxModelCalls=16 maxTokens=100000 maxWallS=300
+  resume: continue after completed generation g-20260910T063609Z-274677af (4 generation row(s) already recorded)
+  resume: incumbent bench: present (47902241)
+  resume: spent candidates=3 modelCalls=0 tokens=3442 wallS=5.717
+  candidate source: NOT CONFIGURED — a real run requires --mutator <template> (exit 2 before any spawn)
+  kernel audit: clean (dry-run mutates nothing: no ledger touch, no lock, no reap, no spawns)
+exit:0
+$ ABATHUR_SELF_REPO=<checkout> abathur genome add $ABATHUR_SELF_REPO/genomes/abathur-self.jsonc   (machine-independent fingerprint)
+registered genome 'abathur-self' (1913fcec3f2b015c)
+exit:0
+$ abathur kernel audit abathur-self
+sealed clean: 'abathur-self' (1913fcec3f2b015c)
+exit:0
+$ abathur genome list
+1913fcec3f2b015c  abathur-self
+f29a8f653648ce82  toy-smoke
+=== README zh/en parity check ===
+EN headings: 11 | ZH headings: 11
+EN h3: 10 | ZH h3: 10
+level shapes equal: yes
+parity exit:0
+=== grep gates ===
+$ grep -rnE '/home/lab|historian' src/ | grep -v '^src/test/'
+hits above (none expected); gate exit:1  (1 = zero hits = PASS)
+$ grep -rn "TODO\|FIXME" src/ docs/ config/ genomes/ graders/ scripts/
+exit:1 (1 = zero scaffolds = PASS)
+=== suite ===
+# tests 281
+# pass 281
+# fail 0

@@ -1,0 +1,25 @@
+# task-15 failure evidence — the doc gates fire on planted violations
+# date: 2026-09-10 | scratch file src/zz-scratch-literal.ts planted then deleted; no residue in git status.
+# Part 1: /home/lab + historian literal and a TODO scaffold each turn the grep gates red, green after removal.
+# Part 2: README parity checker accepts the real mirror (11/11) and rejects a planted zh-only heading (11/12).
+
+### 1. grep gate: a planted machine literal in src/ MUST be caught
+$ grep -rnE '/home/lab|historian' src/ | grep -v '^src/test/'
+src/zz-scratch-literal.ts:2:const p = "/home/lab/workspace/something"; // machine literal
+src/zz-scratch-literal.ts:3:const h = "historian"; // product literal
+gate exit:0 (hits printed = gate correctly RED on the planted file)
+$ grep -rn "TODO\|FIXME" src/ docs/ config/ genomes/ graders/ scripts/
+  (also planted:)
+src/zz-scratch-literal.ts:5:// TODO: scaffold that must not ship
+scaffold grep exit:0 (TODO correctly caught)
+--- violation removed —
+$ grep -rnE '/home/lab|historian' src/ | grep -v '^src/test/'; echo exit:0
+exit:1 (1 = zero hits = GREEN)
+$ grep -rn 'TODO\|FIXME' src/ docs/ config/ genomes/ graders/ scripts/; echo exit:0
+exit:1 (1 = zero scaffolds = GREEN)
+
+### 2. README zh/en heading parity: a planted drift MUST fail the checker
+real README: {"ok":true,"en":11,"zh":11}
+drifted README: {"ok":false,"en":11,"zh":12}
+PARITY CHECKER: PASS (accepts mirror, rejects drift)
+checker exit:0

@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-10T05:49:39.073Z",
+      "updated_at": "2026-09-10T05:53:02.371Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -16,7 +16,8 @@
         "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
         "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
         "opencode:ses_f78bd978effeI97ScVflKvg4S3",
-        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh"
+        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
+        "opencode:ses_f761f933fffeOe9fwSZVw5TYka"
       ],
       "session_origins": {
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
@@ -25,7 +26,8 @@
         "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
         "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
         "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
-        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended"
+        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended",
+        "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -118,6 +120,15 @@
           "updated_at": "2026-09-10T05:49:39.073Z",
           "ended_at": "2026-09-10T05:49:39.073Z",
           "elapsed_ms": 51917693
+        },
+        "todo:15": {
+          "task_key": "todo:15",
+          "task_label": "15",
+          "task_title": "Docs, portability proof, packaging hygiene",
+          "session_id": "opencode:ses_f761f933fffeOe9fwSZVw5TYka",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-09-10T05:53:02.371Z"
         }
       }
     }
@@ -125,7 +136,7 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-10T05:49:39.073Z",
+  "updated_at": "2026-09-10T05:53:02.371Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -133,7 +144,8 @@
     "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
     "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
     "opencode:ses_f78bd978effeI97ScVflKvg4S3",
-    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh"
+    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
+    "opencode:ses_f761f933fffeOe9fwSZVw5TYka"
   ],
   "session_origins": {
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
@@ -142,7 +154,8 @@
     "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
     "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
     "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
-    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended"
+    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended",
+    "opencode:ses_f761f933fffeOe9fwSZVw5TYka": "appended"
   },
   "plan_name": "abathur-harness",
   "task_sessions": {
@@ -235,6 +248,15 @@
       "updated_at": "2026-09-10T05:49:39.073Z",
       "ended_at": "2026-09-10T05:49:39.073Z",
       "elapsed_ms": 51917693
+    },
+    "todo:15": {
+      "task_key": "todo:15",
+      "task_label": "15",
+      "task_title": "Docs, portability proof, packaging hygiene",
+      "session_id": "opencode:ses_f761f933fffeOe9fwSZVw5TYka",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-09-10T05:53:02.371Z"
     }
   },
   "agent": "atlas"
