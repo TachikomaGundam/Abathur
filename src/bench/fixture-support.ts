@@ -168,12 +168,16 @@ export function writeManifest(sandboxDir: string, entries: readonly ScenarioEntr
   );
 }
 
-/** Train/val discrimination is by SPLIT FIELD ONLY; val needs the operator flag. */
-export function gateVal(unit: BenchUnit, includeVal: boolean): void {
-  if (unit.split === "val" && !includeVal) {
+/**
+ * Train/val discrimination is by SPLIT FIELD ONLY. allowVal = the caller's
+ * benching permission: operator includeVal OR the loop's internal
+ * loopValAuthority (see FixtureAdapterOptions; F1-fix2).
+ */
+export function gateVal(unit: BenchUnit, allowVal: boolean): void {
+  if (unit.split === "val" && !allowVal) {
     cannotAnswer(
       `fixture: unit '${unit.id}' is a val-split scenario and requires the operator flag --include-val`,
-      "val splits stay hidden from the evolution loop; rerun 'abathur run' with --include-val to bench them",
+      "the evolution loop benches val replicates under its internal loopValAuthority; this refusal is for a direct adapter consumer that never opted in — pass includeVal (CLI: 'abathur run --include-val', which additionally EXPOSES val ids/paths in the manifest)",
     );
   }
 }

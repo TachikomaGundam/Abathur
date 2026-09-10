@@ -56,9 +56,11 @@ export interface RunLoopOptions {
   readonly maxCandidates?: number | undefined;
   readonly dryRun?: boolean | undefined;
   /**
-   * Operator switch (CLI --include-val): let the fixture bench run val-split
-   * units and show their paths. Fixture-only — a toy genome rejects it with
-   * exit 2 before anything is spent, never silently ignoring the request.
+   * Operator switch (CLI --include-val): EXPOSE val-split scenario ids/paths
+   * in this run's bench manifest. Val replicates are benched ALWAYS (run-bench
+   * LOOP_VAL_AUTHORITY — the nomination gate needs them); this flag only opens
+   * their visibility. Fixture-only — a toy genome rejects it with exit 2
+   * before anything is spent, never silently ignoring the request.
    */
   readonly includeVal?: boolean | undefined;
   readonly opencodeBin?: string | null | undefined;

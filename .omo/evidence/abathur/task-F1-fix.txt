@@ -126,3 +126,102 @@ $ npm test
 ================================================================================
 VERDICT: both findings fixed, RED-first evidence above, tree clean, 285/285.
 ================================================================================
+
+================================================================================
+F1-fix2 (2026-09-10): REGRESSION FIX — loop val-benching authority vs operator
+exposure. HEAD at capture: 3c6bbf9 (the F1 fix above introduced this regression
+by gating the loop's bench seam on the CLI flag).
+================================================================================
+
+## WHAT 3c6bbf9 BROKE
+It flipped the fixture case in openBenchAdapter (run-bench.ts) from
+`includeVal: true` (unconditional, pre-regression baseline 1d7a629^) to
+`includeVal: opts.includeVal === true` (default false) while benchTarget still
+iterates EVERY unit — train AND val. Any default `abathur run` on a val-bearing
+fixture genome therefore died at the FIRST val unit, mid-bench, after spending
+probes/reset/seed budget and before any generation row: SC4 (one bounded
+generation on the shipped fixture genome) and T7 (val-regression nomination
+gate, which REQUIRES val replicates, plan lines 125-132) unreachable on the
+default path. 285/285 stayed green because no loop-level test benched a
+val-bearing fixture genome without the flag (blind spot: historian-genome.test
+only ever DRY-RUNS fixture genomes — dry-run returns before any bench).
+
+## RED — new loop-level test src/test/fixture-loop.test.ts at UNFIXED HEAD 3c6bbf9
+$ node --test dist/test/fixture-loop.test.js
+TAP (excerpt; full capture saved to this section):
+  not ok 1 - regression: default run (NO --include-val) benches val replicates and completes
+    error: "fixture: unit 'v1' is a val-split scenario and requires the operator flag --include-val"
+    code: 2
+    name: 'ExitSignal'
+    stack: |-
+      cannotAnswer (dist/exit.js:26:11)
+      gateVal (dist/bench/fixture-support.js:141:9)
+      FixtureScenariosAdapter.run (dist/bench/fixture.js:71:9)
+      async benchTarget (dist/core/evolve/run-bench.js:111:29)
+      async evolve (dist/core/evolve/run-loop.js:127:21)
+      async runEvolution (dist/core/evolve/run-loop.js:88:16)
+  ok 2 - --include-val completes the run AND exposes val ids/paths in this run's manifests
+  not ok 3 - regression: candidate bench (second seam) also carries val replicates without the flag
+    error: "fixture: unit 'v1' is a val-split scenario and requires the operator flag --include-val"
+    code: 2 / name: 'ExitSignal' (same gateVal stack, candidate-bench call site)
+# pass 1  # fail 2
+Test 2 GREEN pre-fix is expected: the flag-on path always worked; tests 1+3 are
+the regression, crashing mid-bench exactly as F1 predicted (incumbent seam and
+candidate seam).
+
+## FIX (design: split the conflated axes — BENCHING AUTHORITY vs PATH EXPOSURE)
+- src/bench/fixture.ts: FixtureAdapterOptions gains `loopValAuthority` (run/score
+  val WITHOUT touching the manifest); gateVal now takes
+  `valRunAllowed() = includeVal === true || loopValAuthority === true`;
+  scenarioManifest() stays gated by includeVal ALONE (exposure unchanged);
+  header + docs rewritten to the two-axis truth.
+- src/core/evolve/run-bench.ts: `const LOOP_VAL_AUTHORITY = true` (comment cites
+  plan 117-124/125-132/SC4 + this regression); benchTarget ALWAYS passes
+  loopValAuthority to openBenchAdapter and forwards includeVal (exposure) only
+  when the operator flag is on. graft-rebench's two benchTarget calls inherit
+  authority automatically (same selection gate).
+- src/bench/fixture-support.ts: gateVal(unit, allowVal) — refusal MESSAGE kept
+  verbatim (pinned by /--include-val/ regexes); hint rewritten honest (direct
+  adapter consumers still default-deny — todo-6 invariant, bench-fixture AC(B)
+  untouched).
+- src/core/evolve/run-loop.ts + src/commands/run.ts: includeVal docs now state
+  EXPOSURE semantics + always-bench truth (no lying sentences). README grep:
+  contains no --include-val text ⇒ untouched.
+- WHY NOT `includeVal ?? true` at the loop (the task's fallback reading): the
+  single option also drives buildManifest exposure ⇒ the loop would ALWAYS leak
+  val ids/paths into every sandbox manifest (mutator-facing todo-6 violation,
+  pinned by include-val.test.ts factory-default + bench-fixture AC(B)) and the
+  CLI flag would be a pure no-op on run. The split makes --include-val honest:
+  off = val benched-but-opaque (matrix rows present, manifest aliases only);
+  on = same bench PLUS val ids/paths exposed.
+- Toy fail-closed guard from 3c6bbf9 KEPT verbatim (run-loop.ts) + both of its
+  tests kept (include-val.test.ts, run-loop.test.ts CLI wiring).
+
+## GREEN — post-fix
+$ node --test dist/test/{include-val,run-loop,bench-fixture,fixture-loop}.test.js
+1..34  # tests 34  # pass 34  # fail 0   (was 31 suite tests + 3 new)
+- fixture-loop test 1: NO flag ⇒ exit 0, line 'incumbent baseline: 2 units x 2
+  reps', matrix rows t1 [1,1] + v1 [0.75,0.75] (val benched under loop
+  authority), every sandbox manifest opaque (no sval-canary-ZZHIDDEN, val
+  id/path undefined).
+- fixture-loop test 2: WITH flag ⇒ exit 0, val benched, manifests expose
+  id 'v1' + path scenarios/sval-canary-ZZHIDDEN.md.
+- fixture-loop test 3: valid touch-candidate, NO flag ⇒ candidate bench carried
+  v1 [0.75,0.75], gate culled (minEffect), run exit 1 (BLOCKED, no promotion).
+
+$ npm run build   # exit 0, 0 TS errors
+$ npm test
+1..264
+# tests 288
+# suites 16
+# pass 288
+# fail 0
+# duration_ms 157220.368823
+(285 pre-existing + 3 new loop-level pins; d7 gate green after de-literaling
+the SC4 comment — first full run caught 'historian' in run-bench.ts, fixed.)
+
+$ git diff 3c6bbf9 -- src/test/bench-fixture.test.ts   # EMPTY (AC(B) byte-unchanged)
+
+## VERDICT: regression pinned by failing loop-level test, fixed by the
+## authority/exposure split, full suite 288/288, all 3c6bbf9 guards intact.
+================================================================================

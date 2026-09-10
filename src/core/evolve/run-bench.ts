@@ -52,8 +52,18 @@ export interface OpenAdapterOptions {
   readonly env?: ConfigEnv | undefined;
   readonly opencodeBin?: string | undefined;
   readonly onChild?: ((handle: ChildHandle) => void) | undefined;
-  /** Operator val gate (CLI --include-val); default false keeps val hidden. */
+  /**
+   * Operator val EXPOSURE gate (CLI --include-val): val ids/paths surface in
+   * the sandbox manifest, and direct consumers additionally gain the right to
+   * run val units. Default false keeps val hidden.
+   */
   readonly includeVal?: boolean | undefined;
+  /**
+   * Selection-gate benching authority for loop drivers (benchTarget passes
+   * LOOP_VAL_AUTHORITY): run/score val replicates WITHOUT path exposure.
+   * Internal wiring only — never sourced from a CLI flag.
+   */
+  readonly loopValAuthority?: boolean | undefined;
 }
 
 /** toy ⇒ stateless adapter; fixture ⇒ ctor acquires the fingerprint lock immediately. */
@@ -67,8 +77,10 @@ export function openBenchAdapter(spec: GenomeSpec, opts: OpenAdapterOptions): Be
     case "opencode-fixture-scenarios": {
       const adapter = new FixtureScenariosAdapter(spec, {
         configDir: opts.configDir,
-        // plan line 118: val units run ONLY when the operator passed --include-val
+        // plan line 118: val paths surface in the manifest ONLY when the
+        // operator passed --include-val; authority to BENCH them is separate.
         includeVal: opts.includeVal === true,
+        loopValAuthority: opts.loopValAuthority === true,
         ...envOpts,
         ...binOpts,
         ...childOpts,
@@ -84,6 +96,19 @@ export function openBenchAdapter(spec: GenomeSpec, opts: OpenAdapterOptions): Be
 
 // ------------------------------------------------------------- bench runner
 
+/**
+ * benchTarget is the evolution loop's bench driver, and the selection gate is
+ * its consumer: nomination REQUIRES val replicates (plan lines 125-132) and
+ * SC4 benches the shipped fixture genome train+val (plan line 214) — so the loop
+ * ALWAYS benches val units, with or without the operator flag. Commit 3c6bbf9
+ * conflated this with `--include-val` and every default `abathur run` on a
+ * val-bearing fixture genome crashed (exit 2) at the first val unit, mid-bench,
+ * before any generation row; src/test/fixture-loop.test.ts pins the fix.
+ * Exposure of val ids/paths (adapter manifest) remains the operator's
+ * includeVal alone. Do NOT gate loop benching on the operator flag again.
+ */
+const LOOP_VAL_AUTHORITY = true;
+
 export interface BenchTargetOptions {
   readonly spec: GenomeSpec;
   readonly genId: string;
@@ -96,7 +121,11 @@ export interface BenchTargetOptions {
   readonly configDir: string;
   readonly env?: ConfigEnv | undefined;
   readonly opencodeBin?: string | undefined;
-  /** Operator val gate forwarded from the run loop (CLI --include-val). */
+  /**
+   * Operator val EXPOSURE gate forwarded from the run loop (CLI --include-val).
+   * Val units are benched regardless (LOOP_VAL_AUTHORITY); this flag alone
+   * decides whether val ids/paths surface in this run's sandbox manifest.
+   */
   readonly includeVal?: boolean | undefined;
   /**
    * Snapshot-overlay mode (todo 11 self genome): when present the bench runs
@@ -162,6 +191,7 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
   let complete = true;
   const bundle = openBenchAdapter(o.spec, {
     configDir: o.configDir,
+    loopValAuthority: LOOP_VAL_AUTHORITY,
     ...(o.includeVal === true ? { includeVal: true } : {}),
     ...(o.env === undefined ? {} : { env: o.env }),
     ...(o.opencodeBin === undefined ? {} : { opencodeBin: o.opencodeBin }),
