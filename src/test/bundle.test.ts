@@ -685,7 +685,7 @@ test("stale_state: --last N picks the N newest candidate gens; primary = newest;
   assert.ok(listBundles(f).some((n) => n.endsWith(`-${third.genId}.bundle.tgz`)), "newest gen picked");
 
   const bad = cli(f, "bundle", "export", "toy-smoke", "--gen", "g-20200101T000000Z-deadbeef", "--out", bundleDir(f));
-  assert.equal(bad.status, 1);
+  assert.equal(bad.status, 2, "no-data gen miss is cannot-answer, not a recorded decision");
   assert.match(bad.stderr + bad.stdout, /g-20200101T000000Z-deadbeef/, "unknown genId is NAMED");
 });
 
