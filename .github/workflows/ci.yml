@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build & test (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # NOTE: deliberately NO registry-url here. Setting registry-url makes
+          # setup-node inject NODE_AUTH_TOKEN, which switches npm to authenticated
+          # legacy auth and defeats Trusted Publishing (OIDC) downstream.
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

@@ -1,0 +1,124 @@
+// Historian genome instance (plan todo 14) — the first REAL genome.
+//
+// This file is a TEMPLATE: every machine-specific value is a ${ENV}-style
+// placeholder. Repo-tracked config must contain ZERO machine literals
+// (todo-15 grep gate). Materialize it for a live run by substituting the
+// placeholders from your environment into a PRIVATE copy (never committed),
+// then `abathur genome add <private-copy>`:
+//
+//   ${ABATHUR_HISTORIAN_REPO}  absolute path of the historian bench repo
+//                              (contains scenarios/, rubric.md, seed_sandbox.sh)
+//   ${ABATHUR_REPO}            absolute path of THIS Abathur checkout
+//                              (hosts graders/historian/*)
+//   ${ABATHUR_WIKI_BASE}       canonical wiki root, e.g. http://localhost:3000
+//                              (the /graphql endpoint is derived from it)
+//   ${ABATHUR_WIKI_OPS}        absolute path of the wiki-ops CLI script
+//
+// Live-run env the wrapper scripts require (exported by the operator shell,
+// never stored in config): ABATHUR_WIKI_KEY_FILE (wikijs admin token file;
+// defaults to $HOME/.wikijs-api-key inside the sandbox home).
+//
+// Bench protocol (src/bench/fixture.ts): per unit the adapter runs
+// reset -> seed -> run -> score in <configDir>/bench-sandboxes/<invId>/…
+// with HOME = the mirrored sandbox home; the scenario agent is spawned by
+// runCommand (opencode headless), the transcript is recorded at
+// $ABATHUR_TRANSCRIPT, and graderCommand emits the ONE-JSON-line score.
+//
+// Scoring (plan line 185, implemented in graders/historian/grader-core.mjs):
+// full scenarios Σ(w·d)/12 with pass = Σ ≥ 10 ∧ G = 1 (G hard gate);
+// scenario-05 renormalizes over the applicable set: (G+H+judgment)/3.
+// judgeCommand is deliberately UNWIRED: the fixture adapter never executes
+// it, so subjective dims A-D fall back to script-first mechanical proxies
+// (see the header comments in graders/historian/grader-core.mjs + learnings
+// §Todo 14).
+{
+  "label": "historian",
+  "repoPath": "${ABATHUR_HISTORIAN_REPO}",
+  "bench": {
+    "type": "opencode-fixture-scenarios",
+    "units": [
+      { "id": "scenario-01", "path": "scenarios/01-new-finding.md", "split": "train" },
+      { "id": "scenario-02", "path": "scenarios/02-incident.md", "split": "train" },
+      { "id": "scenario-03", "path": "scenarios/03-overlap-integration.md", "split": "train" },
+      { "id": "scenario-04", "path": "scenarios/04-organize-mess.md", "split": "val" },
+      { "id": "scenario-05", "path": "scenarios/05-worthiness-gate.md", "split": "train" },
+      { "id": "scenario-06", "path": "scenarios/06-incident-g1-format.md", "split": "train" },
+      { "id": "scenario-07", "path": "scenarios/07-zh-url-reporting.md", "split": "train" },
+      { "id": "scenario-08", "path": "scenarios/08-current-state-g5.md", "split": "train" },
+      { "id": "scenario-09", "path": "scenarios/09-timeline-week-groups.md", "split": "val" }
+    ],
+    "seedCommand": "bash ${ABATHUR_REPO}/graders/historian/seed-wrapped.sh ${ABATHUR_HISTORIAN_REPO}/seed_sandbox.sh",
+    "resetCommand": "bash ${ABATHUR_REPO}/graders/historian/reset-sandbox.sh",
+    "runCommand": "bash ${ABATHUR_REPO}/graders/historian/run-scenario.sh {unit.id} ${ABATHUR_HISTORIAN_REPO}/{unit.path}",
+    "graderCommand": "node ${ABATHUR_REPO}/graders/historian/grader.mjs {unit.id} ${ABATHUR_HISTORIAN_REPO}/{unit.path} ${ABATHUR_WIKI_BASE}",
+    "agentModel": "bailian-token-plan/qwen3.8-flash",
+    // Real agent runs, not unit tests: 1200s caps one stuck scenario without
+    // poisoning the generation (timeout => unscored/inconclusive, excluded by
+    // the stats layer). seed+reset hooks share a FIXED 60s adapter budget
+    // (fixture.ts HOOK_TIMEOUT_S) — measured full seed is 15.4s and reset
+    // (wiki-ops deletes + cache-refresh) ~15s, so both fit with margin.
+    "timeoutS": 1200,
+    "stats": {
+      "halfWidth": 0.15,
+      "minEffect": 0.1,
+      "nReps": { "initial": 1, "max": 3 }
+    }
+  },
+  // maxCandidates=3: the live campaign spends two generations on the
+  // back-to-back reset-equivalence proof (plan 182) and one on the bundle
+  // export AC (the first candidate trees sealed a too-short maskLiterals set,
+  // so their export correctly refuses — masking gate proven by refusal); a
+  // curator can lower this back to 1/2 once the campaign is archived. Wall/
+  // token caps are the hard stop for the live episode: 10 units x 2 benches x
+  // <=1200s worst case = 6.7h, so 8h bounds the run with slack (budget trip
+  // => inconclusive).
+  "budget": {
+    "maxCandidates": 3,
+    "maxModelCalls": 96,
+    "maxTokens": 80000000,
+    "maxWallS": 28800
+  },
+  // The bench surface is sealed: the mutator can never move scenario content,
+  // the rubric, the seeder, or the grading baseline (P5 / kernel audit).
+  "kernel": {
+    "immutableGlobs": [
+      "scenarios/**",
+      "rubric.md",
+      "seed_sandbox.sh",
+      "baseline/**",
+      "README.md"
+    ]
+  },
+  "requires": [
+    { "cmd": "python3", "args": ["${ABATHUR_WIKI_OPS}", "list"], "probeExit": 0 },
+    { "cmd": "curl", "args": ["-sf", "${ABATHUR_WIKI_BASE}"], "probeExit": 0 }
+  ],
+  "opencodeBinVersion": { "minVersion": "1.18.0" },
+  // Evidence masking for `bundle export` (todo 12): HOME + repoPath are always
+  // masked; the wiki origin plus the generic Unix roots below cover what live
+  // agents actually echo into transcripts (sandbox /tmp/... paths, /opt/wiki-ops
+  // CLI output, /mnt//var//etc host facts gathered during a scenario). The
+  // export gate fail-closes on ANY surviving /<machine-root>/, so without these
+  // declarations a real-run bundle refuses to write (observed live, task-14).
+  // The operator home root is intentionally absent here: HOME is masked
+  // automatically, and repo-tracked config must stay free of home-path literals
+  // (todo-15 grep gate).
+  "bundle": {
+    "maskLiterals": [
+      "${ABATHUR_WIKI_BASE}",
+      "/opt/",
+      "/tmp/",
+      "/var/",
+      "/etc/",
+      "/usr/",
+      "/mnt/",
+      "/srv/",
+      "/proc/",
+      "/sys/",
+      "/media/",
+      "/private/",
+      "/Users/",
+      "/root/"
+    ]
+  }
+}

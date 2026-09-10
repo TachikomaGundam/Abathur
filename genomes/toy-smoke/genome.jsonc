@@ -1,0 +1,30 @@
+{
+  "label": "toy-smoke",
+  "repoPath": ".",
+  "bench": {
+    "type": "toy",
+    "units": [
+      { "id": "add", "path": "units/add.mjs", "split": "train" },
+      { "id": "mul", "path": "units/mul.mjs", "split": "train" },
+      { "id": "explode", "path": "units/explode.mjs", "split": "train" },
+      { "id": "sub", "path": "units/sub.mjs", "split": "val" }
+    ],
+    "runCommand": "node {unit.path}",
+    "graderCommand": "node grader.mjs {unit.path}",
+    "timeoutS": 10,
+    "stats": {
+      "halfWidth": 0.25,
+      "minEffect": 0.5,
+      "nReps": { "initial": 2, "max": 4 }
+    }
+  },
+  "budget": {
+    "maxCandidates": 4,
+    "maxModelCalls": 16,
+    "maxTokens": 100000,
+    "maxWallS": 300
+  },
+  "kernel": {
+    "immutableGlobs": ["grader.mjs"]
+  }
+}

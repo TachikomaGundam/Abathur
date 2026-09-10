@@ -1,0 +1,17 @@
+// Abathur default (repo) configuration — shipped in the npm tarball.
+// Resolution order for the active config file (src/config.ts):
+//   1. $ABATHUR_CONFIG            explicit override; must exist, fail-closed otherwise
+//   2. ~/.config/abathur/config.jsonc
+//   3. <repo>/config/abathur.jsonc  (this file)
+// Machine-local absolute paths (opencodeBin, genome repoPath, ...) belong in a
+// gitignored `config.local.jsonc` overlay next to whichever base file wins —
+// NEVER in this file and never hardcoded in src/** (todo 15 grep-gate).
+// Unknown keys here are a hard error (exit 2), by design.
+{
+  // Absolute path to the `opencode` CLI binary. Default: resolve from PATH at
+  // call time (todo 6+); set in *.local.jsonc when PATH lookup is ambiguous.
+  "opencodeBin": null,
+  // Data home: ledger, genome registry, sandbox worktrees. null = ABATHUR_HOME
+  // env, else ~/.local/share/abathur. Overlays may point it at a scratch dir.
+  "stateDir": null
+}
