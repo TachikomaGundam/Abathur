@@ -747,3 +747,8 @@ feature. Relatedly, cleanupStale (src/core/worktree.ts:238) is a known-unused **
 tests**, not dead code: v1 deliberately never prunes worktrees/bench dirs under a
 possibly-running bench (F2 A1 keeps that assertion honest via the per-genome cache dir
 instead), and a prune command is post-v1 work.
+
+## [2026-09-10] Final-wave erratum (F4-4): --mutator CLI flag deviation — RECORDED
+- Plan text (todo 8) said the mutator session runs via the genome's `runCommand` template; but `bench.runCommand` is load-bearing as the SCENARIO-run template (todo 6 fixture adapter). Plan-internal contradiction.
+- Shipped resolution (since todo 9, `src/commands/run.ts`): `run --mutator <command template>` REQUIRED flag carries the mutator-session command; `bench.runCommand` stays scenario-only. Missing flag ⇒ exit 2 with usage hint (A5 hardened: rejects '--'-prefixed values).
+- F4 audit confirmed soundness (behavior matches plan intent, README documents it prominently, 'mutator is a command template not a flag you can skip') — classified D13 deviation; no code change warranted.
