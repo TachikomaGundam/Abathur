@@ -114,8 +114,9 @@ export function listGraftQueue(configDir: string): readonly GraftQueueEntry[] {
   let names: string[];
   try {
     names = readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
-  } catch {
-    return []; // no queue yet = empty, not an error
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; // no queue yet = empty, not an error
+    throw error; // unreadable-but-present (EACCES/EIO) must never render as an empty queue
   }
   return names.map((name) => parseQueueFile(path.join(dir, name), name));
 }

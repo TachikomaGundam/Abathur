@@ -47,6 +47,7 @@ import {
   graftQueueDir,
   graftQueuePath,
   decodeGraftImport,
+  listGraftQueue,
 } from "../core/graft-support.js";
 
 const CLI = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
@@ -486,7 +487,15 @@ test("AC(c): genome not registered ⇒ pending-bench queue + status depth, ZERO 
   const again = cli(ghost, "graft", bundlePath, "--genome", "toy-smoke");
   assert.equal(again.status, 0, `re-run grafts: ${again.stdout}${again.stderr}`);
   assert.ok(!existsSync(queueFile), "queue entry consumed by the success-path decision");
-  assert.ok(!existsSync(path.join(s.root, "xdg-bare", "abathur", "worktrees", "nonexistent")), "worktree dir used");
+  // the resolved graft benched in the REAL per-genome cache dir (worktree.ts:4:
+  // $XDG_CACHE_HOME/abathur/worktrees/<genomeFp>/<genId>) — asserting a made-up
+  // child of the parent would be vacuously true.
+  const bareFp = requireGenomesByLabel(bare, "toy-smoke").entries[0]?.fingerprint;
+  assert.ok(bareFp !== undefined, "bare instance carries the registered fingerprint");
+  assert.ok(
+    existsSync(path.join(s.root, "xdg-bare", "abathur", "worktrees", bareFp)),
+    "resolved graft created its worktree under the per-genome cache dir",
+  );
   const st2 = cli(ghost, "status", "toy-smoke");
   assert.match(st2.stdout, /pending-bench graft queue: 0/);
   assert.match(st2.stdout, /graft decisions: 1/);
@@ -571,7 +580,7 @@ test("malformed_input: garbage container, stripped/invalid manifest, traversal t
   const missing = cli(dst, "graft", path.join(s.root, "nope.tgz"), "--genome", "toy-smoke");
   assert.equal(missing.status, 2);
 
-  for (const r of [r1, r2, r3, badFlag, noLabel, missing]) void r;
+  // r1..missing each had their exit code asserted above; nothing left to loop over.
   assert.equal(graftRows(dst.repo).length, 0, "integrity-garbage leaves no graft_import row (cannot-answer class)");
   assert.ok(!existsSync(graftQueueDir(dst.configDir)), "garbage never queues pending-bench");
 });
@@ -622,6 +631,17 @@ test("dirty_worktree: local dirt never rides into the graft bench — the sealed
   assert.doesNotMatch(sealedMul, /operator dirt/);
   const status = gitC(dst.repo, "status", "--porcelain");
   assert.match(status, /units\/mul\.mjs/, "operator dirt left exactly as found");
+});
+
+test("queue listing is fail-closed: absent dir ⇒ empty, unreadable dir ⇒ rethrow (F2 A3)", async (t) => {
+  const cfg = await mkdtemp(path.join(os.tmpdir(), "abathur-queue-failclosed-"));
+  t.after(() => rmSync(cfg, { recursive: true, force: true }));
+  assert.deepEqual(listGraftQueue(cfg), [], "no queue yet = empty, not an error (ENOENT stays tolerated)");
+  // A queue path occupied by a regular file is corruption, not absence: readdirSync
+  // fails ENOTDIR and that must bubble — swallowing it rendered a real queue as
+  // empty, the fail-open class F2 flagged. chmod-free seam, so it runs as any user.
+  writeFileSync(path.join(cfg, "graft-queue"), "not a dir\n", "utf8");
+  assert.throws(() => listGraftQueue(cfg), /ENOTDIR/);
 });
 
 // ---------------------------------------------------------------- structural

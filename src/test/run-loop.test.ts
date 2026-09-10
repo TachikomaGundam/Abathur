@@ -542,6 +542,7 @@ test("CLI: run wiring — arg misuse is exit 2, help line preserved", async (t) 
   await expectExitSignal(2, /--genome/, Promise.resolve(runCommand.run(ctx)));
   await expectExitSignal(2, /unknown flag --nope/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--nope"] })));
   await expectExitSignal(2, /--reps/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--reps", "abc"] })));
+  await expectExitSignal(2, /--mutator/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--mutator", "--oops"] })));
   await expectExitSignal(2, /no registered genome/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "ghost"] })));
   // --include-val parses, threads into the loop, and fails closed on the toy bench:
   await expectExitSignal(

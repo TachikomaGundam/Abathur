@@ -131,6 +131,11 @@ export async function exportBundle(req: BundleExportRequest): Promise<BundleExpo
   const repo = req.entry.spec.repoPath;
   const chosen = selectGens(candidateRowsByGenId(repo), req.select);
   if (chosen.length === 0) blocked("bundle export: the ledger holds no candidate generations yet");
+  for (const gen of chosen) {
+    if (!PATH_SAFE.test(gen.genId)) {
+      blocked(`bundle export: ledger genId '${gen.genId}' is not path-safe for member names or the output filename`, "repair or quarantine the tampered ledger row before exporting");
+    }
+  }
   const ids = chosen.map((c) => c.genId);
   const primary = chosen.find((c) => c.genId === primaryGenId(ids));
   if (primary === undefined) blocked("bundle export: primary generation vanished mid-export");

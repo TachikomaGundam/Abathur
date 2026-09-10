@@ -65,7 +65,7 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
         break;
       case "--mutator": {
         const raw = next();
-        if (raw === undefined || raw.length === 0) cannotAnswer("run: --mutator <template> requires a value", USAGE);
+        if (raw === undefined || raw.length === 0 || raw.startsWith("--")) cannotAnswer("run: --mutator <template> requires a value", USAGE);
         mutator = raw;
         break;
       }

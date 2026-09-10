@@ -12,7 +12,6 @@
 
 import { z } from "zod";
 
-import { cannotAnswer } from "../../exit.js";
 import type { ExitCode } from "../../exit.js";
 import {
   appendFriction,
@@ -194,10 +193,4 @@ export function readFrictionDigests(configDir: string): FrictionRead {
     digests.push(parsed.data);
   }
   return { digests, error: null };
-}
-
-/** Registry fingerprints are 16-hex by construction; refuse to queue anything else. */
-export function assertFingerprint(value: string): string {
-  if (!/^[0-9a-f]{16}$/.test(value)) cannotAnswer(`friction: malformed genome fingerprint '${scrub(value, 40)}'`);
-  return value;
 }
