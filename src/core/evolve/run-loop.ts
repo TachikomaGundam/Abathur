@@ -17,6 +17,12 @@
 // content treeSha (stable across reseals, unlike commit shas). A reused row is
 // never re-benched, so score samples and budget counters survive a SIGKILL
 // without doubling. Row schema: run-bench.ts.
+//
+// Pure-LOC documented exception (F2 review, 2026-09-10): 283 pure LOC, above the
+// 250 ceiling — F1-fix2's regression pins demand loop-local construction, and the
+// resume/selection ordering that broke once must not be moved behind a fresh seam
+// (minimal-diff mandate). Accepted exception: do not grow this file; split at the
+// next real feature.
 
 import path from "node:path";
 

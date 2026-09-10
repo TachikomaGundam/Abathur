@@ -733,3 +733,17 @@ Gotchas found while making the shipped package the thing the README tells people
    (fixture-loop.test.ts tests 1+3); the flag-ON test passing pre-fix correctly
    localizes the bug to the default path. D7's vendor-literal gate also caught the
    fix's own comment — run the FULL suite after comment edits, not just targeted ones.
+
+## F2 review close-out: pure-LOC ceiling scope + cleanupStale stance (2026-09-10)
+
+The 250 pure-LOC ceiling governs **production modules** (src/** minus src/test/**);
+integration tests are exempt and legitimately exceed it (graft.test.ts, bundle.test.ts)
+because one narrative scenario per test file cannot be split without losing the
+end-to-end pin — this is the reviewed scope, not a gap. The two production modules
+above the ceiling, src/core/evolve/run-loop.ts (283) and src/bench/fixture.ts (253),
+carry accepted do-not-grow exception headers (F1-fix2 mandated minimal seams: loop-local
+construction and the in-fixture LOOP_VAL_AUTHORITY seam) and split at the next real
+feature. Relatedly, cleanupStale (src/core/worktree.ts:238) is a known-unused **with
+tests**, not dead code: v1 deliberately never prunes worktrees/bench dirs under a
+possibly-running bench (F2 A1 keeps that assertion honest via the per-genome cache dir
+instead), and a prune command is post-v1 work.
