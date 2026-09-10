@@ -93,18 +93,22 @@ function splitLongPath(p: string): { name: string; prefix: string } | null {
 }
 
 function paxPathHeader(p: string): Uint8Array {
+  // PAX len counts BYTES of "<len> path=<p>\n" — for non-ASCII names the UTF-8
+  // byte length exceeds the string length, so the fixed point is byte-based.
+  const enc = new TextEncoder();
   const body = `path=${p}\n`;
-  let len = body.length + 5;
+  let len = enc.encode(body).length + 5;
   for (;;) {
     const record = `${String(len)} ${body}`;
-    if (record.length === len) {
+    const bytes = enc.encode(record);
+    if (bytes.length === len) {
       const name = `././PaxHeaders.${p.split("/").pop() ?? "x"}`.slice(0, 99);
-      const header = headerBlock({ name, prefix: "", size: record.length, typeflag: "x" });
-      const data = new Uint8Array(Math.ceil(record.length / BLOCK) * BLOCK);
-      data.set(new TextEncoder().encode(record));
+      const header = headerBlock({ name, prefix: "", size: bytes.length, typeflag: "x" });
+      const data = new Uint8Array(Math.ceil(bytes.length / BLOCK) * BLOCK);
+      data.set(bytes);
       return new Uint8Array([...header, ...data]);
     }
-    len = record.length;
+    len = bytes.length;
   }
 }
 
@@ -123,7 +127,9 @@ export function writeTar(members: readonly TarMember[]): Uint8Array {
     assertSafePath(m.path);
     if (m.path.length > PREFIX_MAX + 1 + NAME_MAX) throw new TarError(`tar: path too long: ${m.path}`);
     const split = m.path.length <= NAME_MAX ? { name: m.path, prefix: "" } : splitLongPath(m.path);
-    if (split === null) {
+    // USTAR name/prefix fields are 7-bit (ascii() truncates each char to its low
+    // byte), so anything outside printable ASCII travels in a PAX 'path' override.
+    if (split === null || !/^[\x20-\x7E]+$/.test(m.path)) {
       chunks.push(paxPathHeader(m.path));
       chunks.push(headerBlock({ name: m.path.slice(0, NAME_MAX), prefix: "", size: m.content.length, typeflag: "0" }));
     } else {
@@ -225,12 +231,14 @@ export function readTar(bytes: Uint8Array): TarMember[] {
 }
 
 function extractPaxPath(records: string): string | null {
+  const enc = new TextEncoder();
   let path: string | null = null;
   for (const record of records.split("\n")) {
     if (record.length === 0) continue;
     const space = record.indexOf(" ");
     const eq = record.indexOf("=", space + 1);
-    if (space > 0 && eq > space && record.slice(0, space) === String(record.length + 1)) {
+    // the declared len is the record's BYTE length + the split-off "\n"
+    if (space > 0 && eq > space && record.slice(0, space) === String(enc.encode(record).length + 1)) {
       if (record.slice(space + 1, eq) === "path") path = record.slice(eq + 1);
     }
   }

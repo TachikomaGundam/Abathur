@@ -316,6 +316,22 @@ test("bundle-tar: roundtrip, long names, traversal + garbage refused", () => {
   assert.throws(() => readTar(corrupt), TarError);
 });
 
+test("bundle-tar: non-ASCII member names round-trip byte-exact (PAX override, not USTAR mangling)", () => {
+  const members: TarMember[] = [
+    { path: "manifest.json", content: new TextEncoder().encode("{}\n") },
+    { path: "ünï/данные.txt", content: new TextEncoder().encode("unicode member ✓\n") },
+    { path: `ünï/${"данные".repeat(12)}.txt`, content: new TextEncoder().encode("short non-ascii\n") },
+    { path: `${"ünï".repeat(30)}/leaf-ü.txt`, content: new TextEncoder().encode("split-prefixed non-ascii\n") },
+  ];
+  const back = readTar(writeTar(members));
+  assert.deepEqual(back.map((m) => m.path), members.map((m) => m.path));
+  for (const want of members) {
+    const got = back.find((m) => m.path === want.path);
+    assert.ok(got !== undefined, `member ${want.path} missing after roundtrip`);
+    assert.deepEqual(Buffer.from(got.content), Buffer.from(want.content), `${want.path} content must be byte-exact`);
+  }
+});
+
 test("bundle-mask: declared literals → placeholders; undeclared machine paths leak-flag with line", () => {
   const plan = buildMaskPlan({ home: "/srv/home-alice", repoPath: "/work/genome", extra: [WIKI_LITERAL] });
   const masked = plan.mask("at /srv/home-alice/x in /work/genome and see /opt/wiki-ops/runbook");
@@ -671,6 +687,43 @@ test("stale_state: --last N picks the N newest candidate gens; primary = newest;
   const bad = cli(f, "bundle", "export", "toy-smoke", "--gen", "g-20200101T000000Z-deadbeef", "--out", bundleDir(f));
   assert.equal(bad.status, 1);
   assert.match(bad.stderr + bad.stdout, /g-20200101T000000Z-deadbeef/, "unknown genId is NAMED");
+});
+
+test("AC(tamper-ledger): non-path-safe genId in a ledger row blocks export naming it, nothing written", async (t) => {
+  const f = await bundleFixture(t);
+  const rows = await evolve(f);
+  const nominated = rows.find((r) => r.data.verdict === "nominated");
+  assert.ok(nominated !== undefined && nominated.data.commitSha !== undefined);
+  const evil = "../../evil";
+  // hand-append a tampered candidate row through the real ledger API — the ledger
+  // schema only requires a non-empty string, so the export path is the gate.
+  // Real commit shas: the evil genId alone must decide the outcome.
+  Ledger.open(f.repo).append({
+    kind: "generation_complete",
+    genId: evil,
+    data: {
+      source: "candidate",
+      candidateId: "hand-evil",
+      rationale: "tampered row",
+      headCommit: nominated.data.headCommit,
+      commitSha: nominated.data.commitSha,
+      treeSha: nominated.data.treeSha ?? "2".repeat(40),
+      complete: true,
+      reps: 1,
+      units: [],
+      counters: { candidates: 1, modelCalls: 0, tokens: 0, wallS: 0 },
+      manifest: [],
+      verdict: "nominated",
+      benchProvenance: { benchType: "toy", versions: [{ bin: "node", version: process.version }] },
+    },
+  });
+
+  const run = cli(f, "bundle", "export", "toy-smoke", "--gen", evil, "--out", bundleDir(f));
+  assert.equal(run.status, 1, `path-unsafe genId must block: ${run.stdout}${run.stderr}`);
+  assert.match(run.stderr, /path-safe/, "refuses as the PATH_SAFE gate");
+  assert.match(run.stderr + run.stdout, /\.\.\/\.\.\/evil/, "names the offending genId");
+  assert.ok(!run.stderr.includes("    at "), `no stack trace: ${run.stderr}`);
+  assert.deepEqual(listBundles(f), [], "nothing written");
 });
 
 async function handSeal(
