@@ -776,3 +776,10 @@ instead), and a prune command is post-v1 work.
 - Remote commit author/message verified: `TachikomaGundam <TachikomaGundam@users.noreply.github.com> | feat: abathur v0.1.0 — genome evolution harness for opencode agents`
 - CI runs (gh run list --limit 3, at publish time):
   in_progress		feat: abathur v0.1.0 — genome evolution harness for opencode agents	CI	main	push	34481122797	18s	2026-09-10T13:11:43Z
+
+## 2026-09-11 scoped npm rename receipt (public → origin/main)
+- Commit 57724fff512b8043f2182444435140e56309c3aa (parent 8cf71eb, fast-forward push origin public:main; identity via env override TachikomaGundam <TachikomaGundam@users.noreply.github.com>).
+- Diffstat: .github/workflows/publish.yml +2/-1 (Package name comment line; echo "Publishing ${VERSION} (tag ${TAG})"), README.md +2 (npm i -g @tachikomagundam/abathur registry line in en Install ~L39 + zh 安装 ~L274), package.json name -> @tachikomagundam/abathur. 3 files, +5/-2.
+- Verify: npm ci exit 0 (lockfile root-name mismatch tolerated, untouched); build+tests 291/291 exit 0; npm pack name @tachikomagundam/abathur, filename tachikomagundam-abathur-0.1.0.tgz, total files 119 (spec said 120: baseline included a stale dist/test/fixtures.js in the main tree — absent from git source on both branches, not a rename regression); publish.yml yaml.safe_load OK.
+- CI run 34513616679 attempt 1 FAIL: bench-fixture.test.ts "(E) hanging unit: group kill at timeoutS, zero orphans" — orphaned sleep survived the group kill (ERR_ASSERTION), 290/291. Runner-environment flake, untouched by rename; passed 3/3 isolated reruns locally + full suite locally. Rerun --failed attempt 2: completed/success on same sha. No fix pushed.
+- Worktree isolation held: .omo porcelain md5 27ba66bc2e3a26a0a9bdbc35d9f218d8 identical before/after; local main still 16e5f0c; worktree removed.

@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "completed",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-10T12:06:04.650Z",
+      "updated_at": "2026-09-10T13:12:38.548Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -40,15 +40,15 @@
         "todo:1": {
           "task_key": "todo:1",
           "task_label": "1",
-          "task_title": "config/genomes/historian.example.jsonc — label 'historian', bench.type opencode-fixture-scenarios, units = the 9 scenario files, train=01,02,03,05,06,07,08 val=04,09; ALL machine-specific values via ${ENV} placeholders resolved through config env/overlay (repoPath, wiki base URL, opencodeBin) — ZERO /home/lab literals inside the example (grep-gated in todo 15; the REAL run happens through a private *.local.jsonc overlay or env you export in your QA shell — .local.jsonc is gitignored and NEVER committed).",
-          "session_id": "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
+          "task_title": "`gh repo create Abathur --public --description \"Abathur — genome evolution harness for opencode agents. Self-contained evolution loops: sealed kernels, ledgered generations, statistical gates, offline byte-equal bundles.\"` (creates TachikomaGundam/Abathur empty; no --source/--push flags — we push manually).",
+          "session_id": "opencode:ses_f748e6611ffejhQCNjD3SthZ1O",
           "agent": "Sisyphus-Junior",
-          "category": "deep",
+          "category": "quick",
           "started_at": "2026-09-09T06:59:39.215Z",
-          "ended_at": "2026-09-09T17:18:04.128Z",
-          "elapsed_ms": 37104913,
+          "ended_at": "2026-09-10T13:12:38.548Z",
+          "elapsed_ms": 108779333,
           "status": "completed",
-          "updated_at": "2026-09-09T17:42:42.176Z"
+          "updated_at": "2026-09-10T13:12:38.548Z"
         },
         "todo:2": {
           "task_key": "todo:2",
@@ -157,7 +157,7 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "completed",
-  "updated_at": "2026-09-10T12:06:04.650Z",
+  "updated_at": "2026-09-10T13:12:38.548Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -189,15 +189,15 @@
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "config/genomes/historian.example.jsonc — label 'historian', bench.type opencode-fixture-scenarios, units = the 9 scenario files, train=01,02,03,05,06,07,08 val=04,09; ALL machine-specific values via ${ENV} placeholders resolved through config env/overlay (repoPath, wiki base URL, opencodeBin) — ZERO /home/lab literals inside the example (grep-gated in todo 15; the REAL run happens through a private *.local.jsonc overlay or env you export in your QA shell — .local.jsonc is gitignored and NEVER committed).",
-      "session_id": "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
+      "task_title": "`gh repo create Abathur --public --description \"Abathur — genome evolution harness for opencode agents. Self-contained evolution loops: sealed kernels, ledgered generations, statistical gates, offline byte-equal bundles.\"` (creates TachikomaGundam/Abathur empty; no --source/--push flags — we push manually).",
+      "session_id": "opencode:ses_f748e6611ffejhQCNjD3SthZ1O",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
+      "category": "quick",
       "started_at": "2026-09-09T06:59:39.215Z",
-      "ended_at": "2026-09-09T17:18:04.128Z",
-      "elapsed_ms": 37104913,
+      "ended_at": "2026-09-10T13:12:38.548Z",
+      "elapsed_ms": 108779333,
       "status": "completed",
-      "updated_at": "2026-09-09T17:42:42.176Z"
+      "updated_at": "2026-09-10T13:12:38.548Z"
     },
     "todo:2": {
       "task_key": "todo:2",
