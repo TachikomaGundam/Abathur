@@ -12,8 +12,8 @@
 //     mirrored from the real HOME and the opencode config is copied-then-mutated
 //     per scenario (never symlinked, real HOME untouched).
 //   - train/val by SPLIT FIELD ONLY: val scenario paths never enter the
-//     mutator-facing manifest; running one requires the operator includeVal option
-//     (the --include-val CLI surface is wired in todo 10+).
+//     mutator-facing manifest; running one requires the operator includeVal
+//     option, reachable ONLY via the operator CLI switch `abathur run --include-val`.
 // Scenario content stays opaque — no harness-specific parsing anywhere here.
 
 import { existsSync, mkdirSync, statSync } from "node:fs";
@@ -79,7 +79,7 @@ export interface FixtureAdapterOptions {
   readonly onChild?: ((handle: ChildHandle) => void) | undefined;
   /** Real HOME to mirror; defaults to env.HOME else os.homedir(). */
   readonly home?: string | undefined;
-  /** Operator gate for val-split scenarios; CLI wiring arrives in todo 10+. */
+  /** Operator gate for val-split scenarios; set only via `abathur run --include-val`. */
   readonly includeVal?: boolean | undefined;
   /** Genome-lock patience; 0 (default) makes contention an immediate exit 2. */
   readonly lockWaitMs?: number | undefined;

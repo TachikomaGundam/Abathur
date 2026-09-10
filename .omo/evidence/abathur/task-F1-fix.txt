@@ -1,0 +1,128 @@
+================================================================================
+Task F1-fix — evidence (RED → GREEN transcripts), 2026-09-10
+Repo: /home/lab/workspace/harness/Abathur  branch main  baseline HEAD 97fd7bf
+Fixes the two findings of the F1 plan-compliance rejection:
+  F1(blocking): no CI-style test enforced the D7 grep gate (plan SC7, line 217)
+  F2(minor):    plan-named `run --include-val` operator flag was not wired
+================================================================================
+
+--------------------------------------------------------------------------------
+FINDING 1 — src/test/d7-gate.test.ts (new). Walks every .ts under src/ EXCLUDING
+the src/test/** carve-out (recursive readdirSync, symlinks never followed) and
+asserts NO "/home/lab" substring and NO case-sensitive "historian" substring.
+Failure names EVERY offending file:line + label + line content.
+--------------------------------------------------------------------------------
+
+[RED] planted violation src/zz-plant-probe.ts (development only):
+    export const P = "/home/lab/x";
+    export const Q = "historian";
+
+$ node --test "dist/test/d7-gate.test.js"   # probe planted
+TAP version 13
+# Subtest: D7 gate: src/** outside src/test/** is free of machine-bound literals
+not ok 1 - D7 gate: src/** outside src/test/** is free of machine-bound literals
+  ---
+  duration_ms: 21.029876
+  type: 'test'
+  location: '/home/lab/workspace/harness/Abathur/dist/test/d7-gate.test.js:37:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    D7 grep gate violated (2 hit(s)):
+    zz-plant-probe.ts:1 [absolute workspace path] export const P = "/home/lab/x";
+    zz-plant-probe.ts:2 [vendor literal] export const Q = "historian";
+
+    2 !== 0
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 2
+  ...
+1..1
+# tests 1
+# pass 0
+# fail 1
+(exit 1)
+
+$ rm src/zz-plant-probe.ts
+
+[GREEN] same test, clean tree:
+$ node --test "dist/test/d7-gate.test.js"
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 324.71649
+
+(The planted file was deleted; it was NEVER compiled into dist/ and NEVER staged.
+The gate also carries a scanned>20 anti-vacuity guard so a broken path
+resolution cannot pass silently.)
+
+--------------------------------------------------------------------------------
+FINDING 2 — `abathur run --include-val` wired end to end:
+  src/commands/run.ts        USAGE + RunFlags.includeVal + parse case + spread
+  src/core/evolve/run-loop.ts RunLoopOptions.includeVal + fail-closed guard
+                             (before kernel audit / any spend, covers --dry-run)
+                             + threaded into BOTH benchTarget calls
+  src/core/evolve/run-bench.ts OpenAdapterOptions/BenchTargetOptions.includeVal;
+                             fixture factory seam `includeVal: opts.includeVal === true`
+                             (plan line 118: val runs ONLY under the operator flag)
+  src/bench/fixture.ts        stale "todo 10+" comments made truthful (header l14-16,
+                             FixtureAdapterOptions.includeVal doc l82)
+  src/bench/fixture-support.ts gateVal hint now names the real flag path
+  tests: src/test/include-val.test.ts (parse seam + adapter-factory val-hiding/
+         revealing via scenarioManifest + toy fail-closed) and one CLI-wiring
+         assertion in src/test/run-loop.test.ts (toy-smoke --include-val --dry-run
+         => exit 2 naming the fixture bench)
+--------------------------------------------------------------------------------
+
+[BEFORE FIX] current behavior captured (flag died at the parser — not silently
+ignored at the bench layer, but the plan-named switch simply did not exist):
+$ node dist/cli.js run --genome toy-x --include-val --dry-run
+abathur: run: unknown flag --include-val
+  hint: usage: abathur run --genome <label> [--reps N] [--max-candidates N] [--mutator <template>] [--dry-run]
+EXIT=2
+
+[RED] tests written first — tsc fails: the seam does not exist yet
+$ npx tsc --noEmit
+src/test/include-val.test.ts(24,66): error TS2339: Property 'includeVal' does not exist on type 'RunFlags'.
+src/test/include-val.test.ts(25,49): error TS2339: Property 'includeVal' does not exist on type 'RunFlags'.
+src/test/include-val.test.ts(27,22): error TS2339: Property 'includeVal' does not exist on type 'RunFlags'.
+src/test/include-val.test.ts(134,51): error TS2353: Object literal may only specify known properties, and 'includeVal' does not exist in type 'RunLoopOptions'.
+(+3 own-file TestContext import lines, fixed in the test itself)
+
+[GREEN] after wiring — parse now succeeds (fails later on the missing registry label):
+$ node dist/cli.js run --genome toy-x --include-val --dry-run
+abathur: genome: no registered genome with label 'toy-x'
+  hint: check 'abathur genome list'; if the registry was deleted out-of-band, re-add the spec
+EXIT=2
+
+[GREEN] targeted suite (include-val + run-loop + d7-gate + bench-fixture AC(B) intact):
+$ node --test "dist/test/include-val.test.js" "dist/test/run-loop.test.js" \
+    "dist/test/d7-gate.test.js" "dist/test/bench-fixture.test.js"
+1..32
+# tests 32
+# pass 32
+# fail 0
+# duration_ms 51415.944262
+
+[GREEN] full suite (baseline 281 → 285 = +1 d7-gate, +3 include-val):
+$ npm test
+1..261
+# tests 285
+# suites 16
+# pass 285
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 159911.035475
+(build exit 0; no forbidden literal introduced — the d7 gate itself verifies this)
+
+================================================================================
+VERDICT: both findings fixed, RED-first evidence above, tree clean, 285/285.
+================================================================================

@@ -173,7 +173,7 @@ export function gateVal(unit: BenchUnit, includeVal: boolean): void {
   if (unit.split === "val" && !includeVal) {
     cannotAnswer(
       `fixture: unit '${unit.id}' is a val-split scenario and requires the operator flag --include-val`,
-      "val splits stay hidden from the evolution loop; todo 10 wires the CLI flag",
+      "val splits stay hidden from the evolution loop; rerun 'abathur run' with --include-val to bench them",
     );
   }
 }
