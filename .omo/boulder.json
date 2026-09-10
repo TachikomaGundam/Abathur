@@ -8,7 +8,7 @@
       "plan_name": "abathur-harness",
       "status": "completed",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-10T11:01:29.375Z",
+      "updated_at": "2026-09-10T12:06:04.650Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -144,8 +144,10 @@
           "agent": "Sisyphus-Junior",
           "category": "unspecified-high",
           "started_at": "2026-09-10T07:18:37.905Z",
-          "status": "running",
-          "updated_at": "2026-09-10T10:56:43.984Z"
+          "status": "completed",
+          "updated_at": "2026-09-10T12:06:04.650Z",
+          "ended_at": "2026-09-10T12:06:04.650Z",
+          "elapsed_ms": 17246745
         }
       },
       "ended_at": "2026-09-10T11:01:29.375Z",
@@ -155,7 +157,7 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "completed",
-  "updated_at": "2026-09-10T11:01:29.375Z",
+  "updated_at": "2026-09-10T12:06:04.650Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
@@ -291,8 +293,10 @@
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
       "started_at": "2026-09-10T07:18:37.905Z",
-      "status": "running",
-      "updated_at": "2026-09-10T10:56:43.984Z"
+      "status": "completed",
+      "updated_at": "2026-09-10T12:06:04.650Z",
+      "ended_at": "2026-09-10T12:06:04.650Z",
+      "elapsed_ms": 17246745
     }
   },
   "agent": "atlas",

@@ -197,11 +197,11 @@ Your next move: 批准本计划（或先跑高精度双评审）。Full executio
 
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
-- [~] F1. Plan compliance audit — 3rd pass VERDICT: APPROVE (regression fix 1b5f161 verified; orchestrator re-probed live)
-- [~] F2. Code quality review — re-run VERDICT: APPROVE (minors A1–A7 closed in 6697321/fa67369; suite 291/291)
-- [~] F3. Real manual QA — re-run VERDICT: APPROVE (F-A rc2 classing fixed in ae1af8a; reproduced by orchestrator)
-- [~] F4. Scope fidelity — VERDICT: APPROVE (5 non-blocking findings; --mutator erratum recorded in learnings.md)
-  > All four reviewers APPROVED and were independently re-verified; awaiting the user's explicit okay per the wave rule above before flipping to [x].
+- [x] F1. Plan compliance audit — 3rd pass VERDICT: APPROVE (regression fix 1b5f161 verified; orchestrator re-probed live)
+- [x] F2. Code quality review — re-run VERDICT: APPROVE (minors A1–A7 closed in 6697321/fa67369; suite 291/291)
+- [x] F3. Real manual QA — re-run VERDICT: APPROVE (F-A rc2 classing fixed in ae1af8a; reproduced by orchestrator)
+- [x] F4. Scope fidelity — VERDICT: APPROVE (5 non-blocking findings; --mutator erratum recorded in learnings.md)
+  > All four reviewers APPROVED and were independently re-verified. User's explicit okay received 2026-09-10 (session opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm) — wave closed.
 
 ## Commit strategy
 - Repo starts empty: todo 1 begins with `chore(abathur): scaffold package + anchor commit 'anchor: opencode project root for /home/lab/workspace/harness/Abathur'` (family convention).
