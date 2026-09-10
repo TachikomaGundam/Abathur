@@ -11,9 +11,13 @@
 //   - sandbox HOME discipline: ONLY .opencode/{plugin,skills,node_modules} is
 //     mirrored from the real HOME and the opencode config is copied-then-mutated
 //     per scenario (never symlinked, real HOME untouched).
-//   - train/val by SPLIT FIELD ONLY: val scenario paths never enter the
-//     mutator-facing manifest; running one requires the operator includeVal
-//     option, reachable ONLY via the operator CLI switch `abathur run --include-val`.
+//   - train/val by SPLIT FIELD ONLY, with two INDEPENDENT axes (plan lines
+//     117-124 + 125-132): BENCHING authority — the loop's bench driver runs val
+//     replicates under loopValAuthority (the selection gate needs them), while a
+//     direct adapter consumer must pass includeVal; and EXPOSURE — val ids/paths
+//     enter the sandbox manifest only under includeVal, reachable ONLY via the
+//     operator CLI switch `abathur run --include-val`. Without it the manifest
+//     keeps val entries as opaque aliases, even while those units are benched.
 // Scenario content stays opaque — no harness-specific parsing anywhere here.
 
 import { existsSync, mkdirSync, statSync } from "node:fs";
@@ -79,8 +83,19 @@ export interface FixtureAdapterOptions {
   readonly onChild?: ((handle: ChildHandle) => void) | undefined;
   /** Real HOME to mirror; defaults to env.HOME else os.homedir(). */
   readonly home?: string | undefined;
-  /** Operator gate for val-split scenarios; set only via `abathur run --include-val`. */
+  /**
+   * Operator EXPOSURE gate (CLI `abathur run --include-val`): runs val-split
+   * units AND lists their ids/paths in the sandbox manifest. Direct adapter
+   * consumers must pass it to run a val unit at all (todo-6 invariant).
+   */
   readonly includeVal?: boolean | undefined;
+  /**
+   * Selection-gate BENCHING authority (plan lines 125-132): lets the loop's
+   * bench driver run/score val replicates WITHOUT exposing val paths — the
+   * manifest stays gated by includeVal alone. Set only by run-bench.ts
+   * benchTarget (LOOP_VAL_AUTHORITY); never wired to any CLI flag.
+   */
+  readonly loopValAuthority?: boolean | undefined;
   /** Genome-lock patience; 0 (default) makes contention an immediate exit 2. */
   readonly lockWaitMs?: number | undefined;
 }
@@ -132,7 +147,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
 
   async run(unit: BenchUnit, sandboxDir: string, timeoutS: number): Promise<RunResult> {
     await this.ensureStarted();
-    gateVal(unit, this.opts.includeVal === true);
+    gateVal(unit, this.valRunAllowed());
     this.activeSandbox = sandboxDir;
     mkdirSync(sandboxDir, { recursive: true });
     const transcript = transcriptPathFor(sandboxDir, unit.id);
@@ -158,7 +173,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
 
   async score(unit: BenchUnit): Promise<ScoreOutcome> {
     await this.ensureStarted();
-    gateVal(unit, this.opts.includeVal === true);
+    gateVal(unit, this.valRunAllowed());
     const sandbox = this.activeSandbox;
     if (sandbox === null) {
       cannotAnswer(
@@ -192,7 +207,20 @@ export class FixtureScenariosAdapter implements BenchAdapter {
     return { kind: "scored", result: { unitId: unit.id, ...parsed } };
   }
 
-  /** Mutator-safe view of the scenarios: val entries carry opaque aliases only. */
+  /**
+   * Val units may be RUN/SCORED when the operator opened exposure (includeVal)
+   * OR the loop holds benching authority (loopValAuthority, F1-fix2); either
+   * way this never decides what the manifest EXPOSES.
+   */
+  private valRunAllowed(): boolean {
+    return this.opts.includeVal === true || this.opts.loopValAuthority === true;
+  }
+
+  /**
+   * Sandbox view of the scenarios: val ids/paths surface only under operator
+   * includeVal. loopValAuthority deliberately does NOT open this — the loop may
+   * bench val units while their paths stay opaque aliases (plan line 118).
+   */
   scenarioManifest(): readonly ScenarioEntry[] {
     return buildManifest(this.spec.bench.units, this.opts.includeVal === true);
   }

@@ -703,3 +703,33 @@ Gotchas found while making the shipped package the thing the README tells people
    `TS2339 Property 'includeVal' does not exist` before implementation — the compiler
    refuses the feature's absence as loudly as a runtime assert. Capture it in the
    evidence transcript anyway.
+
+## 2026-09-10 — F1-fix2: loop BENCHING authority ≠ operator EXPOSURE (regression 3c6bbf9 → fix)
+1. **One boolean, two consumers = a conflation waiting to crash.** The val gate
+   serves two different consumers of the same bench: the SELECTION GATE needs val
+   REPLICATES (nomination is val-regression-gated, plan 125-132), the MUTATOR-facing
+   surface needs val PATHS hidden (plan 117-124). 3c6bbf9 wired `--include-val`
+   straight into the bench seam and the default `run` died ExitSignal(2) at the
+   first val unit — mid-bench, before any generation row. When wiring an operator
+   flag onto a seam that an internal loop also crosses, ask FIRST: does the loop's
+   correctness depend on this seam, independent of the operator's preference?
+2. **The fix shape: split the axes.** `loopValAuthority` (internal, constant-true
+   at the loop's benchTarget driver; allows run/score) vs `includeVal` (operator
+   flag; controls manifest id/path EXPOSURE only). Neither implies the other:
+   authority-without-exposure = val benched but opaque (the default run);
+   exposure implies authority (flag-on consumers see paths AND can run).
+3. **Why not the tempting `includeVal ?? true`:** because exposure rides the SAME
+   option at the adapter, a loop-side default-true would leak val paths into every
+   sandbox manifest unconditionally (todo-6 violation its own tests pin) and turn
+   the CLI flag into a no-op. If two meanings share one variable, one consumer is
+   always going to be lied to — separate the variables, not the defaults.
+4. **Loop-level tests are a distinct rung from adapter/CLI tests.** The 285-green
+   suite had adapter-level val pins and CLI parse/exit-2 pins, but nothing benched
+   a val-bearing genome THROUGH runEvolution — the exact seam the regression broke
+   (dry-run tests never reach the bench). Any time a flag reaches from CLI to
+   adapter, at least one test must cross the full loop with the flag OFF.
+5. **RED capture against the bad HEAD is cheap and decisive**: 3 lines of TAP + the
+   gateVal→benchTarget→runEvolution stack prove the crash path and pin the fix
+   (fixture-loop.test.ts tests 1+3); the flag-ON test passing pre-fix correctly
+   localizes the bug to the default path. D7's vendor-literal gate also caught the
+   fix's own comment — run the FULL suite after comment edits, not just targeted ones.

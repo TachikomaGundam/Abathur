@@ -19,7 +19,11 @@ interface RunFlags {
   readonly maxCandidates: number | null;
   readonly mutator: string | null;
   readonly dryRun: boolean;
-  /** Operator-only val bench; rejected with exit 2 on benches that cannot honour it. */
+  /**
+   * Operator val EXPOSURE switch: surfaces val scenario ids/paths in this
+   * run's bench manifest (the loop always benches val replicates internally);
+   * rejected with exit 2 on benches that cannot honour it.
+   */
   readonly includeVal: boolean;
 }
 
