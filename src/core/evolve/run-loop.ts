@@ -21,6 +21,7 @@
 import path from "node:path";
 
 import { EXIT_BLOCKED, EXIT_CANNOT_ANSWER, EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../../exit.js";
+import { probeRequiresOnly } from "../../bench/fixture-probe.js";
 import type { ConfigEnv } from "../../config.js";
 import { fingerprint16, type RegistryEntry } from "../genome.js";
 import { auditKernel } from "../kernel.js";
@@ -97,7 +98,18 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
     );
   }
   if (opts.dryRun === true) {
-    return { exitCode: EXIT_OK, lines: planLines({ entry: opts.entry, caps, reps, mutatorCommand: opts.mutatorCommand ?? null }) };
+    const reqs = spec.requires ?? [];
+    const requiresProbed = reqs.length > 0 ? await probeRequiresOnly(spec, effectiveRepoPath(spec.repoPath)) : undefined;
+    return {
+      exitCode: EXIT_OK,
+      lines: planLines({
+        entry: opts.entry,
+        caps,
+        reps,
+        mutatorCommand: opts.mutatorCommand ?? null,
+        ...(requiresProbed === undefined ? {} : { requiresProbed }),
+      }),
+    };
   }
   const mutatorCommand = opts.mutatorCommand;
   if (mutatorCommand === undefined) {

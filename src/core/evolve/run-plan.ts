@@ -13,6 +13,8 @@ export interface PlanRequest {
   readonly caps: BudgetCaps;
   readonly reps: number;
   readonly mutatorCommand: string | null;
+  /** Count of spec.requires[] probes that passed in dry-run (absent = none configured). */
+  readonly requiresProbed?: number | undefined;
 }
 
 /** `--max-candidates` clamps DOWN to the genome's own cap, never above. */
@@ -36,6 +38,9 @@ export function planLines(req: PlanRequest): readonly string[] {
     `  repo: ${path.resolve(spec.repoPath)}`,
     `  bench: ${spec.bench.type} — timeoutS=${String(spec.bench.timeoutS)} stats minEffect=${String(spec.bench.stats.minEffect)} halfWidth=${String(spec.bench.stats.halfWidth)}`,
     `  units: ${unitList}`,
+    ...(req.requiresProbed === undefined
+      ? []
+      : [`  requires probes: ${String(req.requiresProbed)}/${String(req.requiresProbed)} OK (prereq argv spawned; engine/mutator never spawned in dry-run)`]),
     `  reps: ${String(req.reps)}`,
     `  budget caps: maxCandidates=${String(req.caps.maxCandidates)}${req.caps.maxCandidates < specMax ? ` (clamped from ${String(specMax)})` : ""} maxModelCalls=${String(req.caps.maxModelCalls)} maxTokens=${String(req.caps.maxTokens)} maxWallS=${String(req.caps.maxWallS)}`,
     peek.lastCompleteGenId === null

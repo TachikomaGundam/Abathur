@@ -82,6 +82,35 @@ async function probeOpencodeVersion(
   return observed;
 }
 
+/**
+ * Dry-run-only requires probe (task 14): verifies every spec.requires[] argv
+ * WITHOUT the opencode `--version` engine probe, so `run --dry-run` can prove
+ * machine prerequisites without spawning the engine or the mutator. Failure
+ * messages name the FULL argv (not just the binary) so a bad arg path is obvious.
+ * Returns the number of probes that passed.
+ */
+export async function probeRequiresOnly(spec: GenomeSpec, repoRoot: string): Promise<number> {
+  const reqs = spec.requires ?? [];
+  for (const req of reqs) {
+    const argv = [req.cmd, ...(req.args ?? ["--version"])];
+    const shown = argv.join(" ");
+    const outcome = await runChild({ argv, cwd: repoRoot, timeoutS: PROBE_TIMEOUT_S });
+    if (outcome.kind === "spawn_failed") {
+      cannotAnswer(
+        `dry-run: prerequisite '${shown}' cannot spawn: ${outcome.reason}`,
+        "install it or fix spec.requires before the real run",
+      );
+    }
+    if (outcome.kind !== "exited" || outcome.exitCode !== req.probeExit) {
+      cannotAnswer(
+        `dry-run: prerequisite '${shown}' probe expected exit ${String(req.probeExit)}, got ${outcome.reason}`,
+        "fix the prerequisite or spec.requires before the real run",
+      );
+    }
+  }
+  return reqs.length;
+}
+
 async function probeRequires(
   req: RequiredPrereq,
   cwd: string,
