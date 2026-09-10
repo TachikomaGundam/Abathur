@@ -52,6 +52,8 @@ export interface OpenAdapterOptions {
   readonly env?: ConfigEnv | undefined;
   readonly opencodeBin?: string | undefined;
   readonly onChild?: ((handle: ChildHandle) => void) | undefined;
+  /** Operator val gate (CLI --include-val); default false keeps val hidden. */
+  readonly includeVal?: boolean | undefined;
 }
 
 /** toy ⇒ stateless adapter; fixture ⇒ ctor acquires the fingerprint lock immediately. */
@@ -65,7 +67,8 @@ export function openBenchAdapter(spec: GenomeSpec, opts: OpenAdapterOptions): Be
     case "opencode-fixture-scenarios": {
       const adapter = new FixtureScenariosAdapter(spec, {
         configDir: opts.configDir,
-        includeVal: true,
+        // plan line 118: val units run ONLY when the operator passed --include-val
+        includeVal: opts.includeVal === true,
         ...envOpts,
         ...binOpts,
         ...childOpts,
@@ -93,6 +96,8 @@ export interface BenchTargetOptions {
   readonly configDir: string;
   readonly env?: ConfigEnv | undefined;
   readonly opencodeBin?: string | undefined;
+  /** Operator val gate forwarded from the run loop (CLI --include-val). */
+  readonly includeVal?: boolean | undefined;
   /**
    * Snapshot-overlay mode (todo 11 self genome): when present the bench runs
    * selfBench against the harness snapshots instead of any bench adapter —
@@ -157,6 +162,7 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
   let complete = true;
   const bundle = openBenchAdapter(o.spec, {
     configDir: o.configDir,
+    ...(o.includeVal === true ? { includeVal: true } : {}),
     ...(o.env === undefined ? {} : { env: o.env }),
     ...(o.opencodeBin === undefined ? {} : { opencodeBin: o.opencodeBin }),
     onChild: o.tracker.onChild,

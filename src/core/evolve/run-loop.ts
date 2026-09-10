@@ -55,6 +55,12 @@ export interface RunLoopOptions {
   readonly reps?: number | undefined;
   readonly maxCandidates?: number | undefined;
   readonly dryRun?: boolean | undefined;
+  /**
+   * Operator switch (CLI --include-val): let the fixture bench run val-split
+   * units and show their paths. Fixture-only — a toy genome rejects it with
+   * exit 2 before anything is spent, never silently ignoring the request.
+   */
+  readonly includeVal?: boolean | undefined;
   readonly opencodeBin?: string | null | undefined;
   readonly env?: WorktreeEnv | undefined;
   readonly sandboxRoot?: string | undefined;
@@ -86,6 +92,12 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
   const env = opts.env ?? process.env;
   const caps = effectiveCaps(spec, opts.maxCandidates);
   const reps = clampReps(opts.reps, spec.bench.stats.nReps);
+  if (opts.includeVal === true && spec.bench.type !== "opencode-fixture-scenarios") {
+    cannotAnswer(
+      `run: --include-val is only supported by the opencode-fixture-scenarios bench — genome bench type is '${spec.bench.type}'`,
+      "drop --include-val, or point --genome at a fixture-bench genome",
+    );
+  }
 
   // ---- startup gate: kernel audit FIRST, before any state or spawn exists.
   const audit = auditKernel(opts.entry, opts.configDir);
@@ -188,6 +200,7 @@ async function evolve(
       source: "incumbent",
       tracker,
       configDir: opts.configDir,
+      ...(opts.includeVal === true ? { includeVal: true } : {}),
       ...(configEnv === undefined ? {} : { env: configEnv }),
       ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: null } } : {}),
     });
@@ -264,6 +277,7 @@ async function evolve(
         source: "candidate",
         tracker,
         configDir: opts.configDir,
+        ...(opts.includeVal === true ? { includeVal: true } : {}),
         ...(configEnv === undefined ? {} : { env: configEnv }),
         ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: c.commitSha } } : {}),
       });

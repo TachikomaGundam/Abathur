@@ -543,6 +543,12 @@ test("CLI: run wiring — arg misuse is exit 2, help line preserved", async (t) 
   await expectExitSignal(2, /unknown flag --nope/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--nope"] })));
   await expectExitSignal(2, /--reps/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--reps", "abc"] })));
   await expectExitSignal(2, /no registered genome/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "ghost"] })));
+  // --include-val parses, threads into the loop, and fails closed on the toy bench:
+  await expectExitSignal(
+    2,
+    /--include-val is only supported by the opencode-fixture-scenarios bench/,
+    Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--include-val", "--dry-run"] })),
+  );
   const out = await runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--dry-run"] });
   assert.equal(out, 0);
 });

@@ -11,7 +11,7 @@ import type { CommandContext, CommandSpec } from "../cli.js";
 import { writeStdout } from "../out.js";
 
 const USAGE =
-  "usage: abathur run --genome <label> [--reps N] [--max-candidates N] [--mutator <template>] [--dry-run]";
+  "usage: abathur run --genome <label> [--reps N] [--max-candidates N] [--mutator <template>] [--dry-run] [--include-val]";
 
 interface RunFlags {
   readonly label: string;
@@ -19,6 +19,8 @@ interface RunFlags {
   readonly maxCandidates: number | null;
   readonly mutator: string | null;
   readonly dryRun: boolean;
+  /** Operator-only val bench; rejected with exit 2 on benches that cannot honour it. */
+  readonly includeVal: boolean;
 }
 
 function positiveInt(raw: string | undefined, flag: string): number {
@@ -38,6 +40,7 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
   let maxCandidates: number | null = null;
   let mutator: string | null = null;
   let dryRun = false;
+  let includeVal = false;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i] as string;
     const next = (): string | undefined => args[(i += 1)];
@@ -65,12 +68,15 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
       case "--dry-run":
         dryRun = true;
         break;
+      case "--include-val":
+        includeVal = true;
+        break;
       default:
         cannotAnswer(`run: unknown flag ${arg}`, USAGE);
     }
   }
   if (label === null) cannotAnswer("run: --genome <label> is required", USAGE);
-  return { label, reps, maxCandidates, mutator, dryRun };
+  return { label, reps, maxCandidates, mutator, dryRun, includeVal };
 }
 
 /** Labels are free (todo 4): a command needs ONE genome, so duplicates are an explicit exit 2. */
@@ -118,6 +124,7 @@ async function runRun(context: CommandContext): Promise<ExitCode> {
       ...(flags.maxCandidates === null ? {} : { maxCandidates: flags.maxCandidates }),
       ...(flags.mutator === null ? {} : { mutatorCommand: flags.mutator }),
       ...(flags.dryRun ? { dryRun: true } : {}),
+      ...(flags.includeVal ? { includeVal: true } : {}),
       friction: frictionSink,
     });
   } catch (error) {

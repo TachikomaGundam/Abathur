@@ -674,3 +674,32 @@ Gotchas found while making the shipped package the thing the README tells people
    byte-identical to EN (translated only in surrounding prose) or the docs stop being copy-pasteable.
 7. Promote prints a cosmetic relative path (`manifest: rewrote ../home/.config/...`) when HOME is
    relocated — pre-existing display quirk, zero behavior effect, left alone (docs-only task).
+
+## §F1-fix — CI gate for the D7 literal ban + `--include-val` operator seam (2026-09-10)
+
+1. **Grep gates must run as tests, not README rituals.** `src/test/d7-gate.test.ts`
+   walks `src/**/*.ts` (own recursive `readdirSync(withFileTypes)`, symlinks skipped —
+   a symlink could smuggle an offending file out of the tree), skips the plan's
+   `src/test/**` carve-out, and fails naming EVERY `file:line [label] content`.
+   Two pins make it trustworthy: resolve the tree via
+   `fileURLToPath(new URL("../../src", import.meta.url))` (the promote/bundle pattern —
+   immune to cwd because `node --test` runs from `dist/test/`), and a `scanned > 20`
+   anti-vacuity assert so a broken path resolution can never pass silently.
+   Proven by planting `src/zz-plant-probe.ts` (RED names it), deleting it, re-GREEN —
+   never built into dist, never staged.
+2. **Where `--include-val` threads**: `run.ts` parse (`RunFlags.includeVal`, spread
+   `...(flags.includeVal ? { includeVal: true } : {})`) → `RunLoopOptions.includeVal`
+   → guard in `runEvolution` right after caps (BEFORE kernel audit/dry-run, so a toy
+   genome exits 2 without touching state — and `--dry-run` cannot smuggle it past the
+   guard) → BOTH `benchTarget` call sites → `OpenAdapterOptions.includeVal` →
+   `run-bench.ts` fixture factory. The factory's hardcoded `includeVal: true` was the
+   real leak: plan line 118 says val runs ONLY under the operator flag, so the
+   evolution loop's mutator-facing manifest now hides val paths by default (AC(B)
+   adapter-level hiding was already pinned; the loop just wasn't honoring it).
+3. **Guard on `bench.type !== "opencode-fixture-scenarios"`, not `=== "toy"`** — the
+   fail-closed polarity means any future bench type rejects the flag by default
+   instead of silently ignoring it. Message quotes the actual type.
+4. **Type-level RED is valid RED in a tsc-gated repo**: the new tests failed
+   `TS2339 Property 'includeVal' does not exist` before implementation — the compiler
+   refuses the feature's absence as loudly as a runtime assert. Capture it in the
+   evidence transcript anyway.
