@@ -641,3 +641,36 @@ Gotchas (each cost a red test or an evidence rerun):
   bugs — preserved as evidence; gen2 1h50m; gen3 1h12m). Candidate g-20260910T041039Z-6abd059b
   commit 235ddcea: 5 wins 4 ties vs incumbent, gain +0.1786, indeterminate, NOT promoted (plan).
   agentModel bailian-token-plan/qwen3.8-flash all sessions.
+
+## §Todo15 — bilingual docs, federation reference, packaging portability proof (2026-09-10)
+
+Gotchas found while making the shipped package the thing the README tells people to run:
+
+1. **npm -g installs the bin as a SYMLINK** (`prefix/bin/abathur -> lib/node_modules/abathur/dist/cli.js`).
+   The `invokedDirectly` guard in `src/cli.ts` compared the RAW `process.argv[1]` against
+   `import.meta.url`, so every global install silently no-op'd — `abathur` printed nothing, exit 0.
+   Unit tests never caught it (they spawn `dist/cli.js` by real path). Fix: `realpathSync(resolve(argv[1]))`
+   in a try/catch. Lesson: any "am I the entrypoint?" guard must canonicalize BOTH sides; the tmp-HOME
+   install proof is the only test that exercises this seam.
+2. **Bench snapshots are intentionally read-only**; tearing down a scratch harness state dir needs
+   `chmod -R u+w <xdg-cache>/abathur/worktrees` before `rm -rf`, or the teardown pollutes evidence
+   transcripts with Permission-denied noise (results stay valid — snapshot reuse is content-keyed).
+3. **`genomes/` and `selfbench/` are deliberately NOT in package.json `files`** (`files=["dist","config","graders","docs"]`):
+   the toy quick-start materializes from `dist/genomes/toy-smoke` (copied by `scripts/copy-assets.mjs`,
+   resolves from both repo `dist/test/**` and shipped `dist/**` — the same ../../-relative trick as graders),
+   and `abathur-self` cannot run from a tarball anyway (self-bench needs the git checkout: `.git`, node_modules,
+   graders/** seal coverage). So the README registers abathur-self from `$ABATHUR_SELF_REPO` (checkout), never
+   from the package. Proof: `npm pack --dry-run` = 112 files, contains dist/cli.js + stub-mutators.mjs +
+   dist/genomes/toy-smoke/** + graders/historian/** + docs/**.
+4. **Graft demo ordering**: demo graft BEFORE promote on the toy budget (maxCandidates=4); after the
+   budget is exhausted the local re-bench honestly reports `inconclusive: budget exhausted` (exit 2,
+   peer claim never trusted — good failure mode, bad happy-path screenshot).
+5. **Deterministic export re-proved at packaging level**: same genome twice → identical tarball sha256
+   (772fedfc1eb3…), which is exactly the sha graft uses as `graftGenId` seed. Byte-equality is load-bearing
+   across commands, not just tests.
+6. **README parity is mechanical, not aspirational**: checker = heading count + level-shape equality
+   between `## English` and `## 中文` blocks (11/11, h3 10/10); planted a zh-only heading, checker flipped
+   red (11/12) — evidence in task-15-failure.txt. zh translations of `--flags` and file paths must stay
+   byte-identical to EN (translated only in surrounding prose) or the docs stop being copy-pasteable.
+7. Promote prints a cosmetic relative path (`manifest: rewrote ../home/.config/...`) when HOME is
+   relocated — pre-existing display quirk, zero behavior effect, left alone (docs-only task).
