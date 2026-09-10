@@ -1,0 +1,11 @@
+unit        incumbent  candidate  split
+scenario-01  0.750       0.833        train 
+scenario-02  0.500       0.500        train scenario-02 rep 0: scored 0.5 (not passing)
+scenario-03  0.333       0.417        train scenario-03 rep 0: scored 0.4166666666666667 (not passing)
+scenario-04  0.583       0.583        val scenario-04 rep 0: scored 0.5833333333333334 (not passing)
+scenario-05  0.333       1.000        train 
+scenario-06  0.833       0.833        train 
+scenario-07  0.500       0.750        train scenario-07 rep 0: scored 0.75 (not passing)
+scenario-08  0.333       0.500        train scenario-08 rep 0: scored 0.5 (not passing)
+scenario-09  1.000       1.000        val 
+verdict: indeterminate gain: 0.1786 commit: 235ddcea40b66813497fd201e8bd43b549961fe4 tree: b2f75641c0d0d58151a300d3060611a63e021d16

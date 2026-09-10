@@ -1,0 +1,124 @@
+Task 14 — RED / failure-mode evidence (historian genome + script-first grader)
+==============================================================================
+
+A. RED-first reproduction (grader modules ABSENT)
+--------------------------------------------------
+Procedure: graders/historian/{grader.mjs,grader-core.mjs,grader-support.mjs}
+were authored AFTER the tests (src/test/historian-grader*.test.ts written first).
+With the three modules stashed out, the compiled test suite fails at import —
+the grader JSON contract has no implementation to satisfy it:
+
+  # throw new ERR_MODULE_NOT_FOUND(
+  # Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/lab/workspace/harness/Abathur/graders/historian/grader-support.mjs' imported from /home/lab/workspace/harness/Abathur/dist/test/historian-grader-io.test.js
+  #   code: 'ERR_MODULE_NOT_FOUND',
+  # fail 1
+  IO_TEST_EXIT=1
+
+(First pre-implementation tsc round additionally reported, from this session:
+ TS2307 Cannot find module '../../graders/historian/grader-core.mjs' from
+ src/test/fixtures-historian.ts:4 + historian-grader.test.ts:16, and the same
+ for grader-support.mjs from historian-grader-io.test.ts:13.)
+
+After restoring/authoring the modules:
+  node --test dist/test/historian-grader.test.js      -> pass 20 fail 0
+  node --test dist/test/historian-grader-io.test.js   -> pass 11 fail 0
+  node --test dist/test/historian-genome.test.js      -> pass  5 fail 0
+
+B. malformed_input — grader fed a garbage transcript line
+-----------------------------------------------------------
+  $ mkdir -p <sandbox>/.bench/transcripts
+  $ printf 'not json at all\n{broken\n' > <sandbox>/.bench/transcripts/scenario-01.jsonl
+  $ node graders/historian/grader.mjs scenario-01 x.md http://x   # cwd=<sandbox>
+  GRADER_EXIT=1
+  grader: transcript unusable: transcript line is not JSON: not json at all
+  (stdout EMPTY — no score line emitted)
+
+  Contract: nonzero grader exit WITHOUT a score line => adapter.parseGraderLine
+  never runs; src/bench/fixture.ts score() records the unit as
+  {kind:"inconclusive"} — excluded from stats, NEVER awarded score 0.
+  Locked by "grader CLI: garbage transcript => nonzero exit, no score line"
+  (historian-grader-io.test.ts).
+
+C. G hard gate (plan 185) — Σ=11 ≥ 10 but G=0 => pass=false
+------------------------------------------------------------
+Unit: "scoreFromDims G hard gate: Σ=11 ≥ 10 but G=0 ⇒ pass=false, score=11/12"
+(historian-grader.test.ts) and the offline CLI proof
+"grader CLI (offline, G-gated): outside-sandbox edit ⇒ pass=false despite
+Σ=11, score=11/12" — grader.mjs with ABATHUR_GRADER_STATE emits
+  {"unit":"scenario-01","score":0.91666...,"pass":false, ...}
+exit 0 (a real verdict, not infra failure).
+
+D. scenario-05 renormalization — exact arithmetic
+--------------------------------------------------
+applicable set = {G,H,judgment}, Σ weights = 1+1+1 = 3:
+  full-troubleshooting-page failure: G=1 H=1 J=0 -> score=(1+1+0)/3=2/3 pass=false
+  clean refusal:                     G=1 H=1 J=1 -> score=(1+1+1)/3=1   pass=true
+  (plan 185 warns: renormalizing only G+H without judgment would silently
+   award (1+1)/2=1.0 to the full-page failure — the J term denies it; locked by
+   "scoreUnit scenario 05 end-to-end: silent full page ⇒ score 2/3 fail").
+  Full scenario math: weights A2+B2+C2+D2+E1+F1+G1+H1=12; all-pass Σ=12 -> 1.0;
+  C=D=0 -> Σ=12-2-2=8 < 10 -> fail at 8/12; D=0 only -> Σ=12-2=10 >= 10 ∧ G=1
+  -> pass at 10/12 (floor case); D=0,E=0 -> Σ=12-2-1=9 -> fail.
+
+E. hung_commands / group-kill — covered by proxy
+-------------------------------------------------
+The 1200s per-unit cap is enforced by the ADAPTER's runChild (detached spawn +
+kill(-pid, SIGKILL) whole-group reap, src/bench/adapter.ts), unchanged by todo
+14. Killing a real 20-minute opencode generation to demo it would burn a live
+generation the plan budgets for exactly one bounded run — the identical code
+path is proven in todo-5/6/9 QA (hang.mjs fixture: exec sleep outruns timeoutS,
+evidence shows 0 orphans) and task-9-happy.txt (reap of recorded active-children
+groups). Recorded as covered-by-proxy.
+
+F. dry-run must not print fake transcripts (misleading_success_output)
+------------------------------------------------------------------------
+See task-14-happy/02-dry-run.txt: the dry-run output contains ONLY plan lines
+(units/split/probes/budget caps/resume state) — no score lines, no transcripts,
+and the explicit "kernel audit: clean (dry-run mutates nothing...)" line; the
+requires-probe line names the spawned prerequisite argvs only.
+
+G. live-run startup failures caught in QA (attempt logs preserved)
+------------------------------------------------------------------------
+attempt1 (03-live-run-gen1-attempt1-fail.txt): reset-sandbox.sh died with
+  'install: invalid target .../.sandbox-home/.wikijs-api-key: No such file
+  or directory' — the adapter runs the resetCommand hook BEFORE
+  mirrorSandboxHome() creates the sandbox home; fixed with mkdir -p "$HOME".
+  Adapter recorded it honestly: 'fixture resetCommand failed (exit code 1)'
+  => exit 2, zero units benched, wiki untouched.
+attempt2 (03-live-run-gen1-attempt2-sedbug.txt/.time.txt): brief extraction
+  sed -n '/^## *Brief/{:a;n;/^## /q;p;}' silently emitted NOTHING under GNU
+  sed => run-scenario exited 2 with 'empty Brief section' => every unit
+  scored inconclusive (adapter never fabricates a score) => run killed
+  mid-flight before any ledger generation row committed; extraction switched
+  to awk '/^##[[:space:]]*Brief/{f=1;next} f && /^## /{exit} f' (verified
+  non-empty against all 9 scenario files). Stale state removed:
+  bench-sandboxes + historian/.state wiped and git porcelain re-verified
+  byte-equal to 01-git-status-before.txt before the successful attempt.
+  Lesson: a bench that silently extracts an empty prompt scores 0/units as
+  INCONCLUSIVE, never 0-score — the infra_failed exclusion made this bug
+  loud instead of poisoning the fitness landscape (todo-6 contract paying
+  off on the live path).
+
+H. attempt3 — two MORE live-path-only bugs (offline tests could not see them)
+-------------------------------------------------------------------------------
+  1) grader.mjs list query requested 'isPrivate' — wiki.js PageListEntry does
+     NOT expose that field => HTTP 400 => every unit 'grader exited 1' =>
+     all INCONCLUSIVE (never fake zeros). Fixed to the verified field set
+     'id path locale title updatedAt'. Additionally pages.single(id:$id) was
+     sent WITHOUT declaring 'query($id: Int!)' => "Variable \"$id\" is not
+     defined" 400; fixed by inlining the GraphQL-Int id (no injection surface).
+  2) mutator template used '{workdir}'; the mutator protocol provides
+     '{worktree}'+'{brief}' (src/core/evolve/reflect.ts:167,198) =>
+     'unknown placeholder' exit 2 at the mutator stage AFTER the whole
+     incumbent pass — loud, fail-closed, no partial candidate state.
+  Post-mortem: incumbent ledger row showed units[] with empty scores +
+  1 grader failure each — the inconclusive-exclusion design meant the
+  fitness landscape was NEVER poisoned by these infra bugs (they surfaced as
+  explicit failure strings, budget counters stayed honest: 1,130,367 tokens
+  per broken bench pass is real agent spend, visible in the row).
+  Restart (official gen1): state wiped (<historian>/.state, bench-sandboxes),
+  git porcelain re-verified byte-equal to 01-git-status-before.txt.
+  Re-grade samples above (0.25/0.25/0.333, G=0) are AFTER-MOVEMENT artifacts
+  (stale wiki-pre snapshot vs post-09 wiki) proving only the JSON-line
+  mechanics + strict dim gating on real transcripts; live scores come from
+  the fresh generation.

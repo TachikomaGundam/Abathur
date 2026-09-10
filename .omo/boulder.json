@@ -8,35 +8,39 @@
       "plan_name": "abathur-harness",
       "status": "active",
       "started_at": "2026-09-09T06:27:40.928Z",
-      "updated_at": "2026-09-09T17:18:04.128Z",
+      "updated_at": "2026-09-10T05:49:39.073Z",
       "session_ids": [
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
         "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1",
         "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
-        "opencode:ses_f7a841572ffe7yo6i3t440zuUg"
+        "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
+        "opencode:ses_f78bd978effeI97ScVflKvg4S3",
+        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh"
       ],
       "session_origins": {
         "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
         "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM": "appended",
         "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended",
         "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
-        "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended"
+        "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
+        "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
+        "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
         "todo:1": {
           "task_key": "todo:1",
           "task_label": "1",
-          "task_title": "FULL inspect first (todo-12 inspectBundle) — any integrity failure ⇒ exit 1/2 immediately, nothing else touched.",
-          "session_id": "opencode:ses_f79322a4cffe5z5xepP1ONbtvA",
+          "task_title": "config/genomes/historian.example.jsonc — label 'historian', bench.type opencode-fixture-scenarios, units = the 9 scenario files, train=01,02,03,05,06,07,08 val=04,09; ALL machine-specific values via ${ENV} placeholders resolved through config env/overlay (repoPath, wiki base URL, opencodeBin) — ZERO /home/lab literals inside the example (grep-gated in todo 15; the REAL run happens through a private *.local.jsonc overlay or env you export in your QA shell — .local.jsonc is gitignored and NEVER committed).",
+          "session_id": "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
           "agent": "Sisyphus-Junior",
           "category": "deep",
           "started_at": "2026-09-09T06:59:39.215Z",
           "ended_at": "2026-09-09T17:18:04.128Z",
           "elapsed_ms": 37104913,
           "status": "completed",
-          "updated_at": "2026-09-09T17:18:04.128Z"
+          "updated_at": "2026-09-09T17:42:42.176Z"
         },
         "todo:2": {
           "task_key": "todo:2",
@@ -106,12 +110,14 @@
           "task_key": "todo:11",
           "task_label": "11",
           "task_title": "Self-evolution: abathur-self genome + friction digest",
-          "session_id": "opencode:ses_f79928864fferngWpO5SzDKgQU",
+          "session_id": "opencode:ses_f78bd978effeI97ScVflKvg4S3",
           "agent": "Sisyphus-Junior",
           "category": "deep",
-          "updated_at": "2026-09-09T15:24:21.380Z",
           "started_at": "2026-09-09T15:24:21.380Z",
-          "status": "running"
+          "status": "completed",
+          "updated_at": "2026-09-10T05:49:39.073Z",
+          "ended_at": "2026-09-10T05:49:39.073Z",
+          "elapsed_ms": 51917693
         }
       }
     }
@@ -119,35 +125,39 @@
   "active_plan": "/home/lab/workspace/harness/Abathur/.omo/plans/abathur-harness.md",
   "started_at": "2026-09-09T06:27:40.928Z",
   "status": "active",
-  "updated_at": "2026-09-09T17:18:04.128Z",
+  "updated_at": "2026-09-10T05:49:39.073Z",
   "session_ids": [
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM",
     "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1",
     "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq",
-    "opencode:ses_f7a841572ffe7yo6i3t440zuUg"
+    "opencode:ses_f7a841572ffe7yo6i3t440zuUg",
+    "opencode:ses_f78bd978effeI97ScVflKvg4S3",
+    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh"
   ],
   "session_origins": {
     "opencode:ses_f7b26355cffe2Ed8C1gnCQjOEm": "direct",
     "opencode:ses_f7ac19ef0ffeJWRnWwddjf3WLM": "appended",
     "opencode:ses_f7ac0de65ffeBqqO6LeFVcF3d1": "appended",
     "opencode:ses_f7a84fab2ffe65sF85Ih3h0MTq": "appended",
-    "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended"
+    "opencode:ses_f7a841572ffe7yo6i3t440zuUg": "appended",
+    "opencode:ses_f78bd978effeI97ScVflKvg4S3": "appended",
+    "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh": "appended"
   },
   "plan_name": "abathur-harness",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "FULL inspect first (todo-12 inspectBundle) — any integrity failure ⇒ exit 1/2 immediately, nothing else touched.",
-      "session_id": "opencode:ses_f79322a4cffe5z5xepP1ONbtvA",
+      "task_title": "config/genomes/historian.example.jsonc — label 'historian', bench.type opencode-fixture-scenarios, units = the 9 scenario files, train=01,02,03,05,06,07,08 val=04,09; ALL machine-specific values via ${ENV} placeholders resolved through config env/overlay (repoPath, wiki base URL, opencodeBin) — ZERO /home/lab literals inside the example (grep-gated in todo 15; the REAL run happens through a private *.local.jsonc overlay or env you export in your QA shell — .local.jsonc is gitignored and NEVER committed).",
+      "session_id": "opencode:ses_f78bc37faffeJnpKD0Vwkeg7qh",
       "agent": "Sisyphus-Junior",
       "category": "deep",
       "started_at": "2026-09-09T06:59:39.215Z",
       "ended_at": "2026-09-09T17:18:04.128Z",
       "elapsed_ms": 37104913,
       "status": "completed",
-      "updated_at": "2026-09-09T17:18:04.128Z"
+      "updated_at": "2026-09-09T17:42:42.176Z"
     },
     "todo:2": {
       "task_key": "todo:2",
@@ -217,12 +227,14 @@
       "task_key": "todo:11",
       "task_label": "11",
       "task_title": "Self-evolution: abathur-self genome + friction digest",
-      "session_id": "opencode:ses_f79928864fferngWpO5SzDKgQU",
+      "session_id": "opencode:ses_f78bd978effeI97ScVflKvg4S3",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-09-09T15:24:21.380Z",
       "started_at": "2026-09-09T15:24:21.380Z",
-      "status": "running"
+      "status": "completed",
+      "updated_at": "2026-09-10T05:49:39.073Z",
+      "ended_at": "2026-09-10T05:49:39.073Z",
+      "elapsed_ms": 51917693
     }
   },
   "agent": "atlas"

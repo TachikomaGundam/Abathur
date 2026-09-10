@@ -1,0 +1,12 @@
+incumbent baseline: 9 units x 1 reps
+candidate mutate-live [tree d95e9f13b3bd]: indeterminate (gain 0.1310, reps 1)
+  gate: n=1 on unit 'scenario-01': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-02': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-03': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-04': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-05': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-06': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-07': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-08': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-09': variance undefined — indeterminate, never nominated
+budget spent: candidates=1 tokens=20151567 wallS=9847.608 (caps candidates=1 tokens=80000000 wallS=28800)

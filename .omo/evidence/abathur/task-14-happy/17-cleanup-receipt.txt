@@ -1,0 +1,7 @@
+== wiki hygiene receipt (post-campaign) ==
+reset-sandbox.sh final manual invocation: deleted 5 _sandbox page(s), cache refreshed, exit 0
+wiki rows total=258 _sandbox=0 => non-sandbox state identical to pre-campaign 258; only _sandbox/* rows ever touched
+
+== ledger receipt ==
+ledger rows: 5
+git porcelain digest historian before(gen3)=4cea26f0927ebde6 after(gen3)=4cea26f0927ebde6

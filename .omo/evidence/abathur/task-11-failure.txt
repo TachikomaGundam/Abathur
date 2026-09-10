@@ -1,0 +1,38 @@
+=== task-11 RED evidence — captured 2026-09-09T18:38:48Z BEFORE production code ===
+
+[1] scoped tsc (tsconfig.solo.json: repo tsconfig minus todo-14 WIP historian files)
+    failing for the MISSING todo-11 modules + unwired seam, not for typos:
+src/test/friction.test.ts(238,5): error TS2353: Object literal may only specify known properties, and 'friction' does not exist in type 'RunLoopOptions'.
+src/test/friction.test.ts(274,5): error TS2353: Object literal may only specify known properties, and 'friction' does not exist in type 'RunLoopOptions'.
+src/test/friction.test.ts(40,8): error TS2307: Cannot find module '../core/evolve/friction.js' or its corresponding type declarations.
+src/test/self-snapshot.test.ts(240,7): error TS2353: Object literal may only specify known properties, and 'friction' does not exist in type 'RunLoopOptions'.
+src/test/self-snapshot.test.ts(39,8): error TS2307: Cannot find module '../core/evolve/self-snapshot.js' or its corresponding type declarations.
+src/test/self-snapshot.test.ts(40,35): error TS2307: Cannot find module '../core/evolve/friction.js' or its corresponding type declarations.
+
+[2] self-eval slot is still the pending() placeholder => exit 2 (run with a readable config
+    so dispatch reaches the handler, not the config funnel):
+$ TMPH=$(mktemp -d); echo '{}' > $TMPH/config.jsonc
+$ ABATHUR_CONFIG=$TMPH/config.jsonc HOME=$TMPH node dist/cli.js self-eval --genome abathur-self
+abathur: command group 'self-eval' is not implemented yet
+  hint: evaluate the harness itself (abathur-self genome)
+  exit=2
+$ rm -rf $TMPH
+
+[3] no friction module exists yet; queue file never written by any run:
+ls: cannot access 'src/core/evolve/friction.ts': No such file or directory
+  ls-exit=2
+ls: cannot access 'src/core/evolve/self-snapshot.ts': No such file or directory
+  ls-exit=2
+
+[5] seed genome + trusted fixture + docs exist (authored test-first, not code):
+docs/immutable-kernel.md
+genomes/abathur-self.jsonc
+selfbench/replay.mjs
+
+NOTE (RED completeness): the runtime AC-1/AC-2 friction assertions cannot even be
+attempted pre-implementation — no src/core/evolve/friction.ts, no
+src/core/evolve/self-snapshot.ts, RunLoopOptions has no 'friction' seam (TS2353
+above), and `genome add genomes/abathur-self.jsonc` currently fails closed
+(graders/** seal pattern coverage will pass once todo-14's graders/ dir lands —
+the historian graders/contract presence is verified in [3] via the lite fixture
+registration path exercised by the tests themselves).
