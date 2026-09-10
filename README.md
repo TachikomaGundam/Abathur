@@ -36,6 +36,7 @@ instance learn from another's evidence; nothing in v1 talks to a network.
 ### Install
 
 ```bash
+npm i -g @tachikomagundam/abathur  # from the npm registry
 npm pack                          # in a checkout; prepack runs the build
 npm i -g ./abathur-0.1.0.tgz
 abathur --help
@@ -270,6 +271,7 @@ MIT, see [LICENSE](LICENSE).
 ### 安装
 
 ```bash
+npm i -g @tachikomagundam/abathur  # 从 npm registry 安装
 npm pack                          # 在 checkout 里执行；prepack 会先构建
 npm i -g ./abathur-0.1.0.tgz
 abathur --help

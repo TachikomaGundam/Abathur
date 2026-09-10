@@ -3,6 +3,7 @@
 # One-time setup required in the npmjs.com UI (Publishing access →
 # "Trusted publisher" → Add publisher → GitHub Actions):
 #   Owner / user:   TachikomaGundam
+#   Package name:   @tachikomagundam/abathur
 #   Repository:     Abathur
 #   Workflow name:  publish.yml
 #   Environment:    (leave empty unless you gate it)
@@ -60,7 +61,7 @@ jobs:
               echo "::error::git tag '${TAG}' does not match package.json version '${VERSION}'"
               exit 1
             fi
-            echo "Publishing abathur@${VERSION} (tag ${TAG})"
+            echo "Publishing ${VERSION} (tag ${TAG})"
           else
             echo "::error::unexpected event '${GH_EVENT}' on ref '${GH_REF}' — refusing to publish"
             exit 1
