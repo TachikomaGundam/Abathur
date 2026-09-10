@@ -494,3 +494,150 @@ Gotchas (each cost a red test or an evidence rerun):
 - Tests: src/test/graft.test.ts 12 tests (real dual-instance toy evolve+export+CLI graft; tamper surgeries incl. honest-files[]-stale-digest repack and
   hand-built traversal tar header). Suite 213 → 225/225 ×2 green, no flakes. Evidence .omo/evidence/abathur/task-13-{failure,happy}.txt (driver:
   node /tmp/opencode/task13-evidence.mjs — full export→graft→status→promote chain + quarantine + pending-queue transcripts).
+
+---
+
+## Todo 11 — self-evolution: abathur-self genome + friction digest (2026-09-09)
+- New API surface:
+  - src/core/evolve/friction.ts: FRICTION_KIND="friction_digest" record rides the EXISTING lock-guarded
+    <configDir>/friction.jsonl (appendFriction/readFriction, todo 2 — reused, no reinvention). One record per
+    run: cause "run-summary" (evolve emits ONE summary via the new optional RunLoopOptions.friction sink — absent
+    sink ⇒ byte-identical old behavior, all 225 baseline tests untouched) | "cli-error" (runRun wraps runEvolution,
+    appends a zero-counts summary with the sanitized ExitSignal message) | "self-eval". frictionDigestSchema data:
+    {genomeFp(16hex), cause, exit 0|1|2, complete, counts{7}, rejections{total,byStage(5 stages)}, stall{budgetTruncated,
+    orphanGroups}, train[]{unitId,n,mean,failures≤4}, val{count,aliases val-N,samples}, reasons≤10}. scrub() is the
+    only string path ([^ -~]→space + ≤200 + "..."); ledger envelope stays {v:1,ts,kind,genId?,runId?,data}.
+  - VAL SCRUBBING IS STRUCTURAL: buildRunFriction never receives a val unit's real id/path/score-text — callers pass
+    {unitId,split,scores,failures} rows and the builder maps val→count+positional val-N aliases+samples, dropping all
+    text. A val scenario string cannot reach the queue even if a mutator lies (AC-2 canary test: id/path/failures
+    renamed val-CANARY-9f3a BEFORE register+commit ⇒ never in file).
+  - src/core/evolve/self-overlay.ts (244): treePaths/planOverlay(candidateFiles,spec)→{overlay,dropped[{path,reason
+    sealed|trusted-tests}]} — candidate src/** minus kernel.immutableGlob matches minus src/test/** (trusted-test rule,
+    AC-4); cloneSnapshot (cpSync w/ .git + node_modules filter + thaw + node_modules symlink to HARNESS_ROOT);
+    runBuild = the repo's own 2-step recipe tsc -p tsconfig.json + node scripts/copy-assets.mjs, both under one
+    buildTimeoutS cap, HARNESS-PINNED compiler via symlink (never npm, never candidate scripts); runSuite (node --test
+    with env NODE_TEST_CONTEXT:undefined STRIPPED — see gotcha), runReplay, parseTapSummary (# tests|pass|fail last
+    wins), readExpectedDigest(<snapshot>/selfbench/expected.json).
+  - src/core/evolve/self-snapshot.ts (217): selfBench(req) = snapshotCommit(incumbent)+snapshotCommit(candidate) →
+    clone base → overlay candidate src → build → per rep: node --test suite (score pass/tests, runId s-<sha12>-i) +
+    golden replay (digest==trusted expected ⇒ 1/0) → BenchTargetOutcome-shaped units/spent/complete/failures +
+    overlaid/dropped/buildStatus/suiteRuns/replayDigest/replayExpected; selfGuardVerdict maps overlay-empty nomination
+    ->indeterminate and build-timeout ->inconclusive. DEFAULT caps: build 180s, suite 900s, replay 120s.
+  - src/core/evolve/run-friction.ts: startRunFriction(sink) collector (noteUnits/noteBench/noteSession/
+    noteCandidate/emit) — run-loop stays orchestrator-only; run-loop.ts 243→281 pure LOC.
+  - src/commands/self-eval.ts + cli.ts slot: `self-eval [--genome abathur-self] [--gen G]... [--reps N]`. Reports to
+    stdout (incl. dropped-reason lines + full digests); NEVER Ledger.open (raw ledgerPath read, exit 2 on any bad
+    line); NEVER writes ledger rows; auditKernel BEFORE anything (reuse); appends ONE self-eval friction record.
+    NO-PROMOTE-AUTHORITY is structural + tested: friction.test.ts scans all five new files for promote.js /
+    promoteGeneration / fastForwardIncumbent / new Function / eval( / child_process.exec( / import( — zero hits.
+  - spec.ts: isEnvRepoLiteral + effectiveRepoPath(repoPath, env) — `${VAR}` literal repoPath is machine-INDEPENDENT:
+    fingerprint16/registry stem/kernels/locks/invId/genId/friction all use the RAW literal; ONLY filesystem-touching
+    seams resolve (openGenome/snapshotCommit/newGeneration/sealGeneration, auditKernel manifest repo, run-loop+
+    self-eval+kernel command, Ledger+ChildTracker+reap live at genomeRepo). Missing/empty env ⇒ exit 2 naming the var
+    BEFORE any mkdir/spawn; a never-expanded literal also lands as the genome label in errors, never a stray dir.
+  - genomes/abathur-self.jsonc seed: bench.type toy mechanics REINTERPRETED for self-bench — runCommand/graderCommand
+    are declarative no-ops (selfBench never builds a ToyBenchAdapter), unitId carries the metric name (suite=train
+    pass-rate, golden-replay=val digest match); stats {halfWidth .05, minEffect 0 (candidate src ride sealed CI ⇒
+    cull-on-any-regression), nReps 2..4}; immutableGlobs = the plan's list VERBATIM (no additions — see gotcha). docs/immutable-kernel.md is the todo-15 seed; selfbench/{replay.mjs,expected.json} = TRUSTED fixture
+    (digest 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, captured real-repo ×2 identical).
+- Gotchas (each cost a red test or a re-run):
+  - planOverlay MUST diff candidate-vs-base: copying EVERY non-immutable candidate src file re-deploys UNCHANGED
+    sealed-adjacent files (src/bench/toy.ts is sealed so the copy keeps the incumbent's toy.js — dist/test/*.test.js
+    importing ../bench/toy.js then hit tsc TS2307 against the symlinked real node_modules/@types). Diff overlay keeps
+    dist self-consistent. AC-4's candidate (deletes a test + edits units/add.mjs) also exercises the "some dropped,
+    some overlaid" path the old copy-all silently broke.
+  - node --test NESTED inside node --test: the child inherits NODE_TEST_CONTEXT and the inner runner prints NO '# pass'
+    summary (silent score loss). Adapter runChild env now accepts an explicit undefined to DELETE a key (spawn omits
+    undefined); runSuite passes NODE_TEST_CONTEXT:undefined. Standalone hung-suite probes look fine until you run them
+    under the outer runner — always test hangs through node --test too.
+  - Node 22 detects unsettled top-level await and exits (test "hang" must use setInterval to keep the loop alive);
+    runBuild must be TWO steps (tsc + copy-assets) or the overlay's dist/core/evolve/stub-mutators.mjs is missing and
+    trusted tests import-fail (tsc does NOT copy .mjs sources).
+  - runEvolution's friction sink takes a RunFrictionInput (not a raw record) so run-loop never imports zod; runLoop
+    counts timeouts from unit failure strings — the same ": run timeout"/": run infra_failed" markers buildRunFriction
+    matches. self-eval reports replay observed + expected IN FULL (plan requires the two be equal — truncating both
+    made a red assert indistinguishable; full hex on stdout is safe, replay digest is not val content).
+  - the allowlist data flow is candidate-proof BY PROVENANCE, not by sealing extras: planOverlay (self-overlay.ts:67)
+    and validateCandidate (reflect.ts:176) both consume spec.kernel.immutableGlobs from the REGISTRY entry spec
+    (operator-registered, genomes/** sealed), never from the candidate tree's own genome.jsonc copy — a candidate that
+    rewrote or emptied its tree copy changes nothing. And the apply-stage check runs in the LIVE binary (import-time
+    graph only; selfBench never runtime-loads candidate code — it spawns build/test/replay against bytes), so v1
+    self-eval needs no glob beyond the plan's list.
+  - makeSelfHarness (src/test/fixtures-self.ts) = trimmed tmp copy of the harness (real src/** + package/tsconfig/
+    scripts/genomes/**/selfbench/replay.mjs + 4 trusted tests + symlink node_modules + git init): every run_REPO in
+    tests is a tmp COPY, never the real repo; a candidate can drop the 200-test real suite but cannot drop the 4
+    trusted tests (drop==no-op) so suite score 1.0 requires genuine green.
+  - Test helper traps: captureReplayDigest runs tsc+replay.mjs (no copy-assets → replay.mjs imports
+    ../src/core/evolve/stub-mutators.mjs source directly); fixture self-mutators.test.ts imports
+    ../core/evolve/stub-mutators.mjs (dist path, copy-assets builds it); writeFileSync {mode:755} decimal = mode 0o755
+    but node ESM reads via symlink target perms in tmp dirs — use {mode:0o755} (a --wxrw---t storm.mjs cost a re-run);
+    ledgerCount filters '"generation_complete"' or candidate_rejected rows inflate it.
+- ACs pinned by tests: AC-1 storm ≥1 friction_digest (friction.test.ts:5 + run-loop exit 1); AC-2 canary never in
+  queue (friction.test.ts:6 + self-snapshot.test.ts run-summary has no candidate rationale); AC-3 sealed-core double
+  proof = stats-tamper rejected at path stage (overlay drops sealed) AND tampered snapshot fails auditKernel at
+  self-eval/run start exit 1 (self-snapshot.test.ts:4,5 +:96); AC-4 trusted-test delete ⇒ zero score effect
+  (scores == incumbent); AC-5 replay digest identical across two invocations (+ full-suite x2).
+- Machine-independence proof (friction.test.ts:7): same seed registered under two ABATHUR_SELF_REPO dirs ⇒ identical
+  <fp>.jsonc stem + byte-equal registry text; unset env ⇒ exit 2 naming ABATHUR_SELF_REPO, never a literal `
+  ${ABATHUR_SELF_REPO}` directory.
+- adversarial round: prompt_injection (AC-2 structural + scrub everywhere + CLI error funnel stack-free, ABATHUR_DEBUG
+  only); malformed_input (junk genome.jsonc seed fails loadGenomeSpecFile exit 2; mid-file corrupt queue line ⇒
+  readFrictionDigests {error} fail-closed, truncated tail repaired byte-verbatim; corrupt expected.json ⇒ exit 2);
+  stale_state (self-eval twice ⇒ byte-identical reports + same digests, tested; no candidate-tree reuse); dirty_worktree
+  (self-bench reads snapshotCommit(HEAD) only — a dirty real repo never enters scoring; run-loop dirty refusal is
+  todo 3's openGenome); misleading_success_output (report shows WHY: dropped-reason lines, guard note, gate failures,
+  build note; friction rejections.total == 3 == the rejected lines); hung_commands (3 hard caps + killGroup + guard
+  downgrade; a tsc-hang ⇒ SELF_BUILD_TIMEOUT ⇒ inconclusive); flaky_tests (suite x2 green, 245 pass / 0 fail);
+  cancellation_resume — NOT-APPLICABLE by design: self-eval is single-shot (like graft), durable state = the friction
+  queue + existing ledger rows; a killed selfBench leaves only a frozen xdg-cache snapshot (thaw-safe) and re-run is
+  the resume.
+- Tests: src/test/friction.test.ts 9 + src/test/self-snapshot.test.ts 10 (real tmp-harness snapshots + CLI spawns);
+  baseline 225 → 245/245 ×2 green, no flakes (todo-14 historian files excluded via scoped tsconfig.solo.json during
+  overlap; final full-suite number pending their quiet tree). Evidence .omo/evidence/abathur/task-11-{failure,happy}.txt
+  (driver: node /tmp/opencode/task11-evidence.mjs — toy storm → friction queue + canary absence; seed registration;
+  proof1 stats-tamper rejected(path)+annotate-out nominated through overlay; proof2 kernel-drift refusal run+audit exit
+  1 → restore → exit 0; proof3 handSealed test-deleter ⇒ dropped(trusted-tests) overlay-0 verdict indeterminate;
+  self-eval ×2 byte-identical; ledger untouched).
+
+## Todo 14 — historian genome instance + script-first grader + the LIVE campaign (2026-09-10)
+- Config+grader todo as planned: NO protocol changes. Additive-only src: probeRequiresOnly in
+  src/bench/fixture-probe.ts (names FULL argv on failure) + run-loop.ts dry-run branch + run-plan.ts
+  'requires probes: N/N OK' line — so `run --dry-run` proves requires[] without spawning engines
+  (todo-11 overlap: they touched the same files elsewhere; my hunks committed cleanly in 4c12e06).
+- Core resolves NO ${ENV} in genomes (loadGenomeSpecFile is plain parse+strict) → example keeps
+  ${ABATHUR_HISTORIAN_REPO}/${ABATHUR_REPO}/${ABATHUR_WIKI_BASE}/${ABATHUR_WIKI_OPS}; QA materializes
+  via /tmp/opencode/task14-materialize.mjs (also emits canonical copy → ABATHUR_GENOME_CANONICAL that
+  mutate.sh seals as genome.jsonc inside each candidate tree — the bundle's contained spec).
+- Grader lives fully in graders/historian/{grader.mjs,grader-core.mjs,grader-support.mjs(+d.mts)} —
+  script-first A-H dims, G hard gate, 05=(G+H+J)/3 renorm; judgeCommand stays UNWIRED (adapter never
+  executes it), subjective A-D use documented mechanical proxies. dist/test → ../../graders import
+  pattern works in dev AND shipped layout (d.mts only, no TS6059).
+- Fixture ordering that bit: reset hook runs BEFORE mirrorSandboxHome WIPES .sandbox-home — anything
+  hooks need (wiki key at $HOME/.wikijs-api-key) must be (re)installed by the hook itself every time;
+  seed-wrapped.sh/run-scenario.sh both call ensure-key first. HOOK_TIMEOUT_S=60 fixed — measured
+  reset ~5-20s (id-list deletes + cache-refresh), seed 15.4s: fits.
+- resetCommand = list-driven (GraphQL pages.list → delete every _sandbox/* row by id --confirm →
+  cache-refresh): self-healing vs unknown agent paths, closes Metis #3. Proof: 27 wiki-pre.json digests
+  across 3 generations ALL byte-equal (e82cb18d2881ce82, 263 rows; gen3 normalized digest 23b9965ef257e0
+  ×9). Historian repo porcelain byte-identical before/after the whole campaign ('.state/' lives in
+  .git/info/exclude — local metadata, worktree untouched).
+- Bundle masking is fail-closed and LIVE transcripts prove why: real agent sessions echo /opt/wiki-ops,
+  /tmp, /mnt/nextcloud-data, /etc/os-release into tool outputs → export REFUSED gen1/gen2 bundles
+  (correct refusal, saved as 11-*-env/enospc + reasoning in example comment). Fix = generic Unix roots
+  as bundle.maskLiterals (no /home/ literal allowed in repo config — my own grep-gate test caught my
+  comment mentioning it; wording fix 4c12e06). gen3 candidate (extended contained spec) exports+inspects
+  clean: 131 members, 0 val members, 0 surviving machine roots. Contained spec is immutable per gen →
+  old gens stay unexportable by design; that's the gate working, document before blaming machinery.
+- tmpfs INODE cap is a real bench constraint: /tmp = 1,048,576 inodes; per-unit mirrored sandbox
+  (.opencode/node_modules) accumulates ~27 sandboxes ≈ cap → ENOSPC mid-bench (exit 2, honest, no
+  candidate row burned — resume counters only advance on generation_complete rows; gen re-benched after
+  moving configDir to disk-backed /home/lab/tmp/abathur-task14/home3).
+- Run-loop behaviors re-verified under fire: SIGKILL'd holder → next run appends lock_takeover and
+  proceeds; spent-candidate clamp message 'candidate cap N already spent' (exit 1 resume-noop) when
+  --max-candidates < ledger counters; campaign budget maxCandidates=3 documented in example (2 reset-
+  equivalence gens + 1 bundle-AC gen). Live mutator = opencode headless (real diffs: new note file +
+  genome.jsonc seal); RUN_EXIT=1 with per-unit 'gate: n=1 … indeterminate' = the EXPECTED n=1 outcome.
+- Live totals: 3 real generations (gen1 2h58m incl 3 honest failure attempts for env/sed/GraphQL-400
+  bugs — preserved as evidence; gen2 1h50m; gen3 1h12m). Candidate g-20260910T041039Z-6abd059b
+  commit 235ddcea: 5 wins 4 ties vs incumbent, gain +0.1786, indeterminate, NOT promoted (plan).
+  agentModel bailian-token-plan/qwen3.8-flash all sessions.

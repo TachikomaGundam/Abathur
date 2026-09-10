@@ -1,0 +1,10 @@
+genome: historian (10f9ad4776a45155)  repo: /home/lab/workspace/harness/historian
+incumbent: none
+quarantine depth: 0
+pending-bench graft queue: 0
+graft decisions: 0
+generations (last 3 of 3):
+  # g-20260909T213550Z-257312cb  incumbent-baseline  verdict=—  gain=—  cand=0 model=0 tok=9488124 wall=4687.34s
+  # g-20260909T230214Z-0f7305e7  candidate mutate-live  verdict=indeterminate  gain=+0.131  cand=1 model=0 tok=10663443 wall=5160.27s
+  # g-20260910T003922Z-6f8e20e0  candidate mutate-live  verdict=indeterminate  gain=-0.029  cand=1 model=0 tok=7070944 wall=6095.33s
+budget: candidates 2/2, modelCalls 0/96, tokens 27222511/80000000, wallS 15942.94/28800

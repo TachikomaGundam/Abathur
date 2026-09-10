@@ -1,0 +1,11 @@
+resume: incumbent baseline @ 8042bceb already benched — reusing 9 unit rows
+candidate mutate-live [tree 14b109b0261e]: indeterminate (gain -0.0286, reps 1)
+  gate: n=1 on unit 'scenario-02': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-03': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-04': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-05': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-06': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-07': variance undefined — indeterminate, never nominated
+  gate: n=1 on unit 'scenario-09': variance undefined — indeterminate, never nominated
+candidate mutate-live: recorded earlier against this head — verdict 'indeterminate' carried into this run's exit status
+budget spent: candidates=2 tokens=27222511 wallS=15942.938 (caps candidates=2 tokens=80000000 wallS=28800)

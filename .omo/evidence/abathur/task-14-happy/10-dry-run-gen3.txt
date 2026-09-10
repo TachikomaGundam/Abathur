@@ -1,0 +1,12 @@
+run plan — genome 'historian' (2b2456be6cddcb91)
+  repo: /home/lab/workspace/harness/historian
+  bench: opencode-fixture-scenarios — timeoutS=1200 stats minEffect=0.1 halfWidth=0.15
+  units: scenario-01(train) scenario-02(train) scenario-03(train) scenario-04(val) scenario-05(train) scenario-06(train) scenario-07(train) scenario-08(train) scenario-09(val)
+  requires probes: 2/2 OK (prereq argv spawned; engine/mutator never spawned in dry-run)
+  reps: 1
+  budget caps: maxCandidates=1 (clamped from 3) maxModelCalls=96 maxTokens=80000000 maxWallS=28800
+  resume: continue after completed generation g-20260910T003922Z-6f8e20e0 (3 generation row(s) already recorded)
+  resume: incumbent bench: present (8042bceb)
+  resume: spent candidates=2 modelCalls=0 tokens=27222511 wallS=15942.938
+  candidate source: NOT CONFIGURED — a real run requires --mutator <template> (exit 2 before any spawn)
+  kernel audit: clean (dry-run mutates nothing: no ledger touch, no lock, no reap, no spawns)

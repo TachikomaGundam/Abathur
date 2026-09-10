@@ -1,0 +1,97 @@
+# task-11 HAPPY — abathur-self: content-scrubbed friction queue + snapshot-overlay self-bench
+# every run below spawns dist/cli.js with ABATHUR_CONFIG/HOME/XDG_CACHE_HOME tmp homes; the
+# self genome points at a TMP COPY of the harness src tree (makeSelfHarness), never the real repo.
+# node v22.22.1, git git version 2.53.0
+
+## PART A — toy rejection storm: AC-1 >=1 structured friction record; AC-2 val canary never in queue
+$ abathur genome add /tmp/t11a-CzdfAb/toy/genome.jsonc
+  exit: 0
+  stdout:
+    registered genome 'toy-smoke' (d9545c5700339ef4)
+$ abathur run --genome toy-smoke --mutator node /tmp/t11a-CzdfAb/storm.mjs --dir {worktree} --brief {brief}
+  exit: 1
+  stdout:
+    incumbent baseline: 4 units x 2 reps
+    candidate touch-kernel rejected (path): path 'grader.mjs' touches kernel-immutable glob 'grader.mjs' — whole candidate rejected
+    candidate no-diffs rejected (schema): invalid value at "diffs": Invalid input: expected array, received undefined
+    candidate wrong-context rejected (apply): hunk context mismatch at units/add.mjs:1 — worktree drifted, refusing without force
+    candidate annotate-add [tree 23b7b482916b]: culled (gain 0.0000, reps 2)
+      gate: gain 0.0000 < minEffect 0.5000
+    budget spent: candidates=1 tokens=1746 wallS=2.759 (caps candidates=4 tokens=100000 wallS=300)
+$ cat <configDir>/friction.jsonl
+    {"data":{"cause":"run-summary","complete":true,"counts":{"applied":1,"benched":2,"inconclusive":0,"nominated":0,"reaped":0,"rejected":3,"timeouts":0},"exit":1,"genomeFp":"d9545c5700339ef4","reasons":["candidate annotate-add: gain 0.0000 < minEffect 0.5000"],"rejections":{"byStage":{"apply":1,"parse":0,"path":1,"schema":1,"syntax":0},"total":3},"stall":{"budgetTruncated":false,"orphanGroups":0},"train":[{"failures":["add rep 0: scored 0 (not passing)","add rep 1: scored 0 (not passing)","add rep 0: scored 0 (not passing)","add rep 1: scored 0 (not passing)"],"mean":0,"n":4,"unitId":"add"},{"failures":[],"mean":1,"n":4,"unitId":"mul"},{"failures":["explode rep 0: grader inconclusive: grader exited 1: no output","explode rep 1: grader inconclusive: grader exited 1: no output","explode rep 0: grader inconclusive: grader exited 1: no output","explode rep 1: grader inconclusive: grader exited 1: no output"],"mean":0,"n":0,"unitId":"explode"}],"val":{"aliases":["val-1"],"count":1,"samples":4}},"kind":"friction_digest","runId":"a-20260909T203548Z-d9545c57","ts":"2026-09-09T20:35:54.414Z","v":1}
+# AC-2 check: queue contains 'CANARY'? false (want false);
+#             queue contains 'sub.mjs' or '"sub"'? false (want false — val unit ids/paths are aliased val-N)
+# AC-1 check: friction_digest records = 1 (want >= 1);
+#             run-summary rejections.total = 3 matching the 3 rejected lines (path+schema+apply), byStage present = true (want true)
+
+## PART B — seed genome abathur-self (repoPath stays the ${ABATHUR_SELF_REPO} literal => machine-independent fingerprint 1913fcec3f2b015c)
+# expected golden digest (tmp-copy tree): 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d
+$ abathur genome add /tmp/abathur-self-mNtipr/harness/genomes/abathur-self.jsonc
+  exit: 0
+  stdout:
+    registered genome 'abathur-self' (1913fcec3f2b015c)
+
+### proof 1 (sealed-core double-proof, half A): candidate editing src/core/stats.ts rejected at the path-allowlist stage; benign candidate still benches through the overlay
+$ abathur run --genome abathur-self --mutator node /tmp/abathur-self-mNtipr/self-stub.mjs --dir {worktree} --brief {brief}
+  exit: 0
+  stdout:
+    incumbent baseline: 2 units x 2 reps
+    candidate stats-tamper rejected (path): path 'src/core/stats.ts' touches kernel-immutable glob 'src/core/stats.ts' — whole candidate rejected
+    candidate no-diffs rejected (schema): invalid value at "diffs": Invalid input: expected array, received undefined
+    candidate annotate-out [tree 92227a642e56]: nominated (gain 0.0000, reps 2)
+    budget spent: candidates=1 tokens=0 wallS=24.146 (caps candidates=8 tokens=1000000 wallS=7200)
+$ cat <configDir>/friction.jsonl
+    {"data":{"cause":"run-summary","complete":true,"counts":{"applied":1,"benched":2,"inconclusive":0,"nominated":1,"reaped":0,"rejected":2,"timeouts":0},"exit":0,"genomeFp":"1913fcec3f2b015c","reasons":[],"rejections":{"byStage":{"apply":0,"parse":0,"path":1,"schema":1,"syntax":0},"total":2},"stall":{"budgetTruncated":false,"orphanGroups":0},"train":[{"failures":[],"mean":1,"n":4,"unitId":"suite"}],"val":{"aliases":["val-1"],"count":1,"samples":4}},"kind":"friction_digest","runId":"a-20260909T203602Z-1913fcec","ts":"2026-09-09T20:36:27.287Z","v":1}
+
+### proof 2 (sealed-core double-proof, half B): tamper a sealed file in the genome tree => run REFUSES at start (exit 1) + kernel audit fails
+$ abathur run --genome abathur-self --mutator node /tmp/abathur-self-mNtipr/self-stub.mjs --dir {worktree} --brief {brief}
+  exit: 1
+  stderr:
+    abathur: run refused: kernel drift for 'abathur-self' (1913fcec3f2b015c): src/core/stats.ts (modified)
+      hint: restore the sealed files or resolve drift via 'abathur kernel' — the run-loop never reseals
+$ abathur kernel audit abathur-self
+  exit: 1
+  stderr:
+    abathur: kernel audit FAILED for 'abathur-self':
+      - abathur-self (1913fcec3f2b015c): src/core/stats.ts modified
+      hint: restore the named files or resolve the drift at promote — 'genome add' cannot reseal
+# restored; audit again:
+$ abathur kernel audit abathur-self
+  exit: 0
+  stdout:
+    sealed clean: 'abathur-self' (1913fcec3f2b015c)
+
+### proof 3 (trusted-test rule): hand-sealed candidate DELETING a test file => overlay drops it, zero score effect
+$ abathur self-eval --genome abathur-self --gen g-20260909T203628Z-f2cd7d18 --reps 2
+  exit: 1
+  stdout:
+    self-eval abathur-self fp 1913fcec3f2b015c incumbent 3edbfcbf7b8d reps 2
+      baseline: suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d
+    candidate test-del [gen g-20260909T203628Z-f2cd7d18 tree 6a563b8a29a1]: verdict indeterminate (gain 0.0000, suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, overlay 0 files, dropped 1)
+      dropped (trusted-tests): src/test/self-sanity.test.ts
+      guard: self-bench downgraded nominated -> indeterminate (see overlay-empty/build-timeout rule)
+
+### self-eval full report (all ledger candidates) twice — stale_state: identical digests + verdicts (AC-5 at CLI level)
+$ abathur self-eval --genome abathur-self --reps 2
+  exit: 0
+  stdout:
+    self-eval abathur-self fp 1913fcec3f2b015c incumbent 3edbfcbf7b8d reps 2
+      baseline: suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d
+    candidate annotate-out [gen g-20260909T203614Z-19154f67 tree 92227a642e56]: verdict nominated (gain 0.0000, suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, overlay 1 files, dropped 0)
+      overlay: src/out.ts
+    candidate test-del [gen g-20260909T203628Z-f2cd7d18 tree 6a563b8a29a1]: verdict indeterminate (gain 0.0000, suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, overlay 0 files, dropped 1)
+      dropped (trusted-tests): src/test/self-sanity.test.ts
+      guard: self-bench downgraded nominated -> indeterminate (see overlay-empty/build-timeout rule)
+$ abathur self-eval --genome abathur-self --reps 2
+  exit: 0
+  stdout:
+    self-eval abathur-self fp 1913fcec3f2b015c incumbent 3edbfcbf7b8d reps 2
+      baseline: suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d
+    candidate annotate-out [gen g-20260909T203614Z-19154f67 tree 92227a642e56]: verdict nominated (gain 0.0000, suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, overlay 1 files, dropped 0)
+      overlay: src/out.ts
+    candidate test-del [gen g-20260909T203628Z-f2cd7d18 tree 6a563b8a29a1]: verdict indeterminate (gain 0.0000, suite 4/4 4/4, replay observed 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d expected 24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d, overlay 0 files, dropped 1)
+      dropped (trusted-tests): src/test/self-sanity.test.ts
+      guard: self-bench downgraded nominated -> indeterminate (see overlay-empty/build-timeout rule)
+# reports byte-identical except timestamps-free content? true
+# ledger write-back check — self-eval added zero generation rows: 3 row(s) (test-del only)
