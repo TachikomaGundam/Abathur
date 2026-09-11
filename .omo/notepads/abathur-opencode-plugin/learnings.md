@@ -72,3 +72,23 @@
 - D7 literal ban extended voluntarily to `plugin/` — enforced by an explicit test
   (`shipped plugin assets carry zero machine literals`), plus a marker-version↔package.json parity
   pin (0.2.0 hardcoded in both files per plan; bump together).
+
+## 2026-09-11 — task 5 CODE: 0.2.1 F1 remediation
+
+- lstat guard gotcha: cannotAnswer THROWS from inside a try — never call it in the
+  try block whose catch swallows errors, or the ExitSignal dies as "absent".
+  Pattern: `let shape: ReturnType<typeof lstatSync> | undefined; try { shape = lstat(...) } catch { return }` then check after.
+- lstat on a symlink-to-file reports isFile()===false, so `!isFile()` already covers links;
+  the `|| isSymbolicLink()` half of the mandated condition is defensive-explicit (kept verbatim).
+- Exact-array pin parse: `/const ALLOWED_COMMANDS[^=]*=\s*\[([^\]]*)\]/` captures the array BODY
+  only — the two-line doc comment above the literal (mentions promote/tombstone) sits before
+  `const` and is never scanned; inner /"([^"]+)"/g extracts quoted entries. Membership loops
+  could never catch re-added extras or reordering — this does.
+- Scratch plugin-typecheck recipe (learnings 0.2.0) still works but NOW NEEDS --skipLibCheck:
+  @opencode-ai/plugin's index.d.ts references HeadersInit (DOM lib) which @types/node 22 no
+  longer provides. Own-file errors stay zero.
+- Install asset-hoist: readPackagedAsset before requireNoForeign means a missing SECOND asset
+  fails with nothing written; the old per-loop read could half-install (asset1 written, asset2
+  missing → exit 2 with a partial pair).
+- Comment-hook (anti-slop) fires on the product marker line 1 itself — it is the load-bearing
+  identity marker, exempt in practice; justify rationale comments inline once.

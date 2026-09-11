@@ -12,3 +12,16 @@
 - Step 4: annotated tag v0.2.0 on 71a27ec, tagger TachikomaGundam (env vars); pushed. Publish run 34584835010 completed/success — npm publish --provenance via OIDC, + @tachikomagundam/abathur@0.2.0, shasum c8225d8fe452cd2d77207c53e8af7728d1151304, Sigstore logIndex 2792113608. No ENEEDAUTH.
 - Step 5 registry: pre-publish 404 confirmed (npm#8544 risk cleared); version doc 200 w/ dist.tarball; abbreviated meta dist-tags.latest=0.2.0 AND versions['0.2.0'].dist.attestations present (slsa provenance/v1); tarball HEAD 200.
 - Cleanup: worktree removed+pruned, probe dirs deleted, v0.1.1 tag untouched. Remaining public history: 8cf71eb → 57724ff → 482cd82 → 71a27ec (v0.2.0). Next: task 3 hands-on acceptance (global upgrade 0.2.0 + plugin load proof), task 4 wiki card flip.
+
+## 2026-09-11 task-5 CODE receipt: 0.2.1 remediation landed on main (release pending)
+- Scope done: allowlist 8 (promote/tombstone terminal-only, description-states-bash-privilege honestly),
+  run-timeout note re detached children, command.md says refused-by-tool + terminal-only,
+  installer: assets-hoisted-before-validation, write-loop foreign re-check (TOCTOU), shared lstat
+  dir/symlink refusal (exit 2, named). Marker + package.json bumped to 0.2.1 together; CHANGELOG
+  0.2.1 block framed as F1 outcome; README en+zh rewritten to eight commands + honest privilege sentence.
+- Proof: build+tsc green; node --test 307/307 pass 0 fail (305 + 2 new guard tests: directory-dest,
+  symlink-dest); grep plugin/abathur.ts shows promote/tombstone only in prose; scratch plugin
+  typecheck clean (skipLibCheck); D7 needles clean in src/ (outside test fixtures) + plugin/;
+  real ~/.config/opencode untouched — still the 0.2.0 marker (upgrade = release step, not this worker).
+- NOT done (by design): no push, no tag v0.2.1, no publish, branch public untouched. Next worker:
+  release pipeline public-sync → CI → tag → OIDC publish.
