@@ -2,6 +2,31 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.0 — 2026-09-11
+
+### Official opencode plugin adapter
+
+- New `abathur opencode install|status|uninstall`: copies the packaged V1
+  plugin (`plugin/abathur.ts`) and slash-command template
+  (`plugin/abathur-command.md`) into `~/.config/opencode/{plugins,commands}/`.
+  After an opencode restart the session gets the agent tool `abathur` (the
+  CLI spawned argv-only — never a shell — behind a nine-command top-level
+  allowlist plus `--help`, 120 s timeout, 64 KB output cap, binary from
+  `ABATHUR_BIN` or `PATH`) and the user command `/abathur <args…>`.
+- Identity discipline mirrors the harness: targets are recognized by a
+  first-line marker; a foreign file at a target path is refused with exit 2
+  and named, never overwritten or deleted. No `--force` was added. Re-install
+  is idempotent (byte-equality check → "up to date"). `status` reports
+  per-target installed/packaged sha256 and state
+  (up-to-date / outdated / foreign / absent).
+- Shipped as top-level `plugin/` via package.json `files` (tsc never compiles
+  it; `@opencode-ai/plugin` resolves inside opencode's own config-directory
+  install). The plugin's marker version (`// abathur-opencode-plugin v…`) is
+  hardcoded and pinned by test to the package version — bump both together.
+- Caveat: fixture benches mirror the real `~/.config/opencode` (plugins
+  included) into sandbox HOMEs, so the installed plugin also loads inside
+  bench sessions; uninstall first for a clean plugin environment.
+
 ## 0.1.1 — 2026-09-11
 
 ### Docs

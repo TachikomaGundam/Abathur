@@ -12,6 +12,7 @@ import { bundleCommand } from "./commands/bundle.js";
 import { genomeCommand } from "./commands/genome.js";
 import { graftCommand } from "./commands/graft.js";
 import { kernelCommand } from "./commands/kernel.js";
+import { opencodeCommand } from "./commands/opencode.js";
 import { promoteCommand } from "./commands/promote.js";
 import { runCommand } from "./commands/run.js";
 import { selfEvalCommand } from "./commands/self-eval.js";
@@ -49,6 +50,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   graftCommand,
   selfEvalCommand,
   kernelCommand,
+  opencodeCommand,
 ];
 
 export function usage(): string {

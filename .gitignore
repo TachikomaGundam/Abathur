@@ -17,6 +17,3 @@ node_modules/
 # never matches it — pin the root path itself (matches file, symlink, or dir).
 /.codegraph
 .codegraph/
-
-# internal campaign state (plans, ledger, evidence, notepads) — never public
-.omo/
