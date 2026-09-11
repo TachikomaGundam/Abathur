@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.0
+// abathur-opencode-plugin v0.2.1
 // Official opencode plugin adapter for the abathur evolution harness.
 // Registers ONE agent tool, `abathur`, that shells out to the abathur CLI —
 // argv-only (node:child_process execFile, never a shell), top-level commands
@@ -21,13 +21,12 @@ const TIMEOUT_MS = 120_000;
 /** Per-stream output cap fed back into the session; keeps one tool call from flooding context. */
 const MAX_OUTPUT_BYTES = 64 * 1024;
 
-/** The nine real top-level commands plus --help. Anything else is refused locally. */
+/** The seven tool-reachable top-level commands plus --help. Anything else is refused locally.
+ * promote/tombstone are human gates and deliberately terminal-only (0.2.1): not reachable here. */
 const ALLOWED_COMMANDS: readonly string[] = [
   "genome",
   "run",
   "status",
-  "promote",
-  "tombstone",
   "bundle",
   "graft",
   "self-eval",
@@ -89,14 +88,18 @@ function runCli(bin: string, argv: readonly string[]): Promise<CliResult> {
         }
         if (typeof failure.code !== "number") {
           const timedOut = failure.killed === true || (failure.signal !== undefined && failure.signal !== null);
-          resolve({
-            status: timedOut ? 124 : -1,
-            stdout: out,
-            stderr: errOut,
-            note: timedOut
-              ? `killed after ${String(TIMEOUT_MS / 1000)}s timeout (signal: ${String(failure.signal ?? "SIGTERM")})`
-              : `spawn failed: ${failure.message}`,
-          });
+          if (timedOut) {
+            let note = `killed after ${String(TIMEOUT_MS / 1000)}s timeout (signal: ${String(failure.signal ?? "SIGTERM")})`;
+            if (argv[0] === "run") {
+              // The timeout kills the CLI only; mutator/bench children are detached by design.
+              note +=
+                " — abathur run spawns detached children (mutator/bench sessions) " +
+                "that may still be running — the next 'abathur run' reaps them";
+            }
+            resolve({ status: 124, stdout: out, stderr: errOut, note });
+            return;
+          }
+          resolve({ status: -1, stdout: out, stderr: errOut, note: `spawn failed: ${failure.message}` });
           return;
         }
         // Ordinary non-zero exit: the CLI's own verdict (blocked / cannot-answer).
@@ -114,11 +117,14 @@ export default {
         description:
           "Run the abathur evolution-harness CLI on this machine. " +
           "Pass the top-level command word in `command` (one of: genome, run, status, " +
-          "promote, tombstone, bundle, graft, self-eval, kernel, --help) and every " +
+          "bundle, graft, self-eval, kernel, --help) and every " +
           "remaining argv token in `extra`. The call is spawned argv-only (no shell) " +
           "with a 120s timeout; the result text always ends with the CLI exit code " +
-          "(0 ok, 1 blocked decision, 2 cannot-answer). Promotion is a human gate — " +
-          "never call `promote` without the user explicitly asking.",
+          "(0 ok, 1 blocked decision, 2 cannot-answer). Honest privilege note: this " +
+          "tool carries bash-equivalent privilege — `run` and `genome` legitimately " +
+          "spawn mutator/engine binaries by design — so the allowlist limits typos " +
+          "and UX, not capability. `promote` and `tombstone` are deliberately NOT " +
+          "reachable here: they are human gates, run in a terminal.",
         args: {
           command: tool.schema
             .string()

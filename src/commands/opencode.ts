@@ -5,10 +5,12 @@
 // {plugins,commands}/. No network, no shell, no opencode process contact.
 // Identity rule: a target is ours only if its FIRST LINE carries our marker;
 // a foreign file at a target path is refused (exit 2), never overwritten,
-// never deleted — there is no --force anywhere.
+// never deleted — there is no --force anywhere. Destination rule (0.2.1):
+// a path that exists must be a plain regular file — directories and symlinks
+// are refused via lstat, never followed, entered, or destroyed.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,9 +115,27 @@ function refuseForeign(target: AssetTarget): never {
   );
 }
 
+/** Destination shape guard shared by install/uninstall (lstat: links are inspected, not followed). */
+function requirePlainDestination(target: AssetTarget): void {
+  let shape: ReturnType<typeof lstatSync> | undefined;
+  try {
+    shape = lstatSync(target.destination);
+  } catch {
+    return; // absent (or a not-yet-existing parent): the write path creates it fresh
+  }
+  if (!shape.isFile() || shape.isSymbolicLink()) {
+    cannotAnswer(
+      `opencode: refusing to touch ${target.destination} — the path exists but is not a regular file ` +
+        `(directories and symlinks are never followed, entered, or destroyed)`,
+      "resolve it manually: move the entry aside (or replace the symlink with a real file), then re-run 'abathur opencode install'",
+    );
+  }
+}
+
 /** Atomicity rule shared by install/uninstall: validate EVERY target before writing to ANY. */
 function requireNoForeign(targets: readonly AssetTarget[]): void {
   for (const target of targets) {
+    requirePlainDestination(target);
     const current = readTarget(target);
     if (current !== null && !carriesMarker(current, target.marker)) refuseForeign(target);
   }
@@ -123,10 +143,14 @@ function requireNoForeign(targets: readonly AssetTarget[]): void {
 
 function opencodeInstall(env: OpencodeEnv): ExitCode {
   const targets = pluginTargets(env);
+  // Read BOTH packaged assets up front: a missing second asset must fail before anything is written.
+  const prepared = targets.map((target) => ({ target, packaged: readPackagedAsset(target) }));
   requireNoForeign(targets);
-  for (const target of targets) {
-    const packaged = readPackagedAsset(target);
+  for (const { target, packaged } of prepared) {
     const { state } = classify(target, packaged);
+    // TOCTOU: identity is re-checked right before the write — a foreign file planted
+    // since validation is refused, never overwritten.
+    if (state === "foreign") refuseForeign(target);
     if (state === "up-to-date") {
       writeStdout(`${target.destination}: up to date`);
       continue;
