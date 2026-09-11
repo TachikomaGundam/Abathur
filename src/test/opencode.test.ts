@@ -293,6 +293,34 @@ test("plugin/abathur.ts: V1 shape — marker, default {id, server}, tool allowli
   assert.ok(bytes.includes("ABATHUR_BIN"), "bin overridable via ABATHUR_BIN");
 });
 
+test("plugin/abathur.ts: config hook self-registers /abathur — template byte-mirrors the command md body", async () => {
+  const bytes = await readFile(pluginAssetPath, "utf8");
+
+  // Route B needs the config hook: opencode hands plugins the fully-merged config
+  // (file commands already inside cfg.command), so a `??=` injection registers
+  // /abathur ONLY when no commands/abathur.md exists — Route A bytes/behaviour
+  // stay untouched and the name-keyed command map guarantees no duplicate entry.
+  assert.ok(/config:\s*async\s*\(cfg:\s*Config\)/.test(bytes), "config hook with typed cfg required");
+  assert.ok(bytes.includes('import { tool, type Config }'), "Config type imported from @opencode-ai/plugin");
+  assert.ok(/cfg\.command\s*\?\?=\s*\{\}/.test(bytes), "cfg.command must be lazily created with ??=");
+  assert.ok(/cfg\.command\.abathur\s*\?\?=/.test(bytes), "entry must be ??= — a file-installed command is never overwritten");
+  assert.ok(
+    bytes.includes('description: "Drive the abathur evolution harness (usage: /abathur <command> [args...])"'),
+    "injected description must be pinned verbatim",
+  );
+
+  // Extract the template literal (inner backticks appear escaped as \`) and byte-compare.
+  const literal = bytes.match(/const COMMAND_TEMPLATE = `((?:[^`\\]|\\.)*)`;/);
+  assert.ok(literal !== null, "COMMAND_TEMPLATE literal must exist");
+  const template = (literal[1] ?? "").replaceAll("\\`", "`");
+
+  const md = await readFile(commandAssetPath, "utf8");
+  assert.ok(md.startsWith(COMMAND_MARKER), "md must still carry its first-line marker");
+  const body = md.slice(md.indexOf("\n") + 1); // everything after the marker line
+  assert.ok(body.startsWith("Drive the abathur evolution harness"), "body start sanity");
+  assert.equal(template, body, "injected template must byte-equal the command md minus its marker line");
+});
+
 test("plugin/abathur-command.md: first-line marker, $ARGUMENTS, points at the abathur tool", async () => {
   const text = await readFile(commandAssetPath, "utf8");
   assert.equal(text.split("\n")[0], COMMAND_MARKER, "first line must be the command marker");
