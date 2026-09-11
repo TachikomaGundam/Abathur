@@ -139,3 +139,57 @@
 - CI ledger-lock flake signature: ENOTEMPTY rmdir `.locks/friction.lock` kills a friction-writer
   child → AC-f expects [0,0]. Pre-existing race between stale-quarantine rename and release
   rmSync in src/core/locks.ts; unrelated to plugin route. 0.2.2 CI: rerun --failed passed.
+
+## 2026-09-11 — task 7 CODE+RELEASE: 0.2.3 config-hook slash command (CORRECTS 0.2.0-0.2.2 misclaim)
+
+### CORRECTION of the 0.2.0 learning "No plugin hook exists for slash commands"
+- Half-right: Hooks (packages/plugin/src/index.ts) has NO command hook. But
+  `config?: (input: Config) => Promise<void>` (index.ts:225) receives the
+  FULLY-MERGED live cfg — file commands ({command,commands}/**/*.md, merged at
+  config.ts:473 `result.command = mergeDeep(...)`, remeda mergeDeep = 2nd arg wins)
+  are ALREADY inside cfg.command when plugin/index.ts:245-253 ("Notify plugins of
+  current config") fires hook.config(cfg) after config.get() resolves
+  (InstanceState-memoized SAME object, config.ts:620-621). Mutating cfg.command
+  in the hook therefore REGISTERS A SLASH COMMAND. Proven in prod: opencode-acp
+  dist/index.js:12492-12495 `opencodeConfig.command ??= {}; command["acp"] = {...}`.
+
+### Precedence / dedup (source-cited, v1.18.30)
+- No duplicate entries are possible: Command.init (command/index.ts:63-101) writes
+  into ONE Record<string,Info> `commands[name] = {...}`; file-md and cfg.command-key
+  funnel through the same record. Skills explicitly guard `if (commands[item.name])
+  continue` — name-keyed overwrite is by design.
+- Ordering: jsonc "command" keys → file .md (mergeDeep wins) → plugin config hooks last.
+  ACP's `=` beats the file; OUR `??=` yields to the file: Route A keeps byte-identical
+  0.2.2 behaviour (file md authoritative, empty description, marker line inside template —
+  gray-matter quirk) and the injection ONLY fills Route B. Live-verified all three
+  (temp HOME + opencode serve + GET /command): ctrl plugin:[] → 0 entries; route-B
+  file:tarball → exactly 1, our description, no marker line; route-A sim (plugins/ +
+  commands/ copied) → exactly 1, file bytes. GET /command route:
+  server/routes/instance/httpapi/groups/instance.ts:51 + handlers/instance.ts:76-77
+  (command.list()), ?directory= query routing same as /experimental/tool/ids.
+- Template byte-mirror shipped as in-slice string const (no fs read at hook time:
+  Route A's md lives in a DIFFERENT dir than the plugin file; Route B must not depend
+  on on-disk md either) — test extracts the literal with /const COMMAND_TEMPLATE =
+  `((?:[^`\\]|\\.)*)`;/ unescapes \` and deep-equals md minus first line. md = 901
+  bytes, body = 867, trailing "there.\n" preserved.
+
+### CI flake vs RACE — (E) orphaned sleep survived the group kill (NOT the AC-f ENOTEMPTY)
+- bench-toy(e) runs the SHIPPED toy genome's units/hang.mjs (execSync "sleep 31.7") and
+  bench-fixture(E) had a local fake BIN_HANG `exec sleep 31.7`; both assert absence via
+  machine-wide `ps -eo args`. node --test parallelizes FILES → concurrent overlap makes
+  each file's global scan see the OTHER's live sleep. Repro: run both files' hang tests
+  concurrently → 5/5 mutual failure. Our 309th test shifted scheduling and made CI hit it
+  deterministically (2/2 runs, same signature; local full-suite timing had masked it).
+- FIX (test-only, product untouched): bench-fixture fake → `exec sleep 29.31` (substring-
+  disjoint from 31.7 and from git.test's "sleep 30"); after fix 5/5 concurrent rounds clean.
+- LESSON: machine-global ps-scans in tests must use UNIQUE per-file markers; "rerun once"
+  flake policy only for KNOWN signatures — identical failure twice = investigate, don't gamble.
+
+### Ops
+- Probe hygiene: `opencode serve` children under setsid OUTLIVE group-signal by leader PID
+  when they re-fork (recorded leader gone, port held by pid+2) — after teardown ALWAYS
+  `ss -tlnp` the probe port and kill the exact listener PID(s), then re-verify ports clean.
+- Node ESM scratch recipe for importing the shipped plugin directly: the real
+  @opencode-ai/plugin dist is ESM-only ("exports" has import condition, no require) —
+  tsc-emit a "type":"module" package.json beside BOTH the .ts input and the .js output
+  dir (else nodenext emits CJS require() → ERR_PACKAGE_PATH_NOT_EXPORTED).
