@@ -1,9 +1,18 @@
 {
-  "name": "abathur",
+  "name": "@tachikomagundam/abathur",
   "version": "0.2.0",
   "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
+  "author": "TachikomaGundam",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TachikomaGundam/Abathur.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TachikomaGundam/Abathur/issues"
+  },
+  "homepage": "https://github.com/TachikomaGundam/Abathur#readme",
   "engines": {
     "node": ">=22"
   },

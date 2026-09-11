@@ -36,8 +36,9 @@ instance learn from another's evidence; nothing in v1 talks to a network.
 ### Install
 
 ```bash
+npm i -g @tachikomagundam/abathur  # from the npm registry
 npm pack                          # in a checkout; prepack runs the build
-npm i -g ./abathur-0.1.0.tgz
+npm i -g ./tachikomagundam-abathur-0.1.0.tgz
 abathur --help
 ```
 
@@ -70,7 +71,7 @@ No models, no network: the `toy-smoke` genome ships inside the package
 
 ```bash
 mkdir -p ~/abathur-demo && cd ~/abathur-demo
-export ABATHUR_PKG="$(npm root -g)/abathur"
+export ABATHUR_PKG="$(npm root -g)/@tachikomagundam/abathur"
 
 # 1. materialize an independent toy genome repo (git init + repoPath rewritten)
 node "$ABATHUR_PKG/dist/genomes/toy-smoke/init.mjs" ./genome
@@ -304,8 +305,9 @@ MIT, see [LICENSE](LICENSE).
 ### 安装
 
 ```bash
+npm i -g @tachikomagundam/abathur  # 从 npm registry 安装
 npm pack                          # 在 checkout 里执行；prepack 会先构建
-npm i -g ./abathur-0.1.0.tgz
+npm i -g ./tachikomagundam-abathur-0.1.0.tgz
 abathur --help
 ```
 
@@ -336,7 +338,7 @@ gitignored 的 `*.local.jsonc` 会深合并覆盖其上。未知键直接 exit 2
 
 ```bash
 mkdir -p ~/abathur-demo && cd ~/abathur-demo
-export ABATHUR_PKG="$(npm root -g)/abathur"
+export ABATHUR_PKG="$(npm root -g)/@tachikomagundam/abathur"
 
 # 1. 物化一个独立的玩具基因组仓库（git init + 重写 repoPath）
 node "$ABATHUR_PKG/dist/genomes/toy-smoke/init.mjs" ./genome
