@@ -66,3 +66,33 @@
   debugging killed a foreign serve process on port 19921 (pcb-control production-console test
   hook, started 22:09 by another session). No data loss expected (test-only listener), but
   pattern safety now documented in learnings.
+
+## 2026-09-11 receipt: 0.2.3 RELEASED — /abathur self-registers, both routes ship tool+command
+- main ce9bfff (feat: config hook cfg.command.abathur ??= {description, template=md⊖marker};
+  marker+pkg parity 0.2.3; README en+zh two-route rewrite + honest 0.2.0-0.2.2 misclaim
+  correction in CHANGELOG) + 8d1b28b (test: bench-fixture hang marker → sleep 29.31, see
+  learnings "CI flake vs RACE" — FORCED by this release's CI failing 2/2 on the
+  cross-file ps race; rerun budget consumed on first failure, root-caused instead).
+- Evidence gate BEFORE coding: source-verified no-duplicate/name-keyed precedence
+  (command/index.ts:63-101, config.ts:473, plugin/index.ts:245-253) → chose ??= (file
+  wins) over ACP's = (hook wins): zero Route-A behaviour change. Live proofs in TEMP
+  HOMES ONLY (real opencode.jsonc mtime still Sep 10, real cache untouched):
+  ctrl 0 / routeB(tarball) 1 injected / routeA(sim) 1 file / post-release NAME probe
+  (@tachikomagundam/abathur auto-downloaded into <tmp>/.cache/opencode/packages/
+  @tachikomagundam...) 1 injected + tool present, GET /command?directory= + /experimental/tool/ids.
+- Pipeline: worktree /tmp/abathur-release-023 from public(fe38691→43def9f base);
+  archive-sync main∖.omo, commits fc0c319 + 7cdbb4c (A/C=TachikomaGundam); ls-tree blob
+  proof ∖.omo==∖.github OK both times; leak gate zero NEW hits (pack scan must scope
+  HEAD — `--all` in a worktree drags in internal main's .omo objects, false positive).
+  CI: 34618058539 FAIL (E race) → rerun-once FAIL same → fixed 8d1b28b → 34621434744
+  green first try; push FF 43def9f..7cdbb4c; tag v0.2.3 → 7cdbb4c (tagger TG).
+- Publish 34621712821 success (OIDC). Registry triple-check: pre-publish 404; version
+  doc shasum d09f5845d119b7d465d3223cb4ca672e1b915d7f; latest=0.2.3 +
+  attestations slsa provenance/v1; tarball 200. (direct curl of abbrev meta needs
+  Accept header / differs from npm view — npm view dist.attestations worked.)
+- Post-release THIS machine: npm i -g @tachikomagundam/abathur@0.2.3; abathur opencode
+  install → plugins/abathur.ts updated (marker v0.2.3, hook present), commands md
+  byte-unchanged; status up-to-date both (installed==packaged sha). Real config untouched.
+  Probe homes/tarballs + release worktree deleted; ports verified clean.
+  Public history: … → fe38691 (v0.2.1) → 43def9f (v0.2.2) → fc0c319 → 7cdbb4c (v0.2.3).
+- Suite: 309 (+1 config-hook byte-pin) green locally (4 full runs) and on CI.
