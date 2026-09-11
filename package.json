@@ -1,6 +1,6 @@
 {
   "name": "@tachikomagundam/abathur",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
   "author": "TachikomaGundam",
   "type": "module",
@@ -25,7 +25,7 @@
     "config",
     "graders",
     "docs",
-    ".github"
+    "plugin"
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs",

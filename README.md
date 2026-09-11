@@ -136,6 +136,40 @@ abathur graft ./bundles/*.bundle.tgz --genome toy-smoke       # local re-bench o
 abathur run --genome toy-smoke --dry-run     # plan + requires[] probes, zero spawns
 ```
 
+### Inside opencode
+
+Abathur ships an official opencode plugin adapter. The harness remains the
+orchestrator, but once installed an opencode session can also drive the CLI
+directly:
+
+```bash
+npm i -g @tachikomagundam/abathur
+abathur opencode install    # copies plugin assets into ~/.config/opencode/
+# restart opencode
+```
+
+After a restart the session gets two things:
+
+- the agent tool **`abathur`** — spawns the `abathur` CLI argv-only (never a
+  shell), restricted to the nine top-level commands plus `--help`
+  (`genome`, `run`, `status`, `promote`, `tombstone`, `bundle`, `graft`,
+  `self-eval`, `kernel`), with a 120 s timeout and a 64 KB output cap. The
+  binary resolves from `PATH` unless `ABATHUR_BIN` overrides it.
+- the user command **`/abathur <args…>`** — a slash command that tells the
+  agent to translate its arguments into a tool call and report the exit code.
+
+`abathur opencode status` shows each target's path, installed/packaged sha256,
+and state (up-to-date / outdated / foreign / absent).
+`abathur opencode uninstall` removes only files carrying the abathur marker; a
+foreign file at a target path makes both commands refuse with exit 2 and name
+the path — nothing is ever overwritten or deleted behind your back (there is
+still no `--force` anywhere).
+
+Caveat: fixture benches mirror the real `~/.config/opencode` (plugins and
+commands included) into their sandboxed HOMEs, so an installed plugin also
+loads inside bench sessions. Uninstall first if a bench needs a clean plugin
+environment.
+
 ### The historian genome and the operator workflow
 
 `historian` is the first real genome: OpenCode agents work wiki scenarios
@@ -367,6 +401,35 @@ abathur bundle inspect ./bundles/*.bundle.tgz
 abathur graft ./bundles/*.bundle.tgz --genome toy-smoke       # 对端血缘包的本地重测
 abathur run --genome toy-smoke --dry-run     # 计划 + requires[] 探针，零 spawn
 ```
+
+### 在 opencode 里调用
+
+Abathur 自带官方 opencode 插件适配器。工装仍是编排者，但安装之后，opencode
+会话也可以直接驱动 CLI：
+
+```bash
+npm i -g @tachikomagundam/abathur
+abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
+# 重启 opencode
+```
+
+重启后会话获得两样东西：
+
+- 智能体工具 **`abathur`**——以纯 argv 方式 spawn `abathur` CLI（绝不经过
+  shell），顶层命令限定为九个真命令加 `--help`（`genome`、`run`、`status`、
+  `promote`、`tombstone`、`bundle`、`graft`、`self-eval`、`kernel`），120 秒
+  超时、64 KB 输出封顶。二进制从 `PATH` 解析，除非用 `ABATHUR_BIN` 覆盖。
+- 用户命令 **`/abathur <参数…>`**——斜杠命令，指示智能体把参数翻译成工具调用
+  并回报退出码。
+
+`abathur opencode status` 逐目标打印路径、已安装/随包 sha256 与状态
+（up-to-date / outdated / foreign / absent）。
+`abathur opencode uninstall` 只删除带有 abathur 标记的文件；若目标路径上躺着
+别人的文件，两条命令都会 exit 2 并点名路径——绝不会背着你覆盖或删除任何东西
+（整个二进制依然没有 `--force`）。
+
+注意：夹具基准会把真实的 `~/.config/opencode`（含插件与命令）镜像进沙箱 HOME，
+因此装好的插件在基准会话里同样会加载。若基准需要干净的插件环境，请先 uninstall。
 
 ### 历史学家基因组与操作员工作流
 
