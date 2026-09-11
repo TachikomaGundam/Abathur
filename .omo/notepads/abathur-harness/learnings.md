@@ -783,3 +783,10 @@ instead), and a prune command is post-v1 work.
 - Verify: npm ci exit 0 (lockfile root-name mismatch tolerated, untouched); build+tests 291/291 exit 0; npm pack name @tachikomagundam/abathur, filename tachikomagundam-abathur-0.1.0.tgz, total files 119 (spec said 120: baseline included a stale dist/test/fixtures.js in the main tree — absent from git source on both branches, not a rename regression); publish.yml yaml.safe_load OK.
 - CI run 34513616679 attempt 1 FAIL: bench-fixture.test.ts "(E) hanging unit: group kill at timeoutS, zero orphans" — orphaned sleep survived the group kill (ERR_ASSERTION), 290/291. Runner-environment flake, untouched by rename; passed 3/3 isolated reruns locally + full suite locally. Rerun --failed attempt 2: completed/success on same sha. No fix pushed.
 - Worktree isolation held: .omo porcelain md5 27ba66bc2e3a26a0a9bdbc35d9f218d8 identical before/after; local main still 16e5f0c; worktree removed.
+
+## 2026-09-11 quick-start scoped-path fix + 0.1.1 receipt (public → origin/main)
+- Commit 482cd826dc38ce901240abc86c1f7ad535a36545 (parent 57724ff, fast-forward push origin public:main; no tags, no publish; identity env override TachikomaGundam <TachikomaGundam@users.noreply.github.com>).
+- Diffstat: README.md 4/4 (ABATHUR_PKG=$(npm root -g)/@tachikomagundam/abathur at en L74 + zh L307; tachikomagundam-abathur-0.1.0.tgz at en L41 + zh L276), package.json 1/1 (version 0.1.1), CHANGELOG.md +8 (0.1.1 — 2026-09-11 Docs section). 3 files, +13/-5.
+- Verify: grep 'npm root -g' shows only scoped paths; bin name "abathur" untouched; build exit 0, node dist/cli.js --help exit 0, npm pack --dry-run filename tachikomagundam-abathur-0.1.1.tgz total files 119.
+- CI run 34572242607: completed/success, 2m6s, attempt 1 (gh run watch --exit-status 0).
+- Worktree isolation held: /tmp/pub-fix created + removed, main tree branch untouched.
