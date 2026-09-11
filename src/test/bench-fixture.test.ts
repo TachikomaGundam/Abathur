@@ -73,9 +73,13 @@ echo "ran $unit"
 echo '{"tokensEst":123,"turns":4}'
 `;
 
+// Unique sleep duration: node --test runs files concurrently and this test's
+// orphan check scans the whole machine's `ps` output — "sleep 31.7" is the
+// shipped toy genome's hang marker (bench-toy.test.ts); reusing it here made
+// the two files' checks see each other's live sleeps (CI-verified 5/5 collision).
 const BIN_HANG = `#!/usr/bin/env bash
 if [ "\${1:-}" = "--version" ]; then echo "1.2.3"; exit 0; fi
-exec sleep 31.7
+exec sleep 29.31
 `;
 
 const BIN_NO_VERSION = `#!/usr/bin/env bash
@@ -396,7 +400,7 @@ test("(E) hanging unit: group kill at timeoutS, zero orphans", async (t) => {
   assert.equal(run.exitCode, null);
   assert.match(run.note ?? "", /killed after 1s: process group SIGKILL/);
   const ps = spawnSync("ps", ["-eo", "args"], { encoding: "utf8" });
-  assert.ok(!ps.stdout.includes("sleep 31.7"), "orphaned sleep survived the group kill");
+  assert.ok(!ps.stdout.includes("sleep 29.31"), "orphaned sleep survived the group kill");
 });
 
 // ------------------------------------------------------------------ AC (F)
