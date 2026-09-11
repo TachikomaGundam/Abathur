@@ -25,3 +25,12 @@
   real ~/.config/opencode untouched — still the 0.2.0 marker (upgrade = release step, not this worker).
 - NOT done (by design): no push, no tag v0.2.1, no publish, branch public untouched. Next worker:
   release pipeline public-sync → CI → tag → OIDC publish.
+
+## 2026-09-11 receipt: 0.2.1 RELEASED (pipeline second pass, zero deviations)
+- Pre-check: main 47dec32, pkg 0.2.1 scoped, marker v0.2.1; registry 0.2.1=404, latest=0.2.0.
+- Step 1: worktree /tmp/abathur-release-021 from public(71a27ec); archive-sync of main except .omo, .github/ preserved; commit fe38691 A/C=TachikomaGundam 'release: 0.2.1 — human gates terminal-only, installer hardening'; ls-tree blob-hash proof main∖.omo == public∖.github OK.
+- Step 2: leak gate vs established baseline — zero NEW hits (only sanctioned FORBIDDEN_NEEDLES in opencode.test.ts:26 + d7-gate.test.ts + README gate-regex quotes + worktree .git pointer); zero sumteclab/.omo paths (content, tree, pack). npm ci+build+test 307/307; pack = tachikomagundam-abathur-0.2.1.tgz with plugin/abathur.ts + plugin/abathur-command.md, zero .omo.
+- Step 3: push FF 71a27ec..fe38691; CI run 34589048752 completed/success (~2 min, no bench flake, no re-run).
+- Step 4: tag v0.2.1 = 7575920038af411132dafdeb0cbdac004d694969 on fe38691, tagger TachikomaGundam; Publish run 34589265687 completed/success — shasum 330b7dcc40db14f3406562b3102d27d932f32816, Sigstore logIndex 2792485022, no ENEEDAUTH.
+- Step 5: version doc 200 (shasum matches CI); abbreviated latest=0.2.1 + attestations slsa provenance/v1 non-empty; tarball HEAD 200.
+- Cleanup: worktree removed+pruned. Public history: 8cf71eb → 57724ff → 482cd82 → 71a27ec (v0.2.0) → fe38691 (v0.2.1).

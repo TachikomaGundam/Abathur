@@ -13,9 +13,11 @@ Design (settled by research, sources: opencode v1.18.30 tag source at /tmp/openc
 - [x] 1. Implement feature (one deep worker): `plugin/abathur.ts` + `plugin/abathur-command.md` + `src/commands/opencode.ts` (install|status|uninstall) + cli.ts registration + package.json files bump + `src/test/opencode.test.ts` + README en/zh section + CHANGELOG + version 0.2.0; `npm run build && npm test` fully green; single commit on main.
 - [x] 2. Release: sync sanitized tree to `public` branch (isolated worktree, TachikomaGundam committer identity), clean build+test on public, push `public:main`, wait CI, tag `v0.2.0`, push tag → publish.yml OIDC run success; registry verified (version doc 200 + abbreviated attestations non-empty + tarball HEAD 200).
 - [x] 3. Hands-on acceptance on this machine: global upgrade to 0.2.0 (exact version), `abathur opencode install`, restart opencode, prove plugin loads (log evidence) + `abathur` tool listed + one real agent tool-call returns abathur output; then `abathur opencode status`.
-- [ ] 4. Wiki en+zh card flip (adapter exists; "not a plugin" line → "core spawns opencode; now ships official plugin adapter"; install/uninstall commands + bench-mirror landmine documented) + ledger entries + historian map refresh.
+- [x] 4. Wiki en+zh card flip (adapter exists; "not a plugin" line → "core spawns opencode; now ships official plugin adapter"; install/uninstall commands + bench-mirror landmine documented) + ledger entries + historian map refresh.
+
+- [x] 5. F1 remediation 0.2.1: drop promote/tombstone from tool allowlist (human gate must be terminal-only), honest privilege sentence (tool ≙ bash-equivalent), installer asset-read hoist + TOCTOU recheck + lstat file guard, timeout orphan note, exact-array test pins, re-release via pipeline, re-install on this machine, session re-verify.
 
 ## Final Verification Wave
 
-- [ ] F1. Oracle adversarial review of the feature diff (security: argv-only / allowlist / path-derivation / idempotency / refusal UX; correctness; docs honesty).
-- [ ] F2. Orchestrator personally re-runs: full test suite, `npm pack --dry-run` shows plugin/ ships and no .omo, complete task-3 cycle.
+- [x] F1. Oracle adversarial review of the feature diff (security: argv-only / allowlist / path-derivation / idempotency / refusal UX; correctness; docs honesty).
+- [x] F2. Orchestrator personally re-runs: full test suite, `npm pack --dry-run` shows plugin/ ships and no .omo, complete task-3 cycle.
