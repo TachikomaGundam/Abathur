@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.2
+// abathur-opencode-plugin v0.2.3
 // Official opencode plugin adapter for the abathur evolution harness.
 // Registers ONE agent tool, `abathur`, that shells out to the abathur CLI —
 // argv-only (node:child_process execFile, never a shell), top-level commands
@@ -9,17 +9,19 @@
 // server(input, options) resolves to Hooks; Hooks.tool is a
 // { [name]: ToolDefinition } record (see @opencode-ai/plugin).
 // This file is shipped as-is (package.json "files") and reaches a session by
-// two routes, neither compiling it through abathur's tsc:
-// (A) copied into ~/.config/opencode/plugins/ by `abathur opencode install`
-//     (adds the /abathur command too); "@opencode-ai/plugin" then resolves in
-//     opencode's config-directory node_modules.
+// two routes, neither compiling it through abathur's tsc. Both deliver the
+// tool AND the /abathur slash command:
+// (A) copied into ~/.config/opencode/plugins/ by `abathur opencode install`,
+//     which also drops commands/abathur.md; "@opencode-ai/plugin" then
+//     resolves in opencode's config-directory node_modules.
 // (B) served as the package's "./server" export when the npm package name is
 //     listed in opencode.jsonc "plugin" — opencode's arborist install places
 //     @opencode-ai/plugin (runtime dependency) next to the package in its
-//     cache, so the same import resolves there too.
+//     cache, so the same import resolves there too; with no commands/abathur.md
+//     on disk, the config hook below self-registers the command instead.
 
 import { execFile } from "node:child_process";
-import { tool } from "@opencode-ai/plugin";
+import { tool, type Config } from "@opencode-ai/plugin";
 
 /** Spawn cap: a CLI call that outlives this is killed and reported, never awaited forever. */
 const TIMEOUT_MS = 120_000;
@@ -114,9 +116,47 @@ function runCli(bin: string, argv: readonly string[]): Promise<CliResult> {
   });
 }
 
+
+/**
+ * /abathur slash-command template, injected into cfg.command.abathur by the
+ * config hook for installs without a commands/abathur.md on disk (Route B).
+ * Byte-mirror of plugin/abathur-command.md minus its first-line marker —
+ * src/test/opencode.test.ts pins the equality.
+ */
+const COMMAND_TEMPLATE = `Drive the abathur evolution harness through the \`abathur\` tool on this machine.
+
+User request: $ARGUMENTS
+
+Interpret the request as one \`abathur\` CLI invocation: the first word is the
+top-level command (\`genome\`, \`run\`, \`status\`, \`bundle\`, \`graft\`, \`self-eval\`,
+\`kernel\`, or \`--help\`) and the rest are argv tokens. Call the \`abathur\` tool
+with \`command\` set to the first word and \`extra\` set to the remaining tokens,
+then report the CLI exit code (0 ok / 1 blocked decision / 2 cannot-answer)
+and the relevant lines of its output. If no request was given, call the tool
+with \`command: "--help"\` and summarize the command list. \`promote\` and
+\`tombstone\` cannot be called through the tool at all — the tool refuses them.
+They are human gates that belong to a terminal: if the user asks for one,
+tell them to run \`abathur promote …\` / \`abathur tombstone …\` there.
+`;
+
 export default {
   id: "abathur",
   server: async () => ({
+    // Self-registering /abathur: opencode calls hook.config(cfg) once per
+    // instance after ALL config sources are merged — file-based commands are
+    // already in cfg.command by then (config.ts merges {command,commands}/**/*.md;
+    // the hook fires from plugin/index.ts after config.get()). `??=` keeps a
+    // Route-A commands/abathur.md authoritative (identical behaviour to 0.2.2)
+    // and only fills the gap for Route B; the command map is keyed by name, so
+    // a same-name file + injection never duplicates the entry. Proven upstream
+    // mechanism: opencode-acp registers its /acp command exactly this way.
+    config: async (cfg: Config) => {
+      cfg.command ??= {};
+      cfg.command.abathur ??= {
+        description: "Drive the abathur evolution harness (usage: /abathur <command> [args...])",
+        template: COMMAND_TEMPLATE,
+      };
+    },
     tool: {
       abathur: tool({
         description:
