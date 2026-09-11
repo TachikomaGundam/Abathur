@@ -139,8 +139,10 @@ abathur run --genome toy-smoke --dry-run     # plan + requires[] probes, zero sp
 ### Inside opencode
 
 Abathur ships an official opencode plugin adapter. The harness remains the
-orchestrator, but once installed an opencode session can also drive the CLI
-directly:
+orchestrator, but once set up an opencode session can also drive the CLI
+directly. Two install routes:
+
+**Route A — one command (tool + `/abathur` slash command).**
 
 ```bash
 npm i -g @tachikomagundam/abathur
@@ -148,7 +150,22 @@ abathur opencode install    # copies plugin assets into ~/.config/opencode/
 # restart opencode
 ```
 
-After a restart the session gets two things:
+**Route B — config only (tool, no slash command).** Put the package name in
+your opencode config and restart:
+
+```jsonc
+{ "plugin": ["@tachikomagundam/abathur"] }
+```
+
+opencode then downloads the package from npm at startup into its own cache
+(`~/.cache/opencode/packages/…`) and loads the package's `./server` export —
+no file copying, no uninstall step (delete the line). Two honest limits: the
+`abathur` **CLI** still must exist on `PATH` (or `ABATHUR_BIN`) because the
+tool spawns it, so keep the `npm i -g` install; and slash commands are plain
+markdown files that plugins cannot register upstream, so `/abathur` is Route A
+only.
+
+Either route gives the session:
 
 - the agent tool **`abathur`** — spawns the `abathur` CLI argv-only (never a
   shell), restricted to eight commands (`genome`, `run`, `status`, `bundle`,
@@ -159,11 +176,13 @@ After a restart the session gets two things:
   so the allowlist limits typos and UX, not capability. `promote` and
   `tombstone` are deliberately NOT reachable through the tool: they are
   human gates and must be run in a terminal.
-- the user command **`/abathur <args…>`** — a slash command that tells the
-  agent to translate its arguments into a tool call and report the exit code.
+- the user command **`/abathur <args…>`** (Route A only) — a slash command
+  that tells the agent to translate its arguments into a tool call and report
+  the exit code.
 
-`abathur opencode status` shows each target's path, installed/packaged sha256,
-and state (up-to-date / outdated / foreign / absent).
+Route A ships its own manager commands: `abathur opencode status` shows each
+target's path, installed/packaged sha256, and state (up-to-date / outdated /
+foreign / absent).
 `abathur opencode uninstall` removes only files carrying the abathur marker; a
 foreign file at a target path makes both commands refuse with exit 2 and name
 the path — nothing is ever overwritten or deleted behind your back (there is
@@ -408,8 +427,10 @@ abathur run --genome toy-smoke --dry-run     # 计划 + requires[] 探针，零 
 
 ### 在 opencode 里调用
 
-Abathur 自带官方 opencode 插件适配器。工装仍是编排者，但安装之后，opencode
-会话也可以直接驱动 CLI：
+Abathur 自带官方 opencode 插件适配器。工装仍是编排者，但配置之后，opencode
+会话也可以直接驱动 CLI。安装有两条路线：
+
+**路线 A——一条命令（工具 + `/abathur` 斜杠命令）。**
 
 ```bash
 npm i -g @tachikomagundam/abathur
@@ -417,7 +438,21 @@ abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
 # 重启 opencode
 ```
 
-重启后会话获得两样东西：
+**路线 B——纯配置（只有工具，没有斜杠命令）。** 把包名写进 opencode 配置再
+重启：
+
+```jsonc
+{ "plugin": ["@tachikomagundam/abathur"] }
+```
+
+opencode 会在启动时自行从 npm 把包下载到它自己的缓存
+（`~/.cache/opencode/packages/…`）并加载该包的 `./server` 导出——不复制文件，
+也没有 uninstall 步骤（删掉那行即可）。两点诚实的限制：工具 spawn 的是
+`abathur` **CLI**，所以 CLI 仍必须在 `PATH`（或 `ABATHUR_BIN`）上可达，
+`npm i -g` 不能省；而斜杠命令在上游只是 markdown 文件、插件无法注册，
+所以 `/abathur` 只有路线 A 提供。
+
+任一路线都会让会话获得：
 
 - 智能体工具 **`abathur`**——以纯 argv 方式 spawn `abathur` CLI（绝不经过
   shell），顶层命令限定为八个（`genome`、`run`、`status`、`bundle`、`graft`、
@@ -426,10 +461,11 @@ abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
   bash 等同的权限——`run` 与 `genome` 按设计就会 spawn 变异器/引擎二进制——
   所以允许清单限制的是笔误与体验，而非能力。`promote` 与 `tombstone` 刻意
   不可经由工具触达：它们是人类闸门，必须在终端里运行。
-- 用户命令 **`/abathur <参数…>`**——斜杠命令，指示智能体把参数翻译成工具调用
-  并回报退出码。
+- 用户命令 **`/abathur <参数…>`**（仅路线 A）——斜杠命令，指示智能体把参数
+  翻译成工具调用并回报退出码。
 
-`abathur opencode status` 逐目标打印路径、已安装/随包 sha256 与状态
+路线 A 自带管理命令：`abathur opencode status` 逐目标打印路径、已安装/随包
+sha256 与状态
 （up-to-date / outdated / foreign / absent）。
 `abathur opencode uninstall` 只删除带有 abathur 标记的文件；若目标路径上躺着
 别人的文件，两条命令都会 exit 2 并点名路径——绝不会背着你覆盖或删除任何东西

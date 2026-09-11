@@ -2,6 +2,27 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.2 — 2026-09-11
+
+### npm name-route plugin install (route B)
+
+- `package.json` gained an `exports` map (`"."` → `dist/cli.js`,
+  `"./server"` → `plugin/abathur.ts`, `"./package.json"`) so listing
+  `"@tachikomagundam/abathur"` in opencode's `plugin` config field lets the
+  loader resolve the plugin entry from the npm cache install — the shape is
+  pinned by tests against opencode v1.18.30's `resolvePackageEntrypoint`
+  (first `exports["./server"]`, plain-string form).
+- `@opencode-ai/plugin` (1.17.x line) declared as a runtime dependency so
+  arborist provisions the import beside the package inside opencode's cache
+  tree — the mechanism the installed OMO plugin uses.
+- `plugin/abathur.ts` header documents both delivery routes; marker stays in
+  version parity with `package.json` (pinned by tests).
+- README (en+zh) "Inside opencode" now presents the two routes: A) one
+  command file-copy install (tool + `/abathur`; slash commands cannot be
+  registered by plugins upstream), B) config-only name entry with automatic
+  npm download at startup (tool only; CLI still required on `PATH`).
+- The route A file-copy installer and its refusal semantics are unchanged.
+
 ## 0.2.1 — 2026-09-11
 
 ### Plugin adapter remediation (outcome of the F1 adversarial review)

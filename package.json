@@ -1,6 +1,6 @@
 {
   "name": "@tachikomagundam/abathur",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
   "author": "TachikomaGundam",
   "type": "module",
@@ -20,6 +20,11 @@
     "abathur": "dist/cli.js"
   },
   "main": "dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./server": "./plugin/abathur.ts",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "config",
@@ -33,6 +38,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@opencode-ai/plugin": "^1.17.4",
     "zod": "^4.0.0"
   },
   "devDependencies": {
