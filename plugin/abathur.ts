@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.1
+// abathur-opencode-plugin v0.2.2
 // Official opencode plugin adapter for the abathur evolution harness.
 // Registers ONE agent tool, `abathur`, that shells out to the abathur CLI —
 // argv-only (node:child_process execFile, never a shell), top-level commands
@@ -8,10 +8,15 @@
 // V1 plugin format (opencode >= 1.14): default export { id, server }, where
 // server(input, options) resolves to Hooks; Hooks.tool is a
 // { [name]: ToolDefinition } record (see @opencode-ai/plugin).
-// This file is shipped as-is (package.json "files") and copied into
-// ~/.config/opencode/plugins/ by `abathur opencode install`. It is NOT
-// compiled by abathur's tsc; "@opencode-ai/plugin" resolves inside opencode's
-// own config-directory install.
+// This file is shipped as-is (package.json "files") and reaches a session by
+// two routes, neither compiling it through abathur's tsc:
+// (A) copied into ~/.config/opencode/plugins/ by `abathur opencode install`
+//     (adds the /abathur command too); "@opencode-ai/plugin" then resolves in
+//     opencode's config-directory node_modules.
+// (B) served as the package's "./server" export when the npm package name is
+//     listed in opencode.jsonc "plugin" — opencode's arborist install places
+//     @opencode-ai/plugin (runtime dependency) next to the package in its
+//     cache, so the same import resolves there too.
 
 import { execFile } from "node:child_process";
 import { tool } from "@opencode-ai/plugin";
