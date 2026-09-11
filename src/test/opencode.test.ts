@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
@@ -117,6 +117,42 @@ test("install: foreign target without our marker ⇒ exit 2 naming the path, NOT
   assert.ok(combined.includes(pluginTs), `refusal must name the path: ${combined}`);
   assert.equal(await readFile(pluginTs, "utf8"), foreign, "foreign bytes must survive");
   // Atomicity: the refusal must happen before ANY write, so the command target stays absent.
+  await assert.rejects(readFile(commandMd), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
+});
+
+test("install: a DIRECTORY at a target path is refused (exit 2, named) — never entered or destroyed", async (t) => {
+  const { home, env } = await makeEnv(t);
+  const { pluginTs, commandMd } = targetPaths(home);
+  await mkdir(pluginTs, { recursive: true });
+  const inner = path.join(pluginTs, "someone-elses-plugin.ts");
+  await writeFile(inner, "// lives inside, must survive\n", "utf8");
+
+  const run = abathur(env, "opencode", "install");
+  assert.equal(run.status, 2, `${run.stdout}${run.stderr}`);
+  const combined = `${run.stdout}${run.stderr}`;
+  assert.ok(combined.includes(pluginTs), `refusal must name the path: ${combined}`);
+  assert.ok((await readFile(inner, "utf8")).includes("must survive"), "directory contents untouched");
+  // Atomicity still holds: validation precedes every write, so the sibling stays absent.
+  await assert.rejects(readFile(commandMd), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
+});
+
+test("install: a SYMLINK at a target path is refused (exit 2) — inspected by lstat, never followed", async (t) => {
+  const { home, env } = await makeEnv(t);
+  const { pluginTs, commandMd } = targetPaths(home);
+  // The marker check alone would pass here: readFileSync follows the link, and the
+  // old write would then destroy the external file. lstat must refuse the link itself.
+  const real = path.join(home, "elsewhere", "real-file.ts");
+  await mkdir(path.dirname(real), { recursive: true });
+  const original = `${PLUGIN_MARKER} 0.0.1\n// real file outside the opencode tree\n`;
+  await writeFile(real, original, "utf8");
+  await mkdir(path.dirname(pluginTs), { recursive: true });
+  await symlink(real, pluginTs);
+
+  const run = abathur(env, "opencode", "install");
+  assert.equal(run.status, 2, `${run.stdout}${run.stderr}`);
+  assert.ok(`${run.stdout}${run.stderr}`.includes(pluginTs), `refusal must name the path: ${run.stdout}${run.stderr}`);
+  assert.equal(await readFile(real, "utf8"), original, "file behind the link must be untouched");
+  assert.equal((await lstat(pluginTs)).isSymbolicLink(), true, "the symlink itself must survive too");
   await assert.rejects(readFile(commandMd), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
 });
 
@@ -242,20 +278,16 @@ test("plugin/abathur.ts: V1 shape — marker, default {id, server}, tool allowli
   assert.ok(bytes.includes('id: "abathur"'), "file plugins must export id (resolvePluginId)");
   assert.ok(/server:\s*async\s*\(\)/.test(bytes), "server must be an async function (readV1Plugin)");
   assert.ok(bytes.includes("tool.schema"), "args must be built via tool.schema (no local zod dep)");
-  for (const command of [
-    "genome",
-    "run",
-    "status",
-    "promote",
-    "tombstone",
-    "bundle",
-    "graft",
-    "self-eval",
-    "kernel",
-    "--help",
-  ]) {
-    assert.ok(bytes.includes(`"${command}"`), `allowlist must contain ${command}`);
-  }
+
+  // Exact-array pin (0.2.1): parse the ALLOWED_COMMANDS literal from source — membership
+  // checks alone would let promote/tombstone creep back in via order or extras.
+  const literal = bytes.match(/const ALLOWED_COMMANDS[^=]*=\s*\[([^\]]*)\]/);
+  assert.ok(literal !== null, "ALLOWED_COMMANDS array literal must exist");
+  const allowed = [...(literal[1] ?? "").matchAll(/"([^"]+)"/g)].map((found) => found[1] ?? "");
+  assert.deepEqual(allowed, ["genome", "run", "status", "bundle", "graft", "self-eval", "kernel", "--help"]);
+  assert.ok(!allowed.includes("promote"), "promote is terminal-only — must not be tool-reachable");
+  assert.ok(!allowed.includes("tombstone"), "tombstone is terminal-only — must not be tool-reachable");
+
   assert.ok(bytes.includes("execFile"), "must spawn via execFile argv-only");
   assert.ok(!/shell\s*:\s*true/.test(bytes), "shell:true is banned");
   assert.ok(bytes.includes("ABATHUR_BIN"), "bin overridable via ABATHUR_BIN");

@@ -151,10 +151,14 @@ abathur opencode install    # copies plugin assets into ~/.config/opencode/
 After a restart the session gets two things:
 
 - the agent tool **`abathur`** — spawns the `abathur` CLI argv-only (never a
-  shell), restricted to the nine top-level commands plus `--help`
-  (`genome`, `run`, `status`, `promote`, `tombstone`, `bundle`, `graft`,
-  `self-eval`, `kernel`), with a 120 s timeout and a 64 KB output cap. The
-  binary resolves from `PATH` unless `ABATHUR_BIN` overrides it.
+  shell), restricted to eight commands (`genome`, `run`, `status`, `bundle`,
+  `graft`, `self-eval`, `kernel`, `--help`), with a 120 s timeout and a 64 KB
+  output cap. The binary resolves from `PATH` unless `ABATHUR_BIN` overrides
+  it. Honest privilege note: the tool carries bash-equivalent privilege —
+  `run` and `genome` legitimately spawn mutator/engine binaries by design —
+  so the allowlist limits typos and UX, not capability. `promote` and
+  `tombstone` are deliberately NOT reachable through the tool: they are
+  human gates and must be run in a terminal.
 - the user command **`/abathur <args…>`** — a slash command that tells the
   agent to translate its arguments into a tool call and report the exit code.
 
@@ -416,9 +420,12 @@ abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
 重启后会话获得两样东西：
 
 - 智能体工具 **`abathur`**——以纯 argv 方式 spawn `abathur` CLI（绝不经过
-  shell），顶层命令限定为九个真命令加 `--help`（`genome`、`run`、`status`、
-  `promote`、`tombstone`、`bundle`、`graft`、`self-eval`、`kernel`），120 秒
-  超时、64 KB 输出封顶。二进制从 `PATH` 解析，除非用 `ABATHUR_BIN` 覆盖。
+  shell），顶层命令限定为八个（`genome`、`run`、`status`、`bundle`、`graft`、
+  `self-eval`、`kernel`、`--help`），120 秒超时、64 KB 输出封顶。二进制从
+  `PATH` 解析，除非用 `ABATHUR_BIN` 覆盖。诚实的权限说明：该工具具备与
+  bash 等同的权限——`run` 与 `genome` 按设计就会 spawn 变异器/引擎二进制——
+  所以允许清单限制的是笔误与体验，而非能力。`promote` 与 `tombstone` 刻意
+  不可经由工具触达：它们是人类闸门，必须在终端里运行。
 - 用户命令 **`/abathur <参数…>`**——斜杠命令，指示智能体把参数翻译成工具调用
   并回报退出码。
 

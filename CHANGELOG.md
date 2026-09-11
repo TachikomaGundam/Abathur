@@ -2,6 +2,30 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.1 — 2026-09-11
+
+### Plugin adapter remediation (outcome of the F1 adversarial review)
+
+- Human gates are now terminal-only: the opencode tool allowlist drops
+  `promote` and `tombstone`. Reachable set is eight commands — `genome`,
+  `run`, `status`, `bundle`, `graft`, `self-eval`, `kernel`, `--help` — and
+  the slash-command template states that the tool itself refuses the gates
+  and points the user to a terminal.
+- Honest privilege documentation: the tool description now says plainly that
+  the tool carries bash-equivalent privilege (`run`/`genome` legitimately
+  spawn mutator/engine binaries by design) — the allowlist limits typos and
+  UX, not capability. Mirrored in both README languages.
+- `run` timeout note: when a killed `abathur run` times out, the result note
+  explains that detached children (mutator/bench sessions) may still be
+  running and that the next `abathur run` reaps them.
+- Installer hardening: both packaged assets are read before any destination
+  is validated (a missing second asset no longer leaves a partial install);
+  the write loop re-checks marker ownership, so a foreign file planted
+  between validation and write is refused instead of overwritten (TOCTOU);
+  install and uninstall share an lstat destination guard — directories and
+  symlinks are refused with exit 2 and named, never followed, entered, or
+  destroyed.
+
 ## 0.2.0 — 2026-09-11
 
 ### Official opencode plugin adapter
