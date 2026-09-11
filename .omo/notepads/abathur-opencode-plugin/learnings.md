@@ -92,3 +92,50 @@
   missing → exit 2 with a partial pair).
 - Comment-hook (anti-slop) fires on the product marker line 1 itself — it is the load-bearing
   identity marker, exempt in practice; justify rationale comments inline once.
+
+## 2026-09-11 — task 6 CODE+PROOF: 0.2.2 npm name-route (source-evidence findings)
+
+### Entry selection (v1.18.30 plugin/shared.ts, cited)
+- `resolvePackageEntrypoint` (shared.ts:103-115): with an `exports` record, picks
+  `exports["./server"]` via `extractExportValue` (plain string, or `{import|default}` subfield);
+  if exports lacks `./server` it FALLS BACK TO `main` for kind=server — so a package with
+  main=dist/cli.js and no exports would have imported the CLI as a "plugin". Our exports map
+  both enables route B and forecloses that footgun.
+- Path containment check `resolvePackageFile` (shared.ts:88-96): entry must stay inside pkg dir.
+- `loader.ts` pipeline: resolvePluginTarget → createPluginEntry → engines gate ONLY for
+  source==="npm" (loader.ts:125-129) → plain `await import(entry)` (Bun transpiles .ts —
+  INDEX_FILES includes index.ts, shared.ts:53, so raw TS entries are first-class).
+- engines.opencode: DECIDED to omit — `checkPluginCompatibility` (shared.ts:186-199) returns
+  early when the field is absent → gate skipped = max compatibility. OMO ships with no engines too.
+
+### Dependency provisioning in the arborist cache (verified, two real mechanisms)
+- Npm.add (core/npm.ts): installs into `<cache>/packages/<sanitized-spec>/` via Arborist
+  {binLinks, ignoreScripts, save:true, saveType:"prod"}; package deps land as SIBLINGS under
+  that node_modules → plugin import of @opencode-ai/plugin resolves by node walk-up.
+- Evidence: OMO declares `"@opencode-ai/plugin": "1.15.13"` in dependencies (exact pin, cache
+  copy = 1.15.13); historian declares NONE but peerDependencies `>=1.0.0` (arborist auto-installs
+  peers → cache got 1.18.29). Task spec chose dependencies `^1.17.4` (OMO mechanism, caret);
+  our registry probe's cache ended up with 1.18.30. Also verified config.ts:453-460 installs
+  @opencode-ai/plugin@<binary-ver> only into CONFIG dirs (ConfigPaths.directories), NOT npm
+  cache dirs — so the declared dependency is genuinely load-bearing for route B.
+
+### Proof recipe (reusable)
+- Registration proof WITHOUT auth/LLM: temp HOME + XDG_{CONFIG,CACHE,DATA}_HOME; write
+  `<xdg>/opencode/opencode.jsonc` {"plugin":[<spec>]}; `setsid opencode serve --port N` & curl
+  `GET /experimental/tool/ids?directory=<empty tmp cwd>` (server/routes/instance/httpapi —
+  lists "built-in + dynamically registered"; abathur appears iff plugin loads; control
+  {"plugin":[]} removes it). NOTE: `opencode serve --pure` did NOT suppress config plugins in
+  our run — don't use it as the control; use plugin:[].
+- Execute proof for the cached .ts: tsc --rootDir/--outDir into the cache plugin/ dir (temp homes
+  only), import emitted .js from node (bare @opencode-ai/plugin resolves to the arborist copy),
+  ctx stub needs {directory, worktree, metadata(){}} — execute returns a plain STRING (ToolResult).
+- Node 22.22 here still cannot import .ts; dist/cli.js from tsc lacks the exec bit — chmod for
+  ABATHUR_BIN=<file> tests (npm bin shims are executable in real installs, so product unaffected).
+
+### Ops lessons
+- NEVER `pkill -f "<pattern>"` where the pattern occurs in your own command line — the shell
+  kills itself (happened once) and a broad pattern once killed a foreign project's serve
+  (pcb-control 19921). Track spawned PIDs explicitly; kill only those.
+- CI ledger-lock flake signature: ENOTEMPTY rmdir `.locks/friction.lock` kills a friction-writer
+  child → AC-f expects [0,0]. Pre-existing race between stale-quarantine rename and release
+  rmSync in src/core/locks.ts; unrelated to plugin route. 0.2.2 CI: rerun --failed passed.
