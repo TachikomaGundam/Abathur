@@ -34,3 +34,35 @@
 - Step 4: tag v0.2.1 = 7575920038af411132dafdeb0cbdac004d694969 on fe38691, tagger TachikomaGundam; Publish run 34589265687 completed/success — shasum 330b7dcc40db14f3406562b3102d27d932f32816, Sigstore logIndex 2792485022, no ENEEDAUTH.
 - Step 5: version doc 200 (shasum matches CI); abbreviated latest=0.2.1 + attestations slsa provenance/v1 non-empty; tarball HEAD 200.
 - Cleanup: worktree removed+pruned. Public history: 8cf71eb → 57724ff → 482cd82 → 71a27ec (v0.2.0) → fe38691 (v0.2.1).
+
+## 2026-09-11 receipt: 0.2.2 RELEASED — npm name-route live, dual-route acceptance closed
+- main 0026671 (feat: exports map "."→dist/cli.js, "./server"→plugin/abathur.ts, "./package.json";
+  dep @opencode-ai/plugin ^1.17.4; marker+pkg parity 0.2.2; README en+zh two-route docs; test +1
+  → 308/308 local). Shapes decided from v1.18.30 source (see learnings 2026-09-11 task 6).
+- Pre-release proofs (temp homes): P1 path-spec dir → tool/ids shows abathur (exports selection
+  through the real loader); P2 file:tarball spec → arborist cache under
+  <tmp>/.cache/opencode/packages/file:.../node_modules with @opencode-ai/plugin@1.18.30 sibling;
+  execute smoke on cache bytes: --help exit 0, promote refused. Control {"plugin":[]}: abathur
+  absent. (serve --pure did NOT act as a control — recorded.)
+- Pipeline: worktree /tmp/abathur-release-022 from public(fe38691); archive-sync main∖.omo;
+  commit 43def9f A/C=TachikomaGundam; ls-tree blob proof ∖.omo==∖.github OK; leak gate: zero
+  sumteclab/.omo, /home/lab only sanctioned trio (README quote, d7-gate fixture, opencode.test
+  needles). Push FF fe38691..43def9f. CI 34612150110: FAIL once on pre-existing ledger-lock
+  ENOTEMPTY flake (AC f, untouched by this change), rerun --failed → success. Tag v0.2.2 on
+  43def9f (tagger TachikomaGundam); Publish 34612779500 success (OIDC).
+- Registry triple-check: pre-publish 404 confirmed; version doc 200 shasum
+  2d8f88fc074e3d801f0dde46af67147be60de075; abbreviated latest=0.2.2 + attestations
+  slsa provenance/v1; tarball HEAD 200.
+- Post-release acceptance: npm i -g @tachikomagundam/abathur@0.2.2; abathur opencode install
+  upgraded real plugin outdated→up-to-date, marker now v0.2.2 (commands md unchanged byte).
+  REAL NAME ROUTE: temp HOME {"plugin":["@tachikomagundam/abathur"]} ONLY → registry download
+  created ~/.cache/... equivalent under the TEMP home at
+  <TMPH>/.cache/opencode/packages/@tachikomagundam/abathur@latest/node_modules/... (plugin/
+  abathur.ts + dep copy 1.18.30); tool/ids shows abathur; cached-bytes execute --help via
+  ABATHUR_BIN=<real global bin> exit 0.
+- Cleanup: probe homes/tarball/smokes deleted; release worktree removed+pruned; real
+  opencode.jsonc untouched (mtime Sep 10); real ~/.cache/opencode untouched. Public history:
+  … → fe38691 (v0.2.1) → 43def9f (v0.2.2). INCIDENT (self-reported): broad pkill during probe
+  debugging killed a foreign serve process on port 19921 (pcb-control production-console test
+  hook, started 22:09 by another session). No data loss expected (test-only listener), but
+  pattern safety now documented in learnings.
