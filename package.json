@@ -1,6 +1,6 @@
 {
   "name": "abathur",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
   "type": "module",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "dist",
     "config",
     "graders",
-    "docs"
+    "docs",
+    "plugin"
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs",
