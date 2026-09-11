@@ -2,6 +2,34 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.3 — 2026-09-11
+
+### `/abathur` self-registers — Route B now ships the slash command too
+
+- Correction, honest footing: 0.2.0–0.2.2 documented that "slash commands
+  cannot be registered by plugins upstream". That was **wrong**. It is true
+  that the `Hooks` interface has no dedicated command hook — but every
+  plugin's optional `config(cfg)` hook receives the fully-merged live config
+  object *after* all sources (including file-based
+  `{command,commands}/**/*.md`) have been merged into it, so a plugin can
+  register a slash command by adding an entry to `cfg.command`. The
+  first-party-ecosystem `opencode-acp` plugin registers its `/acp` command
+  exactly this way; we verified the mechanism against opencode v1.18.30
+  sources and live servers before shipping it.
+- `plugin/abathur.ts` gained the `config` hook: it injects
+  `cfg.command.abathur` (description + the `/abathur` prompt template, a
+  byte-mirror of `plugin/abathur-command.md` minus its marker line, pinned
+  by tests) using `??=` — so a Route A `commands/abathur.md` on disk stays
+  authoritative (byte-identical behaviour to 0.2.2) and the injection only
+  fills the gap where no such file exists. The upstream command map is keyed
+  by name, so file + injection never produce a duplicate `/abathur` entry.
+- Net effect: both routes now deliver the tool **and** the slash command —
+  Route B (`"plugin": ["@tachikomagundam/abathur"]`) needs no file copying
+  at all; Route A's installer is unchanged and remains the offline-capable,
+  zero-config-edit option.
+- README (en+zh) "Inside opencode" rewritten around the corrected
+  two-route story.
+
 ## 0.2.2 — 2026-09-11
 
 ### npm name-route plugin install (route B)

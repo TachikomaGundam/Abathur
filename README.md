@@ -142,7 +142,11 @@ Abathur ships an official opencode plugin adapter. The harness remains the
 orchestrator, but once set up an opencode session can also drive the CLI
 directly. Two install routes:
 
-**Route A — one command (tool + `/abathur` slash command).**
+Both routes deliver the tool **and** the `/abathur` slash command; pick by
+taste — A needs no edit of your opencode config and works fully offline, B
+needs no file copying and removes with one deleted line.
+
+**Route A — one command (file-copy installer).**
 
 ```bash
 npm i -g @tachikomagundam/abathur
@@ -150,7 +154,7 @@ abathur opencode install    # copies plugin assets into ~/.config/opencode/
 # restart opencode
 ```
 
-**Route B — config only (tool, no slash command).** Put the package name in
+**Route B — config only (auto-downloaded from npm).** Put the package name in
 your opencode config and restart:
 
 ```jsonc
@@ -159,11 +163,16 @@ your opencode config and restart:
 
 opencode then downloads the package from npm at startup into its own cache
 (`~/.cache/opencode/packages/…`) and loads the package's `./server` export —
-no file copying, no uninstall step (delete the line). Two honest limits: the
-`abathur` **CLI** still must exist on `PATH` (or `ABATHUR_BIN`) because the
-tool spawns it, so keep the `npm i -g` install; and slash commands are plain
-markdown files that plugins cannot register upstream, so `/abathur` is Route A
-only.
+no file copying, no uninstall step (delete the line). Since 0.2.3 the plugin
+also self-registers `/abathur` through its `config` hook: slash commands are
+entries in the merged config's `command` map, and a plugin may add one there
+— the upstream `opencode-acp` plugin registers `/acp` the same way (the
+0.2.0–0.2.2 note here claiming plugins cannot register slash commands was
+wrong; corrected). If Route A's copied `commands/abathur.md` exists it stays
+authoritative — the injection never overwrites it, and the name-keyed command
+map means `/abathur` can never appear twice. One honest limit stands for both
+routes: the tool spawns the `abathur` **CLI**, which must exist on `PATH` (or
+via `ABATHUR_BIN`) — keep the `npm i -g` install.
 
 Either route gives the session:
 
@@ -176,9 +185,10 @@ Either route gives the session:
   so the allowlist limits typos and UX, not capability. `promote` and
   `tombstone` are deliberately NOT reachable through the tool: they are
   human gates and must be run in a terminal.
-- the user command **`/abathur <args…>`** (Route A only) — a slash command
-  that tells the agent to translate its arguments into a tool call and report
-  the exit code.
+- the user command **`/abathur <args…>`** — a slash command that tells the
+  agent to translate its arguments into a tool call and report the exit code.
+  Route A provides it as the copied `commands/abathur.md` file; Route B gets
+  it from the plugin's `config` hook at startup.
 
 Route A ships its own manager commands: `abathur opencode status` shows each
 target's path, installed/packaged sha256, and state (up-to-date / outdated /
@@ -430,7 +440,10 @@ abathur run --genome toy-smoke --dry-run     # 计划 + requires[] 探针，零 
 Abathur 自带官方 opencode 插件适配器。工装仍是编排者，但配置之后，opencode
 会话也可以直接驱动 CLI。安装有两条路线：
 
-**路线 A——一条命令（工具 + `/abathur` 斜杠命令）。**
+两条路线都交付工具**和** `/abathur` 斜杠命令，按喜好挑选：A 不必改动你的
+opencode 配置、且完全离线可用；B 不复制任何文件、删掉一行即卸载。
+
+**路线 A——一条命令（文件复制安装器）。**
 
 ```bash
 npm i -g @tachikomagundam/abathur
@@ -438,7 +451,7 @@ abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
 # 重启 opencode
 ```
 
-**路线 B——纯配置（只有工具，没有斜杠命令）。** 把包名写进 opencode 配置再
+**路线 B——纯配置（自动从 npm 下载）。** 把包名写进 opencode 配置再
 重启：
 
 ```jsonc
@@ -447,10 +460,14 @@ abathur opencode install    # 把插件资产复制进 ~/.config/opencode/
 
 opencode 会在启动时自行从 npm 把包下载到它自己的缓存
 （`~/.cache/opencode/packages/…`）并加载该包的 `./server` 导出——不复制文件，
-也没有 uninstall 步骤（删掉那行即可）。两点诚实的限制：工具 spawn 的是
-`abathur` **CLI**，所以 CLI 仍必须在 `PATH`（或 `ABATHUR_BIN`）上可达，
-`npm i -g` 不能省；而斜杠命令在上游只是 markdown 文件、插件无法注册，
-所以 `/abathur` 只有路线 A 提供。
+也没有 uninstall 步骤（删掉那行即可）。自 0.2.3 起，插件还会通过它的
+`config` 钩子自注册 `/abathur`：斜杠命令本质是合并后配置的 `command`
+映射里的条目，插件可以在钩子里添加一条——上游的 `opencode-acp` 插件正是
+这样注册 `/acp` 的（0.2.0–0.2.2 在此声称"插件无法注册斜杠命令"是错的，
+已更正）。若路线 A 复制的 `commands/abathur.md` 存在，它保持权威——注入
+绝不覆盖它，而且命令映射按名字键控，`/abathur` 绝不会出现两份。对两条
+路线同样成立的一个诚实限制：工具 spawn 的是 `abathur` **CLI**，CLI 必须
+在 `PATH`（或 `ABATHUR_BIN`）上可达，`npm i -g` 不能省。
 
 任一路线都会让会话获得：
 
@@ -461,8 +478,9 @@ opencode 会在启动时自行从 npm 把包下载到它自己的缓存
   bash 等同的权限——`run` 与 `genome` 按设计就会 spawn 变异器/引擎二进制——
   所以允许清单限制的是笔误与体验，而非能力。`promote` 与 `tombstone` 刻意
   不可经由工具触达：它们是人类闸门，必须在终端里运行。
-- 用户命令 **`/abathur <参数…>`**（仅路线 A）——斜杠命令，指示智能体把参数
-  翻译成工具调用并回报退出码。
+- 用户命令 **`/abathur <参数…>`**——斜杠命令，指示智能体把参数
+  翻译成工具调用并回报退出码。路线 A 由复制的 `commands/abathur.md`
+  文件提供；路线 B 由插件的 `config` 钩子在启动时注册。
 
 路线 A 自带管理命令：`abathur opencode status` 逐目标打印路径、已安装/随包
 sha256 与状态
