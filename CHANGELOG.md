@@ -2,6 +2,14 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.1.1 — 2026-09-11
+
+### Docs
+
+- Quick-start follow-up to the scoped rename: `ABATHUR_PKG` now points at
+  `$(npm root -g)/@tachikomagundam/abathur` and the tarball install line at
+  `tachikomagundam-abathur-<version>.tgz` (mirrored zh/en).
+
 ## 0.1.0 — 2026-09-10
 
 First release. An evolution harness for OpenCode agents:

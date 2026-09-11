@@ -1,6 +1,6 @@
 {
   "name": "@tachikomagundam/abathur",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
   "author": "TachikomaGundam",
   "type": "module",
