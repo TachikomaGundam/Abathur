@@ -183,3 +183,69 @@ test("grader CLI: garbage transcript ⇒ nonzero exit, no score line (adapter �
   assert.notEqual(r.code, 0);
   assert.equal(r.stdout.trim(), "");
 });
+
+// ------------------------------------------- S4 seam: active-tree scenario resolution
+//
+// post-seam graderCommand renders `{repoRoot}/{unit.path}` (adapter unitVars), so
+// argv[1] arrives as an ABSOLUTE path into the bench's active tree — incumbent
+// repoPath or candidate worktree, same notion as the run side. Resolution mirrors
+// the ABATHUR_GRADER_STATE offline pattern: the file is read only when it exists
+// (offline fixtures pass relative/nonexistent paths, which must keep working), and
+// a readable scenario must agree with the unit id on the scenario number — the
+// pre-seam failure mode was commands baked against the WRONG tree.
+
+function stateFor(dir: string): string {
+  const stateFile = path.join(dir, "state.json");
+  writeFileSync(
+    stateFile,
+    JSON.stringify({
+      post: POST_OK,
+      content: { 400: "[qwen27b](/_sandbox/llm-inference/qwen27b-threading)", 600: GOOD_PAGE },
+      urlStatus: {},
+    }),
+  );
+  return stateFile;
+}
+
+test("grader CLI resolves an existing {repoRoot}-rendered scenario file ⇒ metrics.scenarioFile", async () => {
+  const dir = sandboxWith(transcript(GOOD_FINAL, 5678), PRE);
+  const repo = mkdtempSync(path.join(tmpdir(), "t14-seamrepo-"));
+  mkdirSync(path.join(repo, "scenarios"), { recursive: true });
+  const scenarioAbs = path.join(repo, "scenarios", "01-new-finding.md");
+  writeFileSync(scenarioAbs, "# Scenario 01\n\n## Brief\ndo it\n", "utf8");
+  const r = await runGrader(dir, ["scenario-01", scenarioAbs, "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: stateFor(dir),
+  });
+  assert.equal(r.code, 0, r.stderr);
+  const parsed = JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "{}") as {
+    metrics: { scenarioFile: string | null };
+  };
+  assert.equal(parsed.metrics.scenarioFile, scenarioAbs, "resolved active-tree scenario path surfaces in metrics");
+});
+
+test("grader CLI: scenario number disagreeing with the unit id ⇒ nonzero (never a score)", async () => {
+  const dir = sandboxWith(transcript(GOOD_FINAL, 5678), PRE);
+  const repo = mkdtempSync(path.join(tmpdir(), "t14-seambad-"));
+  mkdirSync(path.join(repo, "scenarios"), { recursive: true });
+  const wrongAbs = path.join(repo, "scenarios", "99-wrong-unit.md");
+  writeFileSync(wrongAbs, "# Scenario 99\n\n## Brief\nnope\n", "utf8");
+  const r = await runGrader(dir, ["scenario-01", wrongAbs, "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: stateFor(dir),
+  });
+  assert.notEqual(r.code, 0, "a mis-baked template must surface as inconclusive, not as a score");
+  assert.match(r.stderr, /does not match/);
+});
+
+test("grader CLI: absent scenario file keeps grading offline (byte-compatible pre-seam fixtures)", async () => {
+  const dir = sandboxWith(transcript(GOOD_FINAL, 5678), PRE);
+  const r = await runGrader(dir, ["scenario-01", "scenarios/01-new-finding.md", "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: stateFor(dir),
+  });
+  assert.equal(r.code, 0, r.stderr);
+  const parsed = JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "{}") as {
+    score: number;
+    metrics: { scenarioFile: string | null };
+  };
+  assert.equal(parsed.score, 1);
+  assert.equal(parsed.metrics.scenarioFile, null);
+});
