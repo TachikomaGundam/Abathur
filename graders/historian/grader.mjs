@@ -8,6 +8,11 @@
 //   .bench/transcripts/<unitId>.jsonl  recorded `opencode run --format json`
 //   .bench/wiki-pre.json               post-seed row snapshot (seed-wrapped.sh)
 //   $ABATHUR_GRADER_STATE              optional offline state file {post, content, urlStatus}
+// argv[1] is the unit scenario rendered by the engine as `{repoRoot}/{unit.path}`
+// — the bench's ACTIVE TREE (incumbent repoPath / candidate worktree, S4 seam).
+// It is read only when it exists (offline fixtures may omit it) and must agree
+// with the unit id on the scenario number: disagreement means the command was
+// baked against the wrong tree, so the grader exits nonzero (inconclusive).
 // Live mode queries the wiki GraphQL list, fetches _sandbox page bodies, and
 // (scenario 07 only) anonymously probes every reported page URL for HTTP 200.
 
@@ -44,6 +49,27 @@ try {
 
 const pre = readJson(path.join(process.cwd(), ".bench", "wiki-pre.json"));
 const scenarioNo = scenarioNoFromUnit(unitId);
+
+// Active-tree scenario resolution mirrors the ABATHUR_GRADER_STATE pattern at
+// the bottom of this file: the received path is authoritative, consulted only
+// when the file exists. A readable scenario must carry the unit's number —
+// file basename digits vs unitId digits, both Number()-normalized ("09" ⇒ 9).
+function resolveScenario(id, p) {
+  if (p === undefined || p.length === 0) return null;
+  const abs = path.resolve(p);
+  try {
+    readFileSync(abs, "utf8");
+  } catch {
+    return null;
+  }
+  const fileNo = /(\d+)/.exec(path.basename(abs));
+  const unitNo = /(\d+)/.exec(id);
+  if (fileNo !== null && unitNo !== null && Number(fileNo[1]) !== Number(unitNo[1])) {
+    fail(`scenario file ${abs} (number ${fileNo[1]}) does not match unit '${id}' (number ${unitNo[1]})`);
+  }
+  return abs;
+}
+const scenarioFile = resolveScenario(unitId, scenarioPath);
 const URL_RE = /https?:\/\/\S+\/(?:en|zh)\/_sandbox\/\S+/g;
 
 function reportedUrls(message) {
@@ -108,6 +134,7 @@ process.stdout.write(
       total: result.total,
       applicableWeight: result.applicableWeight,
       notes: result.notes,
+      scenarioFile,
     },
   })}\n`,
 );
