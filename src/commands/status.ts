@@ -23,6 +23,7 @@ import {
 } from "../core/graft-support.js";
 import type { CommandSpec } from "../cli.js";
 import { resolveUniqueEntry } from "./run.js";
+import { effectiveRepoPath } from "../core/spec.js";
 
 const KIND_GENERATION = "generation_complete";
 const KIND_PROMOTE = "promote";
@@ -128,7 +129,11 @@ async function runStatus(args: readonly string[]): Promise<ExitCode> {
     renderQueue(queue);
     return EXIT_OK;
   }
-  const repo = entry.spec.repoPath;
+  // Resolve at the fs seam exactly like run/genome/kernel (run-loop.ts:142):
+  // feeding the stored UNRESOLVED `${VAR}` literal to git/ledger paths makes
+  // Node report the missing cwd as the misleading `spawn git ENOENT`; an unset
+  // variable is now a clean exit 2 that names it.
+  const repo = effectiveRepoPath(entry.spec.repoPath);
   const records = readLedgerRecords(ledgerPath(repo));
   const gens = generations(records);
 
