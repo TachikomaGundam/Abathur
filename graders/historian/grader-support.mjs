@@ -57,6 +57,34 @@ export function scenarioNoFromUnit(unitId) {
   return Number(m[1]);
 }
 
+/**
+ * opencode --format json tool events, in transcript order. Tolerant: garbage
+ * lines skipped (malformed_input ⇒ missing evidence scores 0, never crashes).
+ * Verbatim port of the task-05 proposal (historian baseline/grader-proposal/
+ * proposed-core.mjs) — unlike parseTranscript this must NOT throw: the I/J
+ * dims read it for evidence and absence of evidence scores 0.
+ */
+export function scanToolEvents(text) {
+  const out = [];
+  for (const [i, raw] of text.split("\n").entries()) {
+    const line = raw.trim();
+    if (line.length === 0) continue;
+    let doc;
+    try { doc = JSON.parse(line); } catch { continue; }
+    const part = doc?.part;
+    if (part?.type !== "tool") continue;
+    const state = part.state ?? {};
+    out.push({
+      index: i,
+      tool: String(part.tool ?? ""),
+      status: String(state.status ?? ""),
+      input: state.input ?? {},
+      output: typeof state.output === "string" ? state.output : JSON.stringify(state.output ?? ""),
+    });
+  }
+  return out;
+}
+
 function lastSegment(p) {
   const segs = p.split("/");
   return segs[segs.length - 1] ?? p;

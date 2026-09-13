@@ -74,12 +74,28 @@ export interface BenchAdapter {
 /** Placeholder values available to runCommand / graderCommand / seed/reset hooks. */
 export type CommandVars = Readonly<Record<string, string>>;
 
-export function unitVars(unit: BenchUnit, sandboxDir: string): CommandVars {
-  return { "unit.path": unit.path, "unit.id": unit.id, sandbox: sandboxDir, workdir: sandboxDir };
+/**
+ * `{repoRoot}` = the bench's ACTIVE TREE: the genome repoPath for the incumbent,
+ * the sealed candidate worktree for a candidate (run-loop.ts swaps spec.repoPath
+ * per target; adapters resolve it through effectiveRepoPath at construction).
+ * Omitting repoRoot keeps `{repoRoot}` an UNKNOWN placeholder — fail-closed
+ * exit 2, never a silently half-substituted command.
+ */
+export function unitVars(unit: BenchUnit, sandboxDir: string, repoRoot?: string | undefined): CommandVars {
+  const vars: Record<string, string> = {
+    "unit.path": unit.path,
+    "unit.id": unit.id,
+    sandbox: sandboxDir,
+    workdir: sandboxDir,
+  };
+  if (repoRoot !== undefined) vars["repoRoot"] = repoRoot;
+  return vars;
 }
 
-export function sandboxVars(sandboxDir: string): CommandVars {
-  return { sandbox: sandboxDir, workdir: sandboxDir };
+export function sandboxVars(sandboxDir: string, repoRoot?: string | undefined): CommandVars {
+  const vars: Record<string, string> = { sandbox: sandboxDir, workdir: sandboxDir };
+  if (repoRoot !== undefined) vars["repoRoot"] = repoRoot;
+  return vars;
 }
 
 const PLACEHOLDER = /\{([A-Za-z0-9_.]+)\}/g;

@@ -35,7 +35,7 @@ import { resolveConfigDir, type ConfigEnv } from "../config.js";
 import { fingerprint } from "../core/ids.js";
 import { acquireGenomeLock, Ledger } from "../core/ledger.js";
 import type { LockLease } from "../core/locks.js";
-import type { BenchUnit, GenomeSpec } from "../core/spec.js";
+import { effectiveRepoPath, type BenchUnit, type GenomeSpec } from "../core/spec.js";
 import {
   childStatus,
   firstLine,
@@ -125,7 +125,10 @@ export class FixtureScenariosAdapter implements BenchAdapter {
         "use ToyBenchAdapter for bench.type 'toy'",
       );
     }
-    const root = path.resolve(spec.repoPath);
+    // Active-tree resolution follows the run-loop notion (run-loop.ts:142): a
+    // concrete repoPath resolves exactly as before; a `${VAR}` env literal
+    // resolves at THIS fs boundary or exits 2 naming the variable.
+    const root = effectiveRepoPath(spec.repoPath);
     if (!statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
       cannotAnswer(`fixture: repoPath '${spec.repoPath}' is not a readable directory`);
     }
@@ -159,7 +162,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
     const transcript = transcriptPathFor(sandboxDir, unit.id);
     mkdirSync(path.dirname(transcript), { recursive: true });
     const outcome = await runChild({
-      argv: renderCommand(this.spec.bench.runCommand, unitVars(unit, sandboxDir)),
+      argv: renderCommand(this.spec.bench.runCommand, unitVars(unit, sandboxDir, this.repoRoot)),
       cwd: sandboxDir,
       timeoutS,
       env: this.sandboxEnv(sandboxDir, unit),
@@ -188,7 +191,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       );
     }
     const outcome = await runChild({
-      argv: renderCommand(this.spec.bench.graderCommand, unitVars(unit, sandbox)),
+      argv: renderCommand(this.spec.bench.graderCommand, unitVars(unit, sandbox, this.repoRoot)),
       cwd: sandbox,
       timeoutS: this.spec.bench.timeoutS,
       env: this.sandboxEnv(sandbox),
@@ -307,7 +310,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
   ): Promise<void> {
     if (template === undefined) return;
     const outcome = await runChild({
-      argv: renderCommand(template, sandboxVars(sandboxDir)),
+      argv: renderCommand(template, sandboxVars(sandboxDir, this.repoRoot)),
       cwd: sandboxDir,
       timeoutS: HOOK_TIMEOUT_S,
       env: this.sandboxEnv(sandboxDir),

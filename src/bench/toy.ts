@@ -81,7 +81,7 @@ export class ToyBenchAdapter implements BenchAdapter {
   async run(unit: BenchUnit, sandboxDir: string, timeoutS: number): Promise<RunResult> {
     this.activeSandbox = sandboxDir;
     const outcome = await runChild({
-      argv: renderCommand(this.spec.bench.runCommand, unitVars(unit, sandboxDir)),
+      argv: renderCommand(this.spec.bench.runCommand, unitVars(unit, sandboxDir, this.repoRoot)),
       cwd: sandboxDir,
       timeoutS,
       ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
@@ -107,7 +107,7 @@ export class ToyBenchAdapter implements BenchAdapter {
       );
     }
     const outcome = await runChild({
-      argv: renderCommand(this.spec.bench.graderCommand, unitVars(unit, sandbox)),
+      argv: renderCommand(this.spec.bench.graderCommand, unitVars(unit, sandbox, this.repoRoot)),
       cwd: sandbox,
       timeoutS: this.spec.bench.timeoutS,
       ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
@@ -152,7 +152,7 @@ export class ToyBenchAdapter implements BenchAdapter {
   ): Promise<void> {
     if (template === undefined) return;
     const outcome = await runChild({
-      argv: renderCommand(template, sandboxVars(sandboxDir)),
+      argv: renderCommand(template, sandboxVars(sandboxDir, this.repoRoot)),
       cwd: sandboxDir,
       timeoutS: HOOK_TIMEOUT_S,
       ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),

@@ -7,6 +7,7 @@ import { cannotAnswer } from "../../exit.js";
 import { runId } from "../ids.js";
 import { buildManifest, type ManifestEntry } from "../kernel.js";
 import type { GenomeSpec } from "../spec.js";
+import { effectiveRepoPath } from "../spec.js";
 import { budgetExhausted, type BudgetCaps, type BudgetCounters, type UnitReplicates } from "../stats.js";
 import { ToyBenchAdapter } from "../../bench/toy.js";
 import { FixtureScenariosAdapter } from "../../bench/fixture.js";
@@ -252,7 +253,7 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
     spent,
     provenance: provenance ?? { benchType: o.spec.bench.type, versions: [] },
     complete,
-    manifest: buildManifest(path.resolve(o.spec.repoPath), o.spec.kernel.immutableGlobs),
+    manifest: buildManifest(effectiveRepoPath(o.spec.repoPath), o.spec.kernel.immutableGlobs),
     failures,
   };
 }

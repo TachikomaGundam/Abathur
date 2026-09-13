@@ -1,0 +1,106 @@
+version: 1
+targets:
+  git:
+    remotes:
+      - name: origin
+        url: git@github.com:TachikomaGundam/Abathur.git
+rules:
+  authors:
+    emails: [TachikomaGundam@users.noreply.github.com]
+    names: [TachikomaGundam]
+  # fail-closed content guards: any future occurrence of these literal strings in
+  # git-listed files must surface as CRITICAL internal-host findings (release-scrub 2026-09-13).
+  hosts: [bailian, token-plan]
+  ips: []
+  pathPatterns: []
+
+# Waivers authorized by repo owner (orchestrator-delegated) for the v0.2.4 sanitized sync:
+# each entry pins one exact detected value (sha256 valueDigest) under one rule class and file;
+# no engine/rule/whole-file disable - any NEW value still fails the gate.
+allow:
+  # class: operator homedir string already public in byte-identical origin/main blobs
+  - { rule: '@secretlint/secretlint-rule-no-homedir/HOMEDIR', match: '11910cf2ba24c8f60016ad6997a78cc042c881811cb74bb7b72b09d35d2f5bed', file: 'README.md' }
+  - { rule: '@secretlint/secretlint-rule-no-homedir/HOMEDIR', match: '11910cf2ba24c8f60016ad6997a78cc042c881811cb74bb7b72b09d35d2f5bed', file: 'src/test/d7-gate.test.ts' }
+  - { rule: '@secretlint/secretlint-rule-no-homedir/HOMEDIR', match: '11910cf2ba24c8f60016ad6997a78cc042c881811cb74bb7b72b09d35d2f5bed', file: 'src/test/historian-grader-io.test.ts' }
+  - { rule: '@secretlint/secretlint-rule-no-homedir/HOMEDIR', match: '11910cf2ba24c8f60016ad6997a78cc042c881811cb74bb7b72b09d35d2f5bed', file: 'src/test/opencode.test.ts' }
+  # class: scenario-11 grader test sentinel (fictional fixture constant, shipped+asserted by tests; no credential)
+  - { rule: 'generic-api-key', match: 'bd39d9cb7be12352f8948f4db20277303fb2c3113cf8eb96c34ba11a52683de4', file: 'graders/historian/grader-core.mjs' }
+  # class: false positive: escaped-backslash or Windows-drive regex/path literal in TypeScript source
+  - { rule: 'path-pattern:*', match: '446d5de01fc90f506a305c270d35c89018f8784e15760a561acf48b30e06a8fa', file: 'src/test/historian-grader-io.test.ts' }
+  - { rule: 'path-pattern:*', match: '9381a9dbfa87812d393a4648c5f7e77648456c8c4c6bc5ed3b932fd2abb3b349', file: 'src/test/opencode.test.ts' }
+  - { rule: 'path-pattern:*', match: 'be5fa85046a8d8d93b90ee568b409b269888f8b0ba64727f3c07fcdeba15ecb8', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: 'c96e12e6bc9bc94c5eb66e66b859fb220c75a331006733a951d61d0d5995fcd8', file: 'src/test/opencode.test.ts' }
+  - { rule: 'path-pattern:*', match: 'e9f140ed02c7be3b70deaba4bb3bbae02f27cf8b5c51bf61a4f54cebc79f8bc0', file: 'src/core/bundle-export.ts' }
+  - { rule: 'path-pattern:*', match: '1b7c8806f9516a77eda94aa7ac7d893683947b215c7dbf422f783d4b1499f219', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '1c1662002aaa44b4990e4bb984791589998d398b3a749ac7fbac38647229625c', file: 'src/test/bench-fixture.test.ts' }
+  - { rule: 'path-pattern:*', match: '1c1662002aaa44b4990e4bb984791589998d398b3a749ac7fbac38647229625c', file: 'src/test/bench-toy.test.ts' }
+  - { rule: 'path-pattern:*', match: '1e8f8ac6e3d59725eaa13f23e5a1276637b7a6ea0a2707b3a4192bca5d9476f3', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '21e228859f69bf992936072fed314e115bcd17dd3bbfabac8fc820ebdf602dfb', file: 'src/test/bench-reporoot.test.ts' }
+  - { rule: 'path-pattern:*', match: '2c1b2b3545aa275c07341892c5278404c468149f92c1374341b0b92d60bb4be9', file: 'src/core/bundle-mask.ts' }
+  - { rule: 'path-pattern:*', match: '2ece6fa9818a71291c63f601f86edff83b6f5752448c7ce1df258324ecb66336', file: 'src/test/bench-reporoot.test.ts' }
+  - { rule: 'path-pattern:*', match: '2ece6fa9818a71291c63f601f86edff83b6f5752448c7ce1df258324ecb66336', file: 'src/test/historian-run-scenario.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/graft.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/promote.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/run-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/self-snapshot.test.ts' }
+  - { rule: 'path-pattern:*', match: '3f91a4e15e2a00bd69541b0a8e4ac77ab1205389cab73d37f0beb232156b332f', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '49dcc6d6740b75322e46c5437b50ec55164916929f5b4317ca3cd7fec061eb5b', file: 'src/test/opencode.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/graft.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/promote.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/run-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/self-snapshot.test.ts' }
+  - { rule: 'path-pattern:*', match: '53ccc975b19a548cdc294fd7720cfdf2cab5014e62e1b97aa17c076d7f29d6fb', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: '53ccc975b19a548cdc294fd7720cfdf2cab5014e62e1b97aa17c076d7f29d6fb', file: 'src/test/graft.test.ts' }
+  - { rule: 'path-pattern:*', match: '53ccc975b19a548cdc294fd7720cfdf2cab5014e62e1b97aa17c076d7f29d6fb', file: 'src/test/promote.test.ts' }
+  - { rule: 'path-pattern:*', match: '53ccc975b19a548cdc294fd7720cfdf2cab5014e62e1b97aa17c076d7f29d6fb', file: 'src/test/run-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '601de75cf3719b8a0361b1e1fad6fdf2039278c5fcc8ba043f5de4b1aacbdf68', file: 'src/test/bench-fixture.test.ts' }
+  - { rule: 'path-pattern:*', match: '66f0930c9904d006b650f6597dae53538ccad17d6778d7ce979c13a2ce425d87', file: 'src/core/bundle-mask.ts' }
+  - { rule: 'path-pattern:*', match: '66f0930c9904d006b650f6597dae53538ccad17d6778d7ce979c13a2ce425d87', file: 'src/core/evolve/udiff.ts' }
+  - { rule: 'path-pattern:*', match: '66f0930c9904d006b650f6597dae53538ccad17d6778d7ce979c13a2ce425d87', file: 'src/test/graft.test.ts' }
+  - { rule: 'path-pattern:*', match: '66f0930c9904d006b650f6597dae53538ccad17d6778d7ce979c13a2ce425d87', file: 'src/test/historian-run-scenario.test.ts' }
+  - { rule: 'path-pattern:*', match: '6779ea9861b94006432cf34b90efff5f371533a3c1db93001a928d84a2614de7', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '678ac1b41387837f0678c165d7143253334bc36f19653e11e1da94c566e8db11', file: 'src/test/bench-fixture.test.ts' }
+  - { rule: 'path-pattern:*', match: '71638a554ddc37a5d3307f1abaf94ace4f04d7456f2790d82681bbb81fd547a7', file: 'src/test/promote.test.ts' }
+  - { rule: 'path-pattern:*', match: '7210ed558ca42bc0008849e68718cc9bf9a2cc53c3ac930afaa1700bd9f4f0c2', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: '72df5404109a6368e84e4a6dc8996af98b00135c077a08c88e373baff8b01810', file: 'src/core/bundle-inspect.ts' }
+  - { rule: 'path-pattern:*', match: '745d4e83c974b0d8fcf86585e214f7d31ded39f107767c4c93fdd0555a0385fa', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: '77ed676914cf7d4669c4822801e3e2ff18ff37074356acf95b6770165f494786', file: 'src/core/bundle-tar.ts' }
+  - { rule: 'path-pattern:*', match: '7df6a08a6b21a3419c62a865b36f68fb4456f14556c9807977ce88bf66b4b65d', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '7e1d9f23a9cf8aa29da8c29402457295a7c067c4617a2d68cdd7ac7a3fa32f7d', file: 'src/core/bundle-inspect.ts' }
+  - { rule: 'path-pattern:*', match: '7e1d9f23a9cf8aa29da8c29402457295a7c067c4617a2d68cdd7ac7a3fa32f7d', file: 'src/core/glob.ts' }
+  - { rule: 'path-pattern:*', match: '85f8886371f8d3972ba834761a0f45b13d1ebb3dee9c2e6bbfac61bbb3cb8130', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '89c9c1997b66c0284e7320e362af5cec325ba1f109ce981a1b549fa4e2581aa9', file: 'src/test/opencode.test.ts' }
+  - { rule: 'path-pattern:*', match: '8b55a08c716ef4045f2e08e7aaf28e29f8a89df7ae764396034d136ea384504f', file: 'src/core/graft-rebench.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/graft.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/promote.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/run-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/self-snapshot.test.ts' }
+  - { rule: 'path-pattern:*', match: '8dd3e17cb2c281873333acbf063b2690f79b8e2b69fc2e345635430365904b26', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: '95fb8b7acd1dc0f28d2973257593da6f5183435ed5f19cd2ee7f05543ab28bfe', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: '9c5ac5a1e5f3bb8284719a58421a04f27562104285556248af38c449f4ba90da', file: 'src/jsonc.ts' }
+  - { rule: 'path-pattern:*', match: 'ab8bef919cd2413775343423836b8da53bc9897508cfea907584e8458e04a0e3', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: 'ae6b4885aa9be9920ad04a6d6097918ce2a28c1207cf511a1dfb9485e541655d', file: 'src/core/glob.ts' }
+  - { rule: 'path-pattern:*', match: 'af66fbd0a0553a9e0d58968b013c5e533fe98f5634a0e8ee38539dad3475355c', file: 'src/core/glob.ts' }
+  - { rule: 'path-pattern:*', match: 'bbae7fb4a48835f724d2f52f06120423eca706479788dddd407e7a955bf9e513', file: 'src/test/friction.test.ts' }
+  - { rule: 'path-pattern:*', match: 'bd422a274e0c84fcc22961a7508abd13f568804e1e6c2664217e23662fa7c60e', file: 'src/core/evolve/candidate.ts' }
+  - { rule: 'path-pattern:*', match: 'c554ea9e16ac2125e41a4c2b38595a56f24aae07bdf7aca508b5ccf622731ca3', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: 'c6d380c38cb8bf40bd0b0f9bdf1f24ab7cf74ee58ab67b5657f8458c1a911d04', file: 'src/test/fixture-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: 'c6ecf776744273b9f26ad1e52e758ebf7c18ab0faebbc1627b791a46c9d99052', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: 'c9c6534830d50bf4bb1bf8374bab9078b30b05fb922f4311cad5b3aab9c25e6f', file: 'src/test/self-snapshot.test.ts' }
+  - { rule: 'path-pattern:*', match: 'cc6082a3145ae825989d51c228931d0d7d075913d4d7a29da40501ae902bdb3a', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: 'dde79876581cd6e24ddbcb133f477591c877ae50c235a239bcd63379c8476dab', file: 'src/test/run-loop.test.ts' }
+  - { rule: 'path-pattern:*', match: 'e19d3e92c0d3534be52f5e89ab3a0c7009091dfe1918e59d2b9046fc08262a3f', file: 'src/test/bundle.test.ts' }
+  - { rule: 'path-pattern:*', match: 'e603dd3187a1095b3593fdc11121f4904c9c14e3da52738ac87d93c9be8960fb', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: 'f0a2376cf4060bd5792c1cf81439cf4be85bf0287e3ba61d32e6eee163f99508', file: 'src/test/reflect.test.ts' }
+  - { rule: 'path-pattern:*', match: 'fe59b746ed8920c726d6d1f6c3185bd87d813390b8b90fe25933bfd4746ae8f4', file: 'src/core/bundle-mask.ts' }
+  # class: guard-config self-occurrence (the literal appears ONLY in this border.yaml hosts list; source-tree occurrences stay CRITICAL)
+  - { rule: 'internal-host:bailian', match: 'c159fd3a23342dc20d346131f0a02ef9e5650cbe6709f7e6cf58bca7cc6cf25b', file: 'border.yaml' }
+  - { rule: 'internal-host:token-plan', match: 'f06ab118a62a8faa4e0be2916f471aafc025dc9935e86a451bd580eb7d59c8e1', file: 'border.yaml' }

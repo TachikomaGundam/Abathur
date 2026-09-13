@@ -3,9 +3,12 @@
 # as `bash mutate.sh <brief-file> <worktree> <model>` with cwd = the throwaway
 # launch worktree (reflect.ts contract). The REAL candidate source is a headless
 # `opencode run` child: it reads the reflection brief and proposes exactly one
-# mutation — a new markdown note under abathur-notes/ (never a sealed path;
+# mutation — a new RUN CARD under abathur-notes/ (never a sealed path;
 # kernel.immutableGlobs is enforced independently by the driver's PathPolicy).
-# The wrapper deterministically packages the model's note as a unified CREATE
+# Run cards are the delivery seam (S4): run-scenario.sh appends them VERBATIM to
+# every scenario brief under a `## Run card` heading, so a candidate tree's
+# mutation genuinely steers the benched agent and score deltas are attributable.
+# The wrapper deterministically packages the model's run card as a unified CREATE
 # diff (creation diffs have no context to drift) and appends a genome.jsonc
 # create-diff carrying the resolved spec bytes (plan 184: every sealed tree
 # must contain genome.jsonc so bundle export self-describes; plan 181 requires
@@ -21,7 +24,7 @@ cp -f "$brief_file" "${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}.brief
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
 bin="${ABATHUR_OPENCODE_BIN:-opencode}"
 
-prompt="You are the genome mutator of the Abathur evolution harness. Read the reflection brief below (evidence from the incumbent bench of the historian wiki-skill genome). Propose exactly ONE improvement the genome owner can act on: create a NEW file under the path prefix abathur-notes/ (slug .md). Output ONLY a single JSON object, no prose, shape:
+prompt="You are the genome mutator of the Abathur evolution harness. Read the reflection brief below (evidence from the incumbent bench of the historian wiki-skill genome). Propose exactly ONE improvement the genome owner can act on: create a NEW RUN CARD under the path prefix abathur-notes/ (slug .md). A run card is the genome's mutation delivery channel: at bench time run-scenario.sh appends abathur-notes/*.md VERBATIM to every scenario brief, fenced under a \`## Run card\` heading, so the bench agent reads your card as part of its own instructions — write direct, actionable guidance the historian agent can follow, not a description of the change. Output ONLY a single JSON object, no prose, shape:
 {\"rationale\": \"<one sentence, <=400 chars>\", \"path\": \"abathur-notes/<slug>.md\", \"content\": \"<full markdown file contents>\"}
 Do not modify any other path. Scenarios, rubric.md, seed_sandbox.sh, baseline/ and README.md are immutable.
 
