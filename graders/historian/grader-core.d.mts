@@ -89,4 +89,8 @@ export function judgment(scenarioNo: number, created: readonly CreatedPage[], fi
 export function scoreFromDims(scenarioNo: number, dims: FullDims | WorthDims): UnitScore;
 export function scoreUnit(obs: Observation): ScoredUnit;
 export function statusTokens(content: string): StatusTokens;
+/** Parse a tool event's output as JSON, following opencode's >45KB externalization
+ *  stubs (`Full output saved to: <ref>`) to the ref file. Fail-closed: undefined
+ *  when neither the inline output nor the referenced file parses. */
+export function resolveToolJson(event: ToolEvent): unknown;
 export function integrityDims(scenarioNo: number, obs: Observation, tools: readonly ToolEvent[], integrity: IntegrityState): IntegrityResult;

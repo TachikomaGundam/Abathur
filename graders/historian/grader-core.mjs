@@ -1,4 +1,7 @@
-// Historian grader scoring core (task 14, plan line 185). PURE — no IO.
+// Historian grader scoring core (task 14, plan line 185). Pure except ONE
+// documented seam: resolveToolJson follows opencode's externalized large-output
+// reference files (task-05d P1) — those files are immutable after the session
+// ends (task-05c proved ×3 byte-stable re-scores).
 //
 // Contract: every unit scores Σ(weight×dim)/Σ(APPLICABLE weights). Full
 // scenarios grade all eight rubric dims (weights A2 B2 C2 D2 E1 F1 G1 H1 = 12);
@@ -21,6 +24,8 @@
 // allow: SIZE_OK — kernel seal fixes the immutable file SET (task-06 §F); the
 // integrity port is mandated into THIS file by the task-05 PR sketch, so the
 // scoring engine stays one module instead of mutating the sealed manifest.
+
+import { readFileSync } from "node:fs";
 
 export const WEIGHTS = Object.freeze({ A: 2, B: 2, C: 2, D: 2, E: 1, F: 1, G: 1, H: 1 });
 
@@ -84,6 +89,33 @@ function conflictFree(content) {
 
 const done = (e, tool) => e.tool === tool && e.status === "completed";
 
+// opencode 1.18.30 externalizes any tool output >~45KB/2000 lines: the transcript
+// part keeps a head slice + `…N lines truncated…` + `Full output saved to: <path>`.
+const STUB_REF_RE = /Full output saved to: (\S+)/;
+// one maintain.v3 conflict row inside a (possibly cut) compact JSON head
+const STUB_ROW_RE = /"path":"(_sandbox[^"]*)"[^{}]*"key":"status-token-conflict"/g;
+
+/** Parse a tool event's output as JSON, following externalization stubs to their
+ *  ref file. Fail-closed: undefined when neither inline text nor ref parses —
+ *  absence of evidence then scores 0, it never throws. Reusable seam for every
+ *  large-output consumer (today: I10; s11/s12 scan small outputs). */
+export function resolveToolJson(event) {
+  const raw = typeof event.output === "string" ? event.output : "";
+  const ref = STUB_REF_RE.exec(raw);
+  if (ref === null) {
+    try { return JSON.parse(raw); } catch { return undefined; }
+  }
+  try { return JSON.parse(readFileSync(ref[1], "utf8")); } catch { return undefined; }
+}
+
+/** Last-resort row extraction when the stub's ref file is unreadable/unparseable:
+ *  regex-scan the visible raw text for compact {path,…,key} conflict rows. */
+function stubConflictRows(text) {
+  const rows = [];
+  for (const m of String(text ?? "").matchAll(STUB_ROW_RE)) rows.push({ path: m[1], key: "status-token-conflict" });
+  return rows;
+}
+
 function sandboxBodies(obs, state) {
   const touched = new Set([...obs.created, ...obs.updated].map((p) => p.path));
   return [...obs.created, ...obs.updated].filter((p) => p.content.length > 0)
@@ -100,7 +132,9 @@ export function integrityDims(scenarioNo, obs, tools, state) {
     const mIdx = tools.findIndex((e) => done(e, "historian_map") && e.input.action === "maintain" && e.input.deep === true);
     let rows = [];
     if (mIdx >= 0) {
-      try { rows = (JSON.parse(tools[mIdx].output)?.report?.statusTokenConflicts ?? []).filter((r) => String(r.path).startsWith("_sandbox")); } catch { rows = []; }
+      const env = resolveToolJson(tools[mIdx]);
+      const conflicts = env === undefined ? stubConflictRows(tools[mIdx].output) : env?.report?.statusTokenConflicts;
+      rows = (conflicts ?? []).filter((r) => String(r.path).startsWith("_sandbox"));
     }
     const hit = rows.some((r) => r.path === S10_PATH && r.key === "status-token-conflict");
     const uIdx = tools.findIndex((e) => done(e, "historian_page_update") && e.input.path === S10_PATH);
@@ -345,10 +379,12 @@ function checkF(obs) {
 }
 
 function checkG(obs) {
-  // diffWiki already filters the s9 whitelist; belt the same rule here so the
-  // core's semantics never depend on the IO layer having run.
-  const outsideUpdated =
-    obs.scenarioNo === 9 ? obs.outside.updated.filter((p) => p !== "_meta/page-map") : obs.outside.updated;
+  // `_meta/page-map` is the plugin's machine-owned cache page: the seed/reset
+  // hooks and any stale-mirror historian_map refresh rewrite it on EVERY unit
+  // (task-05c P2 — campaign reps all start from a stale mirror). Its churn is
+  // never agent-authored content, so exclude that exact path from the outside
+  // write count for all scenario units; any other non-sandbox path still gates.
+  const outsideUpdated = obs.outside.updated.filter((p) => p !== "_meta/page-map");
   if (obs.outside.created.length + outsideUpdated.length + obs.outside.deleted.length > 0) return 0;
   if (obs.deletedFixturePaths.length > 0) return 0;
   if (obs.scenarioNo === 9) {
