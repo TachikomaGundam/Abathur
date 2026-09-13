@@ -21,7 +21,7 @@ import json, os, pathlib, sys, urllib.request
 base, token = sys.argv[1].rstrip("/"), open(pathlib.Path.home() / ".wikijs-api-key").read().strip()
 req = urllib.request.Request(
     base + "/graphql",
-    data=json.dumps({"query": "{ pages { list { id path locale updatedAt } } }"}).encode(),
+    data=json.dumps({"query": "{ pages { list { id path locale updatedAt description } } }"}).encode(),
     headers={"Content-Type": "application/json", "Authorization": "Bearer " + token},
 )
 doc = json.load(urllib.request.urlopen(req, timeout=20))
