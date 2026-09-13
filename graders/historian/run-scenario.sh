@@ -48,7 +48,16 @@ if [ -d "$notes_dir" ]; then
 fi
 mkdir -p "$(dirname "$ABATHUR_TRANSCRIPT")"
 status=0
-"$bin" run --command historian --auto --format json --message "$brief" >"$ABATHUR_TRANSCRIPT" 2>/dev/null || status=$?
+# Model pinning: the transcript carries no model identity and benchProvenance
+# only copies spec.bench.agentModel (declaration-vs-declaration), so the run
+# MUST execute the claimed model or A/B honesty dies to provider-default drift.
+# The engine already exports ABATHUR_AGENT_MODEL in the unit sandbox env
+# (fixture.ts sandboxEnv); unset/empty keeps the argv byte-identical (F1).
+model_args=()
+if [ -n "${ABATHUR_AGENT_MODEL:-}" ]; then
+  model_args=(--model "$ABATHUR_AGENT_MODEL")
+fi
+"$bin" run --command historian --auto --format json "${model_args[@]}" --message "$brief" >"$ABATHUR_TRANSCRIPT" 2>/dev/null || status=$?
 python3 - "$ABATHUR_TRANSCRIPT" "$unit_id" "$status" <<'PY'
 import json, sys
 path, unit, status = sys.argv[1], sys.argv[2], int(sys.argv[3])

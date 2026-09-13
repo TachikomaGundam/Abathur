@@ -43,16 +43,19 @@ n/a for the stub lane.
 `;
 
 const STUB_OPENCODE = `#!/usr/bin/env node
-// stub opencode: records the --message value to $STUB_PROMPT_FILE, then echoes
-// an opencode-format transcript on stdout (run-scenario.sh redirects it to
-// $ABATHUR_TRANSCRIPT). The finalMessage is the prompt echoed back — so a
-// planted instruction in the brief provably flows into the transcript.
+// stub opencode: records the --message value to $STUB_PROMPT_FILE and the FULL
+// argv (one token per line) to $STUB_ARGV_FILE, then echoes an opencode-format
+// transcript on stdout (run-scenario.sh redirects it to $ABATHUR_TRANSCRIPT).
+// The finalMessage is the prompt echoed back — so a planted instruction in the
+// brief provably flows into the transcript.
 import { writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const i = args.indexOf("--message");
 const message = i >= 0 ? args[i + 1] ?? "" : "";
 const capture = process.env.STUB_PROMPT_FILE;
 if (capture !== undefined && capture.length > 0) writeFileSync(capture, message, "utf8");
+const argvCapture = process.env.STUB_ARGV_FILE;
+if (argvCapture !== undefined && argvCapture.length > 0) writeFileSync(argvCapture, args.join("\\n") + "\\n", "utf8");
 const out = (doc) => process.stdout.write(JSON.stringify(doc) + "\\n");
 out({ type: "step_start", part: { type: "step-start" } });
 out({ type: "step_finish", part: { type: "step-finish", reason: "stop", tokens: { total: 42 } } });
@@ -88,7 +91,7 @@ function harness(t: TestContext): Harness {
 /** Invokes the shipped contract `bash run-scenario.sh <unit.id> <scenario-file>`. */
 async function runScenario(
   h: Harness,
-  opts: { readonly args?: readonly string[]; readonly scenario?: string } = {},
+  opts: { readonly args?: readonly string[]; readonly scenario?: string; readonly argvFile?: string; readonly env?: Record<string, string | undefined> } = {},
 ): Promise<void> {
   const scenarioFile = opts.scenario ?? path.join(h.repoRoot, "scenarios", "01-seam.md");
   const argv = [SCRIPT, "scenario-01", scenarioFile, ...(opts.args ?? [])];
@@ -98,6 +101,8 @@ async function runScenario(
       ABATHUR_TRANSCRIPT: h.transcript,
       STUB_PROMPT_FILE: h.promptFile,
       opencodeBin: path.join(h.bin, "oc-stub"),
+      ...(opts.argvFile === undefined ? {} : { STUB_ARGV_FILE: opts.argvFile }),
+      ...(opts.env ?? {}),
     },
   });
 }
@@ -194,4 +199,46 @@ test("explicit repoRoot argv overrides the scenario-derived one", async (t) => {
   await runScenario(h, { args: [otherRoot] });
   assert.ok(prompt(h).includes("elsewhere card"), "argv repoRoot wins");
   assert.ok(!prompt(h).includes("incumbent-tree card"));
+});
+
+// Model pinning (task-06 follow-up): the transcript JSONL carries NO model
+// identity and bundle provenance copies spec.bench.agentModel verbatim
+// (bundle-common.ts) — an unpinned `opencode run` measures the provider
+// DEFAULT while the ledger claims the spec value. ABATHUR_AGENT_MODEL is the
+// engine's existing sandboxEnv channel (fixture.ts); the script must honor it
+// with --model, and unset/empty must keep argv byte-identical (F1).
+
+function argvTokens(file: string): string[] {
+  return readFileSync(file, "utf8").split("\n").slice(0, -1);
+}
+
+const BASELINE_ARGV = ["run", "--command", "historian", "--auto", "--format", "json", "--message", BRIEF_TEXT];
+
+test("model pin: ABATHUR_AGENT_MODEL set ⇒ argv carries --model <value>, brief still flows", async (t) => {
+  const h = harness(t);
+  const argvFile = path.join(path.dirname(h.promptFile), "argv-pinned.txt");
+  await runScenario(h, {
+    argvFile,
+    env: { ABATHUR_AGENT_MODEL: "bailian-token-plan/qwen3.8-flash" },
+  });
+  const tokens = argvTokens(argvFile);
+  const i = tokens.indexOf("--model");
+  assert.notEqual(i, -1, `--model missing from argv: ${JSON.stringify(tokens)}`);
+  assert.equal(tokens[i + 1], "bailian-token-plan/qwen3.8-flash");
+  assert.equal(tokens.at(-2), "--message", "pin must not disturb the brief channel");
+  assert.equal(prompt(h), BRIEF_TEXT);
+});
+
+test("model pin: ABATHUR_AGENT_MODEL unset ⇒ argv byte-identical to the pre-fix baseline", async (t) => {
+  const h = harness(t);
+  const argvFile = path.join(path.dirname(h.promptFile), "argv-unset.txt");
+  await runScenario(h, { argvFile, env: { ABATHUR_AGENT_MODEL: undefined } });
+  assert.deepEqual(argvTokens(argvFile), BASELINE_ARGV);
+});
+
+test("model pin: ABATHUR_AGENT_MODEL empty string ⇒ treated as unset (same argv)", async (t) => {
+  const h = harness(t);
+  const argvFile = path.join(path.dirname(h.promptFile), "argv-empty.txt");
+  await runScenario(h, { argvFile, env: { ABATHUR_AGENT_MODEL: "" } });
+  assert.deepEqual(argvTokens(argvFile), BASELINE_ARGV);
 });
