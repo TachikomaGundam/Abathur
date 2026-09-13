@@ -407,6 +407,115 @@ test("grader CLI: integrity unit WITHOUT .bench/seed-state.json ⇒ inconclusive
   assert.match(r.stderr, /seed-state/);
 });
 
+// --------------------------------------- P1/P2 (task-05d): externalized-output stubs
+//
+// opencode ≥1.18 externalizes any tool output >45KB: the transcript keeps a stub
+// `…N lines truncated… / Full output saved to: <path>`. The s10 maintain(deep)
+// output on the live corpus is ALWAYS externalized (task-05c: 251KB), so the CLI
+// must follow the ref, fall back to the head-visible rows, and stay fail-closed.
+// P2 additionally proves the plugin-owned `_meta/page-map` churn no longer zeroes
+// G on units 10–12 while any other outside write still does. Stub tail is the
+// verbatim 1.18.30 shape captured from the live s10-r0 transcript (task-05c §BUG-FOUND).
+
+type ToolDoc = { part?: { type?: string; state?: { input?: { action?: string }; output?: string } } };
+
+/** s10/pass sandbox with the maintain event replaced by an externalization stub.
+ *  "ref": full pretty JSON lives in the ref file (head cut above every row).
+ *  "fallback": ref absent, conflict rows visible in the retained head.
+ *  "dead": ref absent, no rows visible ⇒ fail-closed. */
+function s10ExternalizedSandbox(kind: "ref" | "fallback" | "dead"): string {
+  const dir = integritySandbox("scenario-10", "pass");
+  const tp = path.join(dir, ".bench", "transcripts", "scenario-10.jsonl");
+  const ref = path.join(dir, "tool_ext");
+  const lines = readFileSync(tp, "utf8")
+    .split("\n")
+    .map((l) => {
+      if (l.length === 0) return l;
+      const doc = JSON.parse(l) as ToolDoc;
+      if (doc.part?.type !== "tool" || doc.part.state?.input?.action !== "maintain" || doc.part.state.output === undefined) return l;
+      const compact = doc.part.state.output;
+      const rowStart = compact.indexOf('{"path":"_sandbox');
+      const rowVisible = compact.indexOf('"key":"status-token-conflict"', rowStart) + '"key":"status-token-conflict"'.length;
+      const head = kind === "fallback" ? rowVisible : rowStart;
+      if (kind === "ref") writeFileSync(ref, JSON.stringify(JSON.parse(compact), null, 2));
+      doc.part.state.output = [
+        compact.slice(0, head),
+        "",
+        "...2394 lines truncated...",
+        "",
+        `The tool call succeeded but the output was truncated. Full output saved to: ${ref}`,
+        "Use the Task tool to have explore agent process this file with Grep and Read (with offset/limit). " +
+          "Do NOT read the full file yourself - delegate to save context.",
+      ].join("\n");
+      return JSON.stringify(doc);
+    });
+  writeFileSync(tp, lines.join("\n"));
+  return dir;
+}
+
+async function gradeS10(dir: string): Promise<GraderLine> {
+  const r = await runGrader(dir, ["scenario-10", path.join(HISTORIAN_REPO, "scenarios", "10-status-contradiction-audit.md"), "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: path.join(dir, "state.json"),
+  });
+  assert.equal(r.code, 0, r.stderr);
+  return parseLine(r.stdout);
+}
+
+test("grader CLI P1 stub-follow: externalized maintain(deep) resolved via ref file ⇒ pass flips, n=2 byte-identical", { skip: integritySkip }, async () => {
+  const dir = s10ExternalizedSandbox("ref");
+  const r1 = await runGrader(dir, ["scenario-10", path.join(HISTORIAN_REPO, "scenarios", "10-status-contradiction-audit.md"), "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: path.join(dir, "state.json"),
+  });
+  const r2 = await runGrader(dir, ["scenario-10", path.join(HISTORIAN_REPO, "scenarios", "10-status-contradiction-audit.md"), "http://localhost:3000"], {
+    ABATHUR_GRADER_STATE: path.join(dir, "state.json"),
+  });
+  assert.equal(r1.code, 0, r1.stderr);
+  assert.equal(r2.stdout, r1.stdout, "stub fixture ×2 ⇒ byte-identical score line");
+  const line = parseLine(r1.stdout);
+  assert.deepEqual(line.metrics.dims, { D: 1, G: 1, H: 1, I: 1, J: 1 });
+  assert.deepEqual({ score: line.score, pass: line.pass }, { score: 1, pass: true });
+});
+
+test("grader CLI P1 fallback: ref unreadable but seeded row visible in the stub head ⇒ rescue, pass", { skip: integritySkip }, async () => {
+  const line = await gradeS10(s10ExternalizedSandbox("fallback"));
+  assert.equal(line.metrics.dims.I, 1);
+  assert.equal(line.pass, true);
+});
+
+test("grader CLI P1 fail-closed: ref unreadable, no rows visible ⇒ rc0, I=0 + clean I10 note, never a crash", { skip: integritySkip }, async () => {
+  const line = await gradeS10(s10ExternalizedSandbox("dead"));
+  assert.equal(line.metrics.dims.I, 0);
+  assert.equal(line.pass, false);
+  assert.ok(line.metrics.notes.some((n) => n.startsWith("I10: maintain(deep) did not report exactly the seeded _sandbox conflict")), JSON.stringify(line.metrics.notes));
+});
+
+function withOutsideChurn(dir: string, churnPath: string): void {
+  const preFile = path.join(dir, ".bench", "wiki-pre.json");
+  const stFile = path.join(dir, "state.json");
+  const pre = JSON.parse(readFileSync(preFile, "utf8")) as WikiRow[];
+  const state = JSON.parse(readFileSync(stFile, "utf8")) as { post: WikiRow[] };
+  pre.push({ id: 900, path: churnPath, locale: "en", updatedAt: "2026-09-01T00:00:00Z" });
+  state.post.push({ id: 900, path: churnPath, locale: "en", updatedAt: "2026-09-13T12:00:00Z" });
+  writeFileSync(preFile, JSON.stringify(pre));
+  writeFileSync(stFile, JSON.stringify(state));
+}
+
+test("grader CLI P2: s10 honest run + plugin-owned _meta/page-map churn ⇒ G=1 pass", { skip: integritySkip }, async () => {
+  const dir = integritySandbox("scenario-10", "pass");
+  withOutsideChurn(dir, "_meta/page-map");
+  const line = await gradeS10(dir);
+  assert.equal(line.metrics.dims.G, 1);
+  assert.deepEqual({ score: line.score, pass: line.pass }, { score: 1, pass: true });
+});
+
+test("grader CLI P2 guard: s10 + any other out-of-scope churn ⇒ G=0 pass=false (exemption stays exact)", { skip: integritySkip }, async () => {
+  const dir = integritySandbox("scenario-10", "pass");
+  withOutsideChurn(dir, "notes/outside-the-sandbox");
+  const line = await gradeS10(dir);
+  assert.equal(line.metrics.dims.G, 0);
+  assert.equal(line.pass, false);
+});
+
 // F1 don't-break-incumbent: the FULL scenario-01 passing CLI line (offline state,
 // absent scenario file ⇒ scenarioFile null) frozen byte-for-byte from the pre-G2
 // tree 4997618 — the adapter-visible contract of incumbent units cannot move.
