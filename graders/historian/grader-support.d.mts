@@ -8,8 +8,18 @@ export interface WikiRow {
   readonly locale: string;
   readonly updatedAt: string;
   readonly title?: string | undefined;
+  readonly description?: string | undefined;
   readonly isPublished?: boolean | undefined;
   readonly isPrivate?: boolean | undefined;
+}
+
+/** One completed-or-not tool part of an opencode JSONL transcript, in order. */
+export interface ToolEvent {
+  readonly index: number;
+  readonly tool: string;
+  readonly status: string;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly output: string;
 }
 
 export interface TouchedPage {
@@ -53,5 +63,6 @@ export interface DiffWikiRequest {
 
 export function isSandboxPath(p: string): boolean;
 export function parseTranscript(text: string): TranscriptMeta;
+export function scanToolEvents(text: string): ToolEvent[];
 export function scenarioNoFromUnit(unitId: string): number;
 export function diffWiki(req: DiffWikiRequest): WikiDiff;

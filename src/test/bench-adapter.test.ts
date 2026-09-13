@@ -34,3 +34,39 @@ test("renderCommand: quote-aware argv, placeholders, fail-closed junk (exit 2)",
   expectExit2(() => renderCommand("   ", unitVars(unit, "/s")), "empty");
   expectExit2(() => renderCommand('node "oops', unitVars(unit, "/s")), "unbalanced quote");
 });
+
+// S4 engine seam: {repoRoot} = the bench's ACTIVE TREE, threaded through the
+// shared CommandVars constructors so both adapters resolve it identically.
+// Without a threaded repoRoot the placeholder must stay FAIL-CLOSED (exit 2),
+// exactly like any unknown placeholder — never a half-substituted command.
+
+test("{repoRoot}: unitVars/sandboxVars carry the active tree into run/grader/hook templates", () => {
+  const unit: BenchUnit = { id: "u1", path: "scenarios/a.md", split: "train" };
+  assert.deepEqual(
+    renderCommand("bash run-scenario.sh {unit.id} {repoRoot}/{unit.path}", unitVars(unit, "/sbx", "/active/tree")),
+    ["bash", "run-scenario.sh", "u1", "/active/tree/scenarios/a.md"],
+  );
+  assert.deepEqual(
+    renderCommand("bash seed-wrapped.sh {repoRoot}/seed_sandbox.sh", sandboxVars("/sbx", "/active/tree")),
+    ["bash", "seed-wrapped.sh", "/active/tree/seed_sandbox.sh"],
+  );
+  // pre-existing keys untouched by the seam
+  assert.deepEqual(unitVars(unit, "/sbx", "/r"), {
+    "unit.path": "scenarios/a.md",
+    "unit.id": "u1",
+    sandbox: "/sbx",
+    workdir: "/sbx",
+    repoRoot: "/r",
+  });
+  assert.deepEqual(sandboxVars("/sbx", "/r"), { sandbox: "/sbx", workdir: "/sbx", repoRoot: "/r" });
+});
+
+test("{repoRoot} unthreaded ⇒ fail-closed exit 2 (unknown placeholder behavior UNCHANGED)", () => {
+  const unit: BenchUnit = { id: "u1", path: "p", split: "train" };
+  expectExit2(() => renderCommand("node x {repoRoot}", unitVars(unit, "/s")), "unknown placeholder");
+  expectExit2(() => renderCommand("node x {repoRoot}", sandboxVars("/s")), "unknown placeholder");
+  expectExit2(
+    () => renderCommand("node x {repoRoot}", { worktree: "/w", brief: "/b" }),
+    "unknown placeholder",
+  );
+});

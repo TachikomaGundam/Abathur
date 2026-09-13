@@ -8,6 +8,11 @@
 //
 //   ${ABATHUR_HISTORIAN_REPO}  absolute path of the historian bench repo
 //                              (contains scenarios/, rubric.md, seed_sandbox.sh)
+//                              — repoPath ONLY: the S4 engine seam delivers the
+//                              bench's ACTIVE TREE (incumbent repoPath /
+//                              candidate worktree) to the commands below as the
+//                              {repoRoot} template var, so unit/seed paths must
+//                              NOT bake a materialized repo literal here.
 //   ${ABATHUR_REPO}            absolute path of THIS Abathur checkout
 //                              (hosts graders/historian/*)
 //   ${ABATHUR_WIKI_BASE}       canonical wiki root, e.g. http://localhost:3000
@@ -47,11 +52,11 @@
       { "id": "scenario-08", "path": "scenarios/08-current-state-g5.md", "split": "train" },
       { "id": "scenario-09", "path": "scenarios/09-timeline-week-groups.md", "split": "val" }
     ],
-    "seedCommand": "bash ${ABATHUR_REPO}/graders/historian/seed-wrapped.sh ${ABATHUR_HISTORIAN_REPO}/seed_sandbox.sh",
+    "seedCommand": "bash ${ABATHUR_REPO}/graders/historian/seed-wrapped.sh {repoRoot}/seed_sandbox.sh",
     "resetCommand": "bash ${ABATHUR_REPO}/graders/historian/reset-sandbox.sh",
-    "runCommand": "bash ${ABATHUR_REPO}/graders/historian/run-scenario.sh {unit.id} ${ABATHUR_HISTORIAN_REPO}/{unit.path}",
-    "graderCommand": "node ${ABATHUR_REPO}/graders/historian/grader.mjs {unit.id} ${ABATHUR_HISTORIAN_REPO}/{unit.path} ${ABATHUR_WIKI_BASE}",
-    "agentModel": "bailian-token-plan/qwen3.8-flash",
+    "runCommand": "bash ${ABATHUR_REPO}/graders/historian/run-scenario.sh {unit.id} {repoRoot}/{unit.path}",
+    "graderCommand": "node ${ABATHUR_REPO}/graders/historian/grader.mjs {unit.id} {repoRoot}/{unit.path} ${ABATHUR_WIKI_BASE}",
+    "agentModel": "<provider>/<model-id>", // "<provider>/<model-id> as registered in your opencode config"
     // Real agent runs, not unit tests: 1200s caps one stuck scenario without
     // poisoning the generation (timeout => unscored/inconclusive, excluded by
     // the stats layer). seed+reset hooks share a FIXED 60s adapter budget
