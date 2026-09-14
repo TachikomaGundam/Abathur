@@ -154,7 +154,11 @@ export interface EnvRepoLookup {
   readonly [name: string]: string | undefined;
 }
 
-/** True when the spec stores an unresolved `${VAR}` env literal (self-genome marker). */
+/**
+ * True when the spec stores an unresolved `${VAR}` env literal — a path-
+ * injection convenience ANY genome may use, NOT an engine-self discriminator
+ * (for that compare envRepoName against ABATHUR_SELF_REPO).
+ */
 export function isEnvRepoLiteral(repoPath: string): boolean {
   return ENV_REPO_LITERAL.test(repoPath);
 }

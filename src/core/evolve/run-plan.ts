@@ -2,9 +2,8 @@
 // the resolved startup state only — the dry-run gate in run-loop.ts calls this
 // AFTER the kernel audit and BEFORE any ledger/lock/spawn touch.
 
-import path from "node:path";
-
 import type { RegistryEntry } from "../genome.js";
+import { effectiveRepoPath } from "../spec.js";
 import type { BudgetCaps } from "../stats.js";
 import { peekPlanState } from "./run-rows.js";
 
@@ -30,12 +29,16 @@ export function effectiveCaps(spec: RegistryEntry["spec"], clamp: number | undef
 
 export function planLines(req: PlanRequest): readonly string[] {
   const spec = req.entry.spec;
-  const peek = peekPlanState(spec.repoPath);
+  // `${VAR}` literals resolve through the same FS-boundary contract as every
+  // other consumer; the plan line + resume peek must never join the raw
+  // literal against cwd.
+  const genomeRepo = effectiveRepoPath(spec.repoPath);
+  const peek = peekPlanState(genomeRepo);
   const specMax = spec.budget.maxCandidates;
   const unitList = spec.bench.units.map((u) => `${u.id}(${u.split})`).join(" ");
   return [
     `run plan — genome '${spec.label}' (${req.entry.fingerprint})`,
-    `  repo: ${path.resolve(spec.repoPath)}`,
+    `  repo: ${genomeRepo}`,
     `  bench: ${spec.bench.type} — timeoutS=${String(spec.bench.timeoutS)} stats minEffect=${String(spec.bench.stats.minEffect)} halfWidth=${String(spec.bench.stats.halfWidth)}`,
     `  units: ${unitList}`,
     ...(req.requiresProbed === undefined
