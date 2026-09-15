@@ -48,6 +48,9 @@ const STUB_OPENCODE = `#!/usr/bin/env node
 // transcript on stdout (run-scenario.sh redirects it to $ABATHUR_TRANSCRIPT).
 // The finalMessage is the prompt echoed back — so a planted instruction in the
 // brief provably flows into the transcript.
+// STUB_BANNER=1 / STUB_JUNK=1 reproduce campaign-1's channel contamination:
+// a plugin startup banner / an arbitrary non-JSON line printed to stdout
+// BEFORE the JSONL. Default off ⇒ clean output stays byte-identical.
 import { writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const i = args.indexOf("--message");
@@ -57,6 +60,9 @@ if (capture !== undefined && capture.length > 0) writeFileSync(capture, message,
 const argvCapture = process.env.STUB_ARGV_FILE;
 if (argvCapture !== undefined && argvCapture.length > 0) writeFileSync(argvCapture, args.join("\\n") + "\\n", "utf8");
 const out = (doc) => process.stdout.write(JSON.stringify(doc) + "\\n");
+if (process.env.STUB_BANNER === "1") out0("[persistence-watchdog] tier=R armed grace=2500ms minOutput=100 alerts=/tmp/abathur-test-alerts.log");
+if (process.env.STUB_JUNK === "1") out0("this line is not json at all");
+function out0(line) { process.stdout.write(line + "\\n"); }
 out({ type: "step_start", part: { type: "step-start" } });
 out({ type: "step_finish", part: { type: "step-finish", reason: "stop", tokens: { total: 42 } } });
 out({ type: "text", part: { type: "text", text: message } });
@@ -241,4 +247,41 @@ test("model pin: ABATHUR_AGENT_MODEL empty string ⇒ treated as unset (same arg
   const argvFile = path.join(path.dirname(h.promptFile), "argv-empty.txt");
   await runScenario(h, { argvFile, env: { ABATHUR_AGENT_MODEL: "" } });
   assert.deepEqual(argvTokens(argvFile), BASELINE_ARGV);
+});
+
+// Channel contamination (campaign-1 root cause, historian evidence
+// task-07-launch-blockers.md): the user's global persistence-watchdog plugin
+// prints `[persistence-watchdog] tier=R armed …` to the agent's STDOUT — into
+// the captured transcript — contaminating 6/8 candidate transcripts while the
+// incumbent bench (pre-plugin) stayed clean. Contract of the fix: strip ONLY
+// that known banner line; keep a verbatim `.raw` audit copy; unknown non-JSON
+// lines must SURVIVE (the grader's corruption fail-closed stays honest); and a
+// clean stream must pass through byte-identical (F1 invariant).
+
+test("banner-strip: watchdog banner removed from transcript, .raw keeps it verbatim, grader-view parses", async (t) => {
+  const h = harness(t);
+  await runScenario(h, { env: { STUB_BANNER: "1" } });
+  const text = readFileSync(h.transcript, "utf8");
+  assert.ok(!text.includes("[persistence-watchdog]"), "banner must not reach the grader-facing transcript");
+  for (const line of text.split("\n")) {
+    if (line.length > 0) assert.doesNotThrow(() => JSON.parse(line), `grader-facing line is not JSON: ${line}`);
+  }
+  const raw = readFileSync(`${h.transcript}.raw`, "utf8");
+  assert.ok(raw.startsWith("[persistence-watchdog] tier=R armed"), "raw audit copy preserves the banner verbatim");
+  const meta = parseTranscript(text);
+  assert.equal(meta.finalMessage, BRIEF_TEXT, "the stripped transcript must still yield the delivery truth");
+});
+
+test("banner-strip: clean stream ⇒ transcript byte-identical to raw (F1 invariant)", async (t) => {
+  const h = harness(t);
+  await runScenario(h);
+  assert.equal(readFileSync(h.transcript, "utf8"), readFileSync(`${h.transcript}.raw`, "utf8"));
+});
+
+test("banner-strip: UNKNOWN non-JSON lines are NOT stripped (grader fail-closed preserved)", async (t) => {
+  const h = harness(t);
+  await runScenario(h, { env: { STUB_JUNK: "1" } });
+  const text = readFileSync(h.transcript, "utf8");
+  assert.ok(text.includes("this line is not json at all"), "never silently launder unknown corruption");
+  assert.throws(() => parseTranscript(text), /transcript line is not JSON/);
 });

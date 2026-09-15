@@ -57,7 +57,14 @@ model_args=()
 if [ -n "${ABATHUR_AGENT_MODEL:-}" ]; then
   model_args=(--model "$ABATHUR_AGENT_MODEL")
 fi
-"$bin" run --command historian --auto --format json "${model_args[@]}" --message "$brief" >"$ABATHUR_TRANSCRIPT" 2>/dev/null || status=$?
+"$bin" run --command historian --auto --format json "${model_args[@]}" --message "$brief" >"${ABATHUR_TRANSCRIPT}.raw" 2>/dev/null || status=$?
+# Campaign-1 channel fix (task-07-launch-blockers.md): plugin startup banners print to
+# the agent's stdout and contaminate the captured JSONL. ONLY the known
+# `[persistence-watchdog]` line is stripped into the grader-facing transcript —
+# unknown non-JSON lines SURVIVE so the grader's corruption fail-closed stays
+# honest — and a clean stream passes through byte-identical (F1 invariant).
+# The verbatim capture remains at ${ABATHUR_TRANSCRIPT}.raw for audit.
+LC_ALL=C grep -v '^\[persistence-watchdog\]' "${ABATHUR_TRANSCRIPT}.raw" >"$ABATHUR_TRANSCRIPT" || true
 python3 - "$ABATHUR_TRANSCRIPT" "$unit_id" "$status" <<'PY'
 import json, sys
 path, unit, status = sys.argv[1], sys.argv[2], int(sys.argv[3])
