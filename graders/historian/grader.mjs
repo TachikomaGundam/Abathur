@@ -138,14 +138,16 @@ if (APPLICABLE[scenarioNo] !== undefined) {
   }
   const sandboxRows = state.post
     .filter((r) => isSandboxPath(r.path))
-    .map((r) => ({ path: r.path, id: String(r.id), description: String(r.description ?? "") }));
+    .map((r) => ({ path: r.path, locale: String(r.locale ?? "en"), id: String(r.id), description: String(r.description ?? "") }));
   obs.tools = scanToolEvents(transcriptText);
   obs.integrity = {
     sandboxRows,
     content: state.content,
     rowIdByPath: new Map(sandboxRows.map((r) => [r.path, r.id])),
+    rowIdByLocalePath: new Map(sandboxRows.map((r) => [`${r.path}\u0000${r.locale}`, r.id])),
     descByPath: new Map(sandboxRows.map((r) => [r.path, r.description])),
     seedDescByPath: new Map(seed.rows.map((r) => [r.path, String(r.description ?? "")])),
+    seedRowIdByLocalePath: new Map(seed.rows.map((r) => [`${String(r.path)}\u0000${String(r.locale ?? "en")}`, String(r.id)])),
     seedContent: Object.fromEntries(seed.rows.map((r) => [String(r.id), seed.content[String(r.id)] ?? ""])),
   };
 }

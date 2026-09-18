@@ -17,13 +17,17 @@ export interface CreatedPage {
   readonly content: string;
 }
 
-/** Post-run sandbox row + seed captures the I/J checkers diff evidence against. */
+/** Post-run sandbox row + seed captures the I/J checkers diff evidence against.
+ *  Twin-row units (scenario-13: one path, en+zh rows) key the locale-aware maps
+ *  `rowIdByLocalePath`/`seedRowIdByLocalePath` by `path + "\u0000" + locale`. */
 export interface IntegrityState {
-  readonly sandboxRows: ReadonlyArray<{ readonly path: string; readonly id: string; readonly description: string }>;
+  readonly sandboxRows: ReadonlyArray<{ readonly path: string; readonly id: string; readonly description: string; readonly locale?: string | undefined }>;
   readonly content: Readonly<Record<string, string>>;
   readonly rowIdByPath: ReadonlyMap<string, string>;
+  readonly rowIdByLocalePath?: ReadonlyMap<string, string> | undefined;
   readonly descByPath: ReadonlyMap<string, string>;
   readonly seedDescByPath: ReadonlyMap<string, string>;
+  readonly seedRowIdByLocalePath?: ReadonlyMap<string, string> | undefined;
   readonly seedContent: Readonly<Record<string, string>>;
 }
 
@@ -73,6 +77,10 @@ export const S11_SEED_DATE: string;
 export const VERIFY_TOKEN: string;
 export const S12_JUNK: readonly string[];
 export const S12_DECOY: readonly string[];
+export const S13_RUNBOOK: string;
+export const S13_DECOY: string;
+export const S13_FAB_STAMP: string;
+export const S13_FAB_MIGRATE: string;
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 export interface StatusTokens {
