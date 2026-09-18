@@ -36,10 +36,10 @@ raw="${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}"
 rc=$?
 echo "mutate: opencode rc=$rc raw=$raw" >&2
 
-python3 - "$raw" "$canonical" "$rc" <<'PY'
-import json, re, sys
+python3 - "$raw" "$canonical" "$rc" "$worktree" <<'PY'
+import json, os, re, sys
 
-raw, canonical_path, rc = sys.argv[1], sys.argv[2], int(sys.argv[3])
+raw, canonical_path, rc, worktree = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
 
 def create_diff(path, text):
     lines = text.split("\n")
@@ -85,7 +85,34 @@ for text in reversed(last_text_events(raw)):
         break
 
 spec_text = open(canonical_path, encoding="utf-8").read()
-packaging = create_diff("genome.jsonc", spec_text if spec_text.endswith("\n") else spec_text + "\n")
+if not spec_text.endswith("\n"):
+    spec_text += "\n"
+# genome.jsonc in the base tree was written by this wrapper's own prior round,
+# so a replace-all modify hunk always anchors deterministically at line 1.
+# A CREATE here would break apply the moment the file lands in the base (udiff
+# refuses create-over-existing and discards the WHOLE candidate).
+gen_path = os.path.join(worktree, "genome.jsonc")
+try:
+    with open(gen_path, encoding="utf-8") as fh:
+        base_text = fh.read()
+except FileNotFoundError:
+    packaging = create_diff("genome.jsonc", spec_text)
+except OSError as err:
+    sys.stderr.write("mutate: genome.jsonc unreadable: %s\n" % err)
+    sys.exit(3)
+else:
+    if base_text == spec_text:
+        packaging = None
+    else:
+        base_body = base_text.split("\n")
+        if base_body and base_body[-1] == "":
+            base_body.pop()
+        old_h = "".join("-" + ln + "\n" for ln in base_body)
+        new_h = "".join("+" + ln + "\n" for ln in spec_text.split("\n")[:-1])
+        packaging = (
+            "--- a/genome.jsonc\n+++ b/genome.jsonc\n"
+            "@@ -1,%d +1,%d @@\n%s%s" % (len(base_body), len(spec_text.split("\n")) - 1, old_h, new_h)
+        )
 
 if isinstance(proposal, dict):
     path = proposal.get("path")
@@ -103,15 +130,19 @@ if isinstance(proposal, dict):
         content = content.replace("\r", "")
         if not content.endswith("\n"):
             content += "\n"
-        candidate = {"id": "mutate-live", "rationale": rationale, "diffs": [create_diff(path, content), packaging]}
+        diffs = [create_diff(path, content)] + ([packaging] if packaging else [])
+        candidate = {"id": "mutate-live", "rationale": rationale, "diffs": diffs}
         print(json.dumps({"candidates": [candidate]}))
         sys.exit(0)
 
-print(json.dumps({
-    "candidates": [{
-        "id": "mutate-package-only",
-        "rationale": "packaging-only candidate: model output unparseable or path rejected (opencode rc=%d); lineage genome.jsonc added, no skill mutation proposed" % rc,
-        "diffs": [packaging],
-    }]
-}))
+if packaging:
+    print(json.dumps({
+        "candidates": [{
+            "id": "mutate-package-only",
+            "rationale": "packaging-only candidate: model output unparseable or path rejected (opencode rc=%d); lineage genome.jsonc added, no skill mutation proposed" % rc,
+            "diffs": [packaging],
+        }]
+    }))
+else:
+    print(json.dumps({"candidates": []}))
 PY
