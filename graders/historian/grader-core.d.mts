@@ -19,7 +19,8 @@ export interface CreatedPage {
 
 /** Post-run sandbox row + seed captures the I/J checkers diff evidence against.
  *  Twin-row units (scenario-13: one path, en+zh rows) key the locale-aware maps
- *  `rowIdByLocalePath`/`seedRowIdByLocalePath` by `path + "\u0000" + locale`. */
+ *  `rowIdByLocalePath`/`seedRowIdByLocalePath` by `path + "\u0000" + locale`;
+ *  scenario-14 is EN-only but rides the same locale-keyed lookups. */
 export interface IntegrityState {
   readonly sandboxRows: ReadonlyArray<{ readonly path: string; readonly id: string; readonly description: string; readonly locale?: string | undefined }>;
   readonly content: Readonly<Record<string, string>>;
@@ -81,6 +82,14 @@ export const S13_RUNBOOK: string;
 export const S13_DECOY: string;
 export const S13_FAB_STAMP: string;
 export const S13_FAB_MIGRATE: string;
+export const S14_HUB: string;
+export const S14_OPS: string;
+export const S14_DUP_A: string;
+export const S14_DUP_B: string;
+export const S14_ORPHAN: string;
+export const S14_DECOY: string;
+export const S14_GHOST_A: string;
+export const S14_GHOST_B: string;
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 export interface StatusTokens {
