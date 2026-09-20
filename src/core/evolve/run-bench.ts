@@ -31,10 +31,11 @@ export function copyProvenance(p: BenchProvenanceLike): GenerationRowData["bench
   return { benchType: p.benchType, versions: p.versions.map((v) => ({ bin: v.bin, version: v.version })) };
 }
 
-// Unscored units (run timeout/infra_failed, inconclusive grader, budget cut) must be
-// excluded before stats.evaluate — empty replicate lists poison aggregateScore with NaN.
+// Invariant: unscored units (timeout/infra_failed/budget cut) stay in the matrix —
+// dropping them asymmetrically shifts one arm's aggregate pool (campaign-6 artifact);
+// evaluate() fail-closes any arm's n<2 as indeterminate before any aggregation.
 export function asReplicates(rows: readonly UnitMatrixRow[]): UnitReplicates[] {
-  return rows.filter((u) => u.scores.length > 0).map((u) => ({ unitId: u.unitId, split: u.split, scores: u.scores }));
+  return rows.map((u) => ({ unitId: u.unitId, split: u.split, scores: u.scores }));
 }
 
 export * from "./run-rows.js";

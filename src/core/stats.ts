@@ -228,28 +228,43 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   const incByUnit = new Map(incumbent.units.map((u) => [u.unitId, u]));
   const failures: string[] = [];
 
-  // 2) HARD RULE nReps ≥ 2: n<2 on ANY candidate unit (or a val unit missing
-  //    from the candidate ⇒ n=0) leaves the variance undefined.
-  for (const unit of candidate.units) {
-    if (unit.scores.length < 2) {
-      failures.push(`n=${unit.scores.length} on unit '${unit.unitId}': variance undefined — indeterminate, never nominated`);
-    }
-  }
-  for (const [unitId, incUnit] of incByUnit) {
-    if (incUnit.split === "val" && !candByUnit.has(unitId)) {
-      failures.push(`no replicates for val unit '${unitId}' on candidate '${candidate.runId}' — variance undefined, never nominated`);
+  // 2) Cross-arm replicate rule. A unit measured cleanly (n>=2) on ONE arm but
+  //    not on the other leaves that comparison's variance undefined ⇒
+  //    indeterminate, never a silent cull and never a nomination (campaign-6:
+  //    the candidate's train unit scored while the incumbent's had timed out;
+  //    the old one-sided drop shifted the incumbent aggregate to the val
+  //    fallback and minted a bogus negative gain). A unit unmeasured on BOTH
+  //    arms is excluded symmetrically — every aggregate and comparison then
+  //    runs on a pool both arms share replicate-for-replicate.
+  const excluded = new Set<string>();
+  for (const unitId of new Set([...incByUnit.keys(), ...candByUnit.keys()])) {
+    const cn = candByUnit.get(unitId)?.scores.length ?? 0;
+    const inn = incByUnit.get(unitId)?.scores.length ?? 0;
+    if (cn >= 2 && inn < 2) {
+      failures.push(`n=${inn} on incumbent unit '${unitId}': baseline variance undefined — indeterminate, never nominated`);
+    } else if (inn >= 2 && cn < 2) {
+      if (incByUnit.get(unitId)?.split === "val") {
+        failures.push(`no replicates for val unit '${unitId}' on candidate '${candidate.runId}' — variance undefined, never nominated`);
+      } else {
+        failures.push(`n=${cn} on unit '${unitId}': variance undefined — indeterminate, never nominated`);
+      }
+    } else if (cn < 2 && inn < 2) {
+      excluded.add(unitId);
     }
   }
   if (failures.length > 0) {
-    return { ...base, verdict: "indeterminate", exitCode: needsExit("indeterminate"), gain: aggregateScore(candidate.units) - aggregateScore(incumbent.units), unitComparisons: [], failures };
+    return { ...base, verdict: "indeterminate", exitCode: needsExit("indeterminate"), gain: null, unitComparisons: [], failures };
   }
+  const candKept = candidate.units.filter((u) => !excluded.has(u.unitId));
+  const incKept = incumbent.units.filter((u) => !excluded.has(u.unitId));
+  const candByUnitKept = new Map(candKept.map((u) => [u.unitId, u]));
 
   // 3) Per-val-unit comparisons + the two precision gates.
   const unitComparisons: UnitComparison[] = [];
   for (const [unitId, incUnit] of incByUnit) {
-    if (incUnit.split !== "val") continue;
-    const candUnit = candByUnit.get(unitId);
-    if (candUnit === undefined) continue; // already ruled indeterminate above
+    if (incUnit.split !== "val" || excluded.has(unitId)) continue;
+    const candUnit = candByUnitKept.get(unitId);
+    if (candUnit === undefined) continue; // excluded/unreachable
     const cs = summarizeUnit(candUnit.scores, alpha);
     const incumbentMean = summarizeUnit(incUnit.scores).mean;
     const delta = cs.mean - incumbentMean;
@@ -270,8 +285,8 @@ export function evaluate(input: EvaluateInput): GateVerdict {
     }
   }
 
-  // 4) Effect-size floor on the aggregate gain.
-  const gain = aggregateScore(candidate.units) - aggregateScore(incumbent.units);
+  // 4) Effect-size floor on the aggregate gain (shared, symmetric pool).
+  const gain = aggregateScore(candKept) - aggregateScore(incKept);
   if (gain < stats.minEffect) {
     failures.push(`gain ${fmt(gain)} < minEffect ${fmt(stats.minEffect)}`);
   }
