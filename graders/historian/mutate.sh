@@ -73,14 +73,23 @@ for text in reversed(last_text_events(raw)):
     fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", candidate, re.S)
     if fence:
         candidate = fence.group(1)
-    start, end = candidate.find("{"), candidate.rfind("}")
-    if start < 0 or end <= start:
+    end = candidate.rfind("}")
+    if end < 0:
         continue
-    try:
-        doc = json.loads(candidate[start : end + 1])
-    except ValueError:
-        continue
-    if isinstance(doc, dict):
+    # prose preambles can contain set-notation braces like {症状/Symptoms, ...} —
+    # the first '{' is not necessarily JSON; try every open brace from the LAST
+    # backwards so the outermost-to-last-close object wins when one parses.
+    opens = [i for i, ch in enumerate(candidate) if ch == "{" and i < end]
+    doc = None
+    for start in reversed(opens):
+        try:
+            parsed = json.loads(candidate[start : end + 1])
+        except ValueError:
+            continue
+        if isinstance(parsed, dict):
+            doc = parsed
+            break
+    if doc is not None:
         proposal = doc
         break
 
