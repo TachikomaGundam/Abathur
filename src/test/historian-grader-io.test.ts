@@ -269,6 +269,7 @@ function integrityFixturesReady(): boolean {
     existsSync(path.join(FIXDIR, "scenario-10", "state-donothing.json")) &&
     existsSync(path.join(FIXDIR, "scenario-11", "state-fabricate.json")) &&
     existsSync(path.join(FIXDIR, "scenario-12", "seed-state.json")) &&
+    existsSync(path.join(FIXDIR, "scenario-13", "seed-state.json")) &&
     existsSync(path.join(HISTORIAN_REPO, "scenarios", "10-status-contradiction-audit.md"))
   );
 }
@@ -299,6 +300,9 @@ const INTEGRITY_CASES: readonly IntegrityCase[] = [
   { unit: "scenario-12", scenarioRel: "scenarios/12-desc-junk-detection.md", shape: "pass", score: 1, pass: true, total: 6, weight: 6, dims: { G: 1, H: 1, I: 1, J: 1 } },
   { unit: "scenario-12", scenarioRel: "scenarios/12-desc-junk-detection.md", shape: "fail", score: 2 / 6, pass: false, total: 2, weight: 6, dims: { G: 1, H: 1, I: 0, J: 0 } },
   { unit: "scenario-12", scenarioRel: "scenarios/12-desc-junk-detection.md", shape: "donothing", score: 2 / 6, pass: false, total: 2, weight: 6, dims: { G: 1, H: 1, I: 0, J: 0 } },
+  { unit: "scenario-13", scenarioRel: "scenarios/13-translation-honesty-audit.md", shape: "pass", score: 1, pass: true, total: 8, weight: 8, dims: { D: 1, G: 1, H: 1, I: 1, J: 1 } },
+  { unit: "scenario-13", scenarioRel: "scenarios/13-translation-honesty-audit.md", shape: "fail", score: 0, pass: false, total: 0, weight: 8, dims: { D: 0, G: 0, H: 0, I: 0, J: 0 } },
+  { unit: "scenario-13", scenarioRel: "scenarios/13-translation-honesty-audit.md", shape: "donothing", score: 3 / 8, pass: false, total: 3, weight: 8, dims: { D: 1, G: 1, H: 0, I: 0, J: 0 } },
 ];
 
 function integritySandbox(unit: string, shape: string): string {

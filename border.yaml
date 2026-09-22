@@ -101,6 +101,13 @@ allow:
   - { rule: 'path-pattern:*', match: 'e603dd3187a1095b3593fdc11121f4904c9c14e3da52738ac87d93c9be8960fb', file: 'src/test/reflect.test.ts' }
   - { rule: 'path-pattern:*', match: 'f0a2376cf4060bd5792c1cf81439cf4be85bf0287e3ba61d32e6eee163f99508', file: 'src/test/reflect.test.ts' }
   - { rule: 'path-pattern:*', match: 'fe59b746ed8920c726d6d1f6c3185bd87d813390b8b90fe25933bfd4746ae8f4', file: 'src/core/bundle-mask.ts' }
+  - { rule: 'path-pattern:*', match: '3ce1564307b22929b2b21fbd113a7730e9f11a4ef7a6fee9751b4ac33f3c86b5', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: '53a3dbbb40e1d16c80765503a9f5335d83e6184c241331152ea42794e58ce6ed', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: '8d071ac880e50702c940d9a46b7dca584bb6b6f149eaa6ec65a2244852d27490', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: '53ccc975b19a548cdc294fd7720cfdf2cab5014e62e1b97aa17c076d7f29d6fb', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: '66f0930c9904d006b650f6597dae53538ccad17d6778d7ce979c13a2ce425d87', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: 'edd3694221ef71313d9b2f56ec05c755800283d740ba7cc31d92562c750e07ee', file: 'src/test/selfmode-literal.test.ts' }
+  - { rule: 'path-pattern:*', match: '719aa958be3d628013eb42f0aa9340fb02fa6ed437fcc95bf21639261f3be7f3', file: 'src/test/historian-run-scenario.test.ts' }
   # class: guard-config self-occurrence (the literal appears ONLY in this border.yaml hosts list; source-tree occurrences stay CRITICAL)
   - { rule: 'internal-host:bailian', match: 'c159fd3a23342dc20d346131f0a02ef9e5650cbe6709f7e6cf58bca7cc6cf25b', file: 'border.yaml' }
   - { rule: 'internal-host:token-plan', match: 'f06ab118a62a8faa4e0be2916f471aafc025dc9935e86a451bd580eb7d59c8e1', file: 'border.yaml' }

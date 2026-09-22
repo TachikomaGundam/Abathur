@@ -280,6 +280,24 @@ describe("evaluate: n=1 ⇒ indeterminate, never nominated", () => {
     assert.ok(v.failures.some((f) => f.includes("variance undefined")));
     assert.notEqual(v.exitCode, 0);
   });
+  it("campaign-6 regression: incumbent train unit n=0 ⇒ indeterminate, never a bogus negative gain", () => {
+    const v = evaluate({
+      candidate: candidate("g-c6", [
+        { unitId: "u-train", split: "train", scores: [0.8333333, 0.8333333] },
+        { unitId: "u-val", split: "val", scores: [1, 1] },
+      ]),
+      incumbent: { units: [
+        { unitId: "u-train", split: "train", scores: [] },
+        { unitId: "u-val", split: "val", scores: [0.875, 1] },
+      ] },
+      stats: STATS,
+      budgetCaps: CAPS,
+      nPairs: 1,
+    });
+    assert.equal(v.verdict, "indeterminate", summaryOf(v));
+    assert.ok(v.failures.some((f) => f.includes("baseline variance undefined")));
+    assert.equal(v.gain, null);
+  });
   it("candidate missing an incumbent val unit entirely ⇒ indeterminate", () => {
     const v = evaluate({
       candidate: candidate("g-miss", [unit("u-train", "train", 0.85, 0.001)]),

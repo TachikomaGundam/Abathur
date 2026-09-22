@@ -2,6 +2,26 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.5 — 2026-09-22
+
+### Grader doctrine expansion + measurement-integrity fixes
+
+- Historian grader: scenarios 13-17 shipped — translation-honesty audit, deep-sweep repair,
+  authority-refusal (X1-X5 machines, delete/move G-tripwire), readability doctrine checkers,
+  semantic dossier with shared doctrineMachineViolations extraction and post-stage certification.
+- stats: cross-arm replicate rule — one-sided n<2 vetoes to indeterminate; symmetric drop stays.
+- graders: brace-scan JSON extraction (prose set-notation no longer hijacks candidate payloads);
+  watchdog banner stripped from grader-facing transcript with the '.raw' audit copy retained;
+  externalized tool outputs followed (P1) and _meta/page-map churn exempted for all units (P2).
+- evolve: selfMode resolves only for ABATHUR_SELF_REPO (any env literal no longer impersonates it);
+  plan/status print the resolved repoPath.
+
+## 0.2.4 — 2026-09-15 (CHANGELOG entry added retroactively in 0.2.5)
+
+- graders: pin the evaluated model via ABATHUR_AGENT_MODEL; scenario-10/11/12
+  verification-integrity + metadata-honesty scoring branches.
+- bench: {repoRoot} placeholder + run-card injection for fixture scenarios.
+- status: resolve env-literal repoPath via effectiveRepoPath.
 ## 0.2.3 — 2026-09-11
 
 ### `/abathur` self-registers — Route B now ships the slash command too

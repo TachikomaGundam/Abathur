@@ -36,7 +36,7 @@ import { LEDGER_KIND_GENERATION_COMPLETE, acquireGenomeLock, Ledger } from "../l
 import type { WorktreeEnv } from "../genome-paths.js";
 import { openGenome } from "../worktree.js";
 import { clampReps, evaluate, needsExit, type BudgetCaps, type BudgetCounters } from "../stats.js";
-import { effectiveRepoPath, isEnvRepoLiteral } from "../spec.js";
+import { effectiveRepoPath, envRepoName, isEnvRepoLiteral } from "../spec.js";
 import { ChildTracker, reapOrphans } from "./child-track.js";
 import { buildBrief } from "./brief.js";
 import type { RunFrictionInput } from "./friction.js";
@@ -165,7 +165,13 @@ async function evolve(
   const spec = opts.entry.spec;
   const lines: string[] = [];
   const genomeRepo = effectiveRepoPath(spec.repoPath);
-  const selfMode = isEnvRepoLiteral(spec.repoPath);
+  // Engine-self ONLY: a `${VAR}` literal is a path-injection convenience any
+  // harness repo may use (campaign-1 misroute pin: selfmode-literal.test.ts).
+  const selfMode = envRepoName(spec.repoPath) === "ABATHUR_SELF_REPO";
+  // Env-literals resolve to concrete paths exactly once, here at the FS
+  // boundary; bench/reflect drivers below never see the raw literal.
+  // Concrete repoPaths flow through byte-identical to before.
+  const loopSpec = isEnvRepoLiteral(spec.repoPath) ? { ...spec, repoPath: genomeRepo } : spec;
   const fric = opts.friction === undefined ? null : startRunFriction(opts.friction);
 
   // Reap only under the genome lock: every remaining log entry belongs to a dead run.
@@ -199,7 +205,7 @@ async function evolve(
   } else {
     const gen = genId(fingerprint({ incumbent: opened.headCommit, at: now().getTime() }), now());
     const out = await benchTarget({
-      spec,
+      spec: loopSpec,
       genId: gen,
       reps,
       caps,
@@ -247,7 +253,7 @@ async function evolve(
     const brief = buildBrief(spec, evidence, counters);
     tracker.phase(`mutator-${invId}`, "mutator-session");
     const session = await runMutatorSession({
-      spec: selfMode ? { ...spec, repoPath: genomeRepo } : spec,
+      spec: loopSpec,
       brief,
       mutatorCommand,
       ...(opts.opencodeBin === undefined ? {} : { opencodeBin: opts.opencodeBin }),

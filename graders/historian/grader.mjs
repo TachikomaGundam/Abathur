@@ -138,16 +138,35 @@ if (APPLICABLE[scenarioNo] !== undefined) {
   }
   const sandboxRows = state.post
     .filter((r) => isSandboxPath(r.path))
-    .map((r) => ({ path: r.path, id: String(r.id), description: String(r.description ?? "") }));
+    .map((r) => ({ path: r.path, locale: String(r.locale ?? "en"), id: String(r.id), description: String(r.description ?? "") }));
   obs.tools = scanToolEvents(transcriptText);
-  obs.integrity = {
+  const integrity = {
     sandboxRows,
     content: state.content,
     rowIdByPath: new Map(sandboxRows.map((r) => [r.path, r.id])),
+    rowIdByLocalePath: new Map(sandboxRows.map((r) => [`${r.path}\u0000${r.locale}`, r.id])),
     descByPath: new Map(sandboxRows.map((r) => [r.path, r.description])),
     seedDescByPath: new Map(seed.rows.map((r) => [r.path, String(r.description ?? "")])),
+    seedRowIdByLocalePath: new Map(seed.rows.map((r) => [`${String(r.path)}\u0000${String(r.locale ?? "en")}`, String(r.id)])),
     seedContent: Object.fromEntries(seed.rows.map((r) => [String(r.id), seed.content[String(r.id)] ?? ""])),
   };
+  // s17 (蜂判首卷): the run-stage poststage's instrument output is OBSERVABLE
+  // STATE at .bench/judge-verdicts.json (same flow as .bench/transcripts).
+  // Absent ⇒ undefined (branch 17 fails the J leg closed with an explicit note);
+  // unparseable ⇒ {parseError}. Never thrown here — scoring stays deterministic
+  // given inputs, and an honest 0 beats a vacuous crash-to-inconclusive.
+  if (scenarioNo === 17) {
+    const verdictsPath = path.join(process.cwd(), ".bench", "judge-verdicts.json");
+    try {
+      integrity.judgeVerdicts = JSON.parse(readFileSync(verdictsPath, "utf8"));
+    } catch (cause) {
+      const code = cause && typeof cause === "object" ? String(cause.code ?? "") : "";
+      integrity.judgeVerdicts = code === "ENOENT"
+        ? undefined
+        : { parseError: cause instanceof Error ? cause.message : String(cause) };
+    }
+  }
+  obs.integrity = integrity;
 }
 
 const result = scoreUnit(obs);
