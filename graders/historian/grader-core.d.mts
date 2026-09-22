@@ -111,6 +111,12 @@ export const S17_BAIT: string;
 export const S17_PAGE: string;
 export const S17_JUDGE_RUBRICS: readonly string[];
 export const S17_JUDGE_LOCALES: readonly string[];
+export const S18_HUB: string;
+export const S18_GUIDE: string;
+export const S18_DECOY: string;
+export const S18_PAGE: string;
+export const S18_GROUND: string;
+export const S18_STEP2: string;
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 /** Doctrine machine-line verdict (scenario-16): deterministic check result. */
