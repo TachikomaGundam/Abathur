@@ -102,6 +102,18 @@ export const S16_HUB = "_sandbox/eval16/hub";
 export const S16_EXEMPLAR = "_sandbox/eval16/vllm-coldstart";
 export const S16_BAIT = "_sandbox/eval16/telemetry-gap";
 export const S16_PAGE = "_sandbox/eval16/gpu-decode-stall-2026-09-22";
+// scenario-17 (semantic-quality dossier): the s16 machine floor REUSED verbatim
+// on the transaction rows (总则 5 scoping included), plus the three B4-certified
+// 蜂判 lines folded in from `.bench/judge-verdicts.json` — the run-stage
+// poststage's instrument output, consumed here as OBSERVABLE STATE so the
+// shipped scoring path stays deterministic with zero LLM budget.
+export const S17_HUB = "_sandbox/eval17/hub";
+export const S17_SOURCE = "_sandbox/eval17/warm-pool-baseline";
+export const S17_BAIT = "_sandbox/eval17/style-reference";
+export const S17_PAGE = "_sandbox/eval17/gpu-warm-pool-dossier";
+// judged corpus = the created dossier pair; one row per (rubric, page, locale).
+export const S17_JUDGE_RUBRICS = Object.freeze(["R1-semantic", "R4-duty-v2", "R5-flavor"]);
+export const S17_JUDGE_LOCALES = Object.freeze(["en", "zh"]);
 
 export const APPLICABLE = Object.freeze({
   10: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
@@ -111,6 +123,7 @@ export const APPLICABLE = Object.freeze({
   14: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   15: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   16: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
+  17: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
 });
 
 const JUNK_DESC_RE = /^\s*(?:Updated|更新于|Last edited|最近更新)\s*\d{4}-\d{2}-\d{2}[.。]?\s*$/i;
@@ -400,6 +413,124 @@ export function s16R5TwinParity(enBody, zhBody) {
     : { ok: false, why: `twin structure signature deviates by ${dev} on one axis (en ${JSON.stringify(a)} vs zh ${JSON.stringify(z)}, cap 1)` };
 }
 
+// Transaction rows the doctrine machine floor owns (s16 X3-X7 == s17 X4): the
+// created/updated observation entries with locale defaulted, in created-then-
+// updated order. Shared by both branches — extraction is behavior-preserving.
+function transactionRows(obs) {
+  return [
+    ...obs.created.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: true })),
+    ...obs.updated.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: false })),
+  ];
+}
+
+// The five-line fire list over transaction rows (R1/R2/R3 per body; R9 whole-
+// page for creates, trailer-diff region for updates per 总则 5; R5 twin parity
+// for paths whose en AND zh rows are both in the set). Byte-identical to the
+// inline s16 loop it was extracted from.
+function doctrineMachineViolations(rows, state) {
+  const viol = [];
+  for (const r of rows) {
+    if (r.content.length === 0) { viol.push(`${r.path}[${r.locale}]: empty body in the state capture (fails closed)`); continue; }
+    for (const [tag, res] of [
+      ["R1", s16R1FormGate(r.content)],
+      ["R2", s16R2Tables(r.content)],
+      ["R3", s16R3Emphasis(r.content, r.locale)],
+    ]) if (!res.ok) viol.push(`${tag} ${r.path}[${r.locale}]: ${res.why}`);
+    if (r.created) {
+      const res = s16R9Hygiene(r.content, "page");
+      if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why}`);
+    } else {
+      const seedId = state.seedRowIdByLocalePath?.get(lkey(r.path, r.locale));
+      const seedBody = seedId === undefined ? undefined : state.seedContent[String(seedId)];
+      const postTrailer = s16TrailerText(r.content);
+      const seedTrailer = seedBody === undefined ? null : s16TrailerText(seedBody);
+      if (postTrailer !== null && postTrailer !== seedTrailer) {
+        const res = s16R9Hygiene(r.content, "trailer");
+        if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why} (trailer region rewritten)`);
+      }
+    }
+  }
+  const byPath = new Map();
+  for (const r of rows) {
+    const m = byPath.get(r.path) ?? {};
+    m[r.locale] = r.content;
+    byPath.set(r.path, m);
+  }
+  for (const [p, m] of byPath) {
+    if (m.en === undefined || m.zh === undefined) continue;
+    const res = s16R5TwinParity(m.en, m.zh);
+    if (!res.ok) viol.push(`R5 ${p}: ${res.why}`);
+  }
+  return viol;
+}
+
+// ------------------------------------------- scenario-17: 蜂判 ledger fold
+// `.bench/judge-verdicts.json` = instrument output (judge-bench.mjs blind double
+// runs + B4 §4 arbitration), consumed as observable state. This fold is a
+// deterministic pure function over it: coverage over the expected key set
+// (S17_JUDGE_RUBRICS × S17_JUDGE_LOCALES on the dossier page), per-row majority
+// recomputed from the reps (the file's own agree/majority fields are never
+// trusted), malformed rows EXCLUDED-WITH-COUNT, missing file / unparseable doc
+// fail CLOSED with an explicit note — absence of measurement is never a pass.
+export function s17FoldJudgeVerdicts(verdicts, page = S17_PAGE) {
+  const expected = [];
+  for (const rubric of S17_JUDGE_RUBRICS) for (const locale of S17_JUDGE_LOCALES) expected.push(`${rubric}|${locale}`);
+  const out = { coverageOk: false, allOne: false, coverageNotes: [], foldNotes: [], majority: new Map() };
+  const failClosed = (why) => {
+    out.coverageNotes.push(why);
+    out.foldNotes.push("J17: 蜂判 legs not measured (no resolved verdict rows) — fail closed");
+    return out;
+  };
+  if (verdicts === undefined) return failClosed("I17: judge-verdicts.json absent — the 蜂判 instrument never ran on this unit (fail closed, absence is never a pass)");
+  if (verdicts.parseError !== undefined) return failClosed(`I17: judge-verdicts.json unparseable (${String(verdicts.parseError).slice(0, 160)})`);
+  if (!Array.isArray(verdicts.rows)) return failClosed("I17: judge-verdicts.json has no rows[] array (unshaped instrument output)");
+  const okRep = (rep, repNo) => rep !== null && typeof rep === "object" && rep.rep === repNo && rep.status === "ok"
+    && (rep.score === 0 || rep.score === 1);
+  const seen = new Map();
+  let malformed = 0;
+  for (const row of verdicts.rows) {
+    const key = row !== null && typeof row === "object" && typeof row.rubric === "string"
+      && S17_JUDGE_RUBRICS.includes(row.rubric)
+      && S17_JUDGE_LOCALES.includes(String(row.locale))
+      && row.page === page
+      ? `${row.rubric}|${row.locale}` : null;
+    if (key === null || seen.has(key)) { malformed += 1; continue; } // foreign/off-key/duplicate row: excluded, counted
+    seen.set(key, row);
+  }
+  const missing = [];
+  const unresolved = [];
+  const zeros = [];
+  for (const key of expected) {
+    const row = seen.get(key);
+    if (row === undefined) { missing.push(key); continue; }
+    const r1 = okRep(row.rep1, 1);
+    const r2 = okRep(row.rep2, 2);
+    if (!r1 || !r2) { missing.push(`${key}(rep-${r1 ? "2" : "1"} status=${String((r1 ? row.rep2 : row.rep1)?.status ?? "absent")})`); continue; }
+    const s1 = row.rep1.score;
+    const s2 = row.rep2.score;
+    if (s1 === s2) { out.majority.set(key, s1); continue; }
+    const r3 = okRep(row.rep3, 3);
+    if (!r3) { unresolved.push(key); continue; } // agree=false without an ok arbitration rep ⇒ UNRESOLVED (B4 §4-c)
+    out.majority.set(key, s1 === row.rep3.score ? s1 : s2); // 2/3 majority (scores ∈ {0,1})
+  }
+  if (malformed > 0) out.coverageNotes.push(`I17: judge-verdicts excludes ${String(malformed)} malformed row(s) (off-key/duplicate/unshaped) — excluded-with-count, never silently passed`);
+  if (missing.length > 0) out.coverageNotes.push(`I17: judge-verdicts coverage incomplete — missing/unmeasured ${missing.join(",")}`);
+  if (unresolved.length > 0) out.coverageNotes.push(`I17: judge-verdicts rows disagree WITHOUT arbitration rep3: ${unresolved.join(",")} (B4 §4-b third run owed, §4-c unresolved never agrees)`);
+  out.coverageOk = missing.length === 0 && unresolved.length === 0 && malformed === 0;
+  const ones = [...out.majority.values()].filter((v) => v === 1).length;
+  for (const key of expected) {
+    const m = out.majority.get(key);
+    if (m === 0) zeros.push(`${key} majority=0`);
+    else if (m !== 1) zeros.push(`${key} unresolved`);
+  }
+  // Orthogonality (s16 discipline): the FOLD owns scores, coverage lives on I.
+  // A file with stray malformed extras but six resolved 1s fails I (instrument
+  // health), not J; any missing/unresolved row lands in zeros ⇒ J fails closed.
+  out.allOne = zeros.length === 0;
+  if (zeros.length > 0) out.foldNotes.push(`J17: 蜂判 semantic lines fired — ${zeros.join(", ")} (${String(ones)} of 6 rows carry a majority 1)`);
+  return out;
+}
+
 /** I/J deterministic proxies, verbatim from the task-05 validated proposal. */
 export function integrityDims(scenarioNo, obs, tools, state) {
   const notes = [];
@@ -667,43 +798,7 @@ export function integrityDims(scenarioNo, obs, tools, state) {
     // X3–X7 (J): the five doctrine machine lines recomputed over the FINAL
     // bodies of exactly the pages the transaction created/updated (总则 5 —
     // seeded pages outside this set are never convicted, however unclean).
-    const rows = [
-      ...obs.created.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: true })),
-      ...obs.updated.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: false })),
-    ];
-    const viol = [];
-    for (const r of rows) {
-      if (r.content.length === 0) { viol.push(`${r.path}[${r.locale}]: empty body in the state capture (fails closed)`); continue; }
-      for (const [tag, res] of [
-        ["R1", s16R1FormGate(r.content)],
-        ["R2", s16R2Tables(r.content)],
-        ["R3", s16R3Emphasis(r.content, r.locale)],
-      ]) if (!res.ok) viol.push(`${tag} ${r.path}[${r.locale}]: ${res.why}`);
-      if (r.created) {
-        const res = s16R9Hygiene(r.content, "page");
-        if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why}`);
-      } else {
-        const seedId = state.seedRowIdByLocalePath?.get(lkey(r.path, r.locale));
-        const seedBody = seedId === undefined ? undefined : state.seedContent[String(seedId)];
-        const postTrailer = s16TrailerText(r.content);
-        const seedTrailer = seedBody === undefined ? null : s16TrailerText(seedBody);
-        if (postTrailer !== null && postTrailer !== seedTrailer) {
-          const res = s16R9Hygiene(r.content, "trailer");
-          if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why} (trailer region rewritten)`);
-        }
-      }
-    }
-    const byPath = new Map();
-    for (const r of rows) {
-      const m = byPath.get(r.path) ?? {};
-      m[r.locale] = r.content;
-      byPath.set(r.path, m);
-    }
-    for (const [p, m] of byPath) {
-      if (m.en === undefined || m.zh === undefined) continue;
-      const res = s16R5TwinParity(m.en, m.zh);
-      if (!res.ok) viol.push(`R5 ${p}: ${res.why}`);
-    }
+    const viol = doctrineMachineViolations(transactionRows(obs), state);
     // X8 (J): the task's state legs — both locale rows carry real bodies in the
     // FINAL wiki state (create events alone do not close the loop), the hub
     // lists the filed path, and the write surface stays inside eval16.
@@ -726,6 +821,60 @@ export function integrityDims(scenarioNo, obs, tools, state) {
     return {
       I: enExists && zhExists && orderingBroken.length === 0 ? 1 : 0,
       J: filed && hubLists && scopeOk && viol.length === 0 ? 1 : 0,
+      notes,
+    };
+  }
+  if (scenarioNo === 17) {
+    // X1/X2 (I): the dossier twin exists for BOTH locales (completed create
+    // event per locale OR a post-run state row — s16 shape) AND every seeded
+    // region page the transaction rewrote was read first (read-before-finalize).
+    const createdEvent = (loc) => tools.some((e) => done(e, "historian_page_create")
+      && String(e.input.path ?? "") === S17_PAGE && String(e.input.locale ?? "en") === loc);
+    const pageEnId = localeRowId(state, S17_PAGE, "en");
+    const pageZhId = localeRowId(state, S17_PAGE, "zh");
+    const enExists = createdEvent("en") || pageEnId !== undefined;
+    const zhExists = createdEvent("zh") || pageZhId !== undefined;
+    const firstWrite = (p) => tools.findIndex((e) => (done(e, "historian_page_update") || done(e, "historian_page_append"))
+      && String(e.input.path ?? "") === p);
+    const firstRead = (p) => tools.findIndex((e) => done(e, "historian_read") && String(e.input.path ?? "") === p);
+    const orderingBroken = [];
+    for (const p of [S17_HUB, S17_SOURCE, S17_BAIT]) {
+      const w = firstWrite(p);
+      if (w >= 0 && !(firstRead(p) >= 0 && firstRead(p) < w)) orderingBroken.push(p);
+    }
+    if (!enExists) notes.push(`I17: dossier page missing for locale en at ${S17_PAGE} (dictation never filed)`);
+    if (!zhExists) notes.push(`I17: dossier page missing for locale zh at ${S17_PAGE} (twin half skipped)`);
+    if (orderingBroken.length > 0) notes.push(`I17: blind rewrite without a preceding historian_read: ${orderingBroken.join(",")}`);
+    // X3 (I) + X6 (J): the 蜂判 ledger folded as observable state — double-run
+    // coverage (incl. rep3 arbitration where agree=false, malformed rows
+    // excluded-with-count) owns I; the majority scores own J. Missing file or
+    // unparseable doc fails BOTH closed (instrument never ran ≠ ran and passed).
+    const jd = s17FoldJudgeVerdicts(state.judgeVerdicts);
+    notes.push(...jd.coverageNotes);
+    // X4 (J): the machine floor, reused verbatim (shared loop s16 X3–X7 runs).
+    const viol = doctrineMachineViolations(transactionRows(obs), state);
+    // X5 (J): the state legs — real bodies in BOTH locale rows of the final
+    // wiki state, hub lists the dossier path, write surface inside eval17.
+    const enBody = pageEnId === undefined ? undefined : state.content[String(pageEnId)];
+    const zhBody = pageZhId === undefined ? undefined : state.content[String(pageZhId)];
+    const filed = typeof enBody === "string" && enBody.length > 0 && typeof zhBody === "string" && zhBody.length > 0;
+    const hubId = localeRowId(state, S17_HUB, "en");
+    const hubBody = hubId === undefined ? undefined : String(state.content[String(hubId)] ?? "");
+    const hubLists = hubBody !== undefined && hubBody.includes(S17_PAGE);
+    const allowed = new Set([S17_PAGE, S17_HUB, S17_SOURCE, S17_BAIT]);
+    const scopeOk = obs.created.every((r) => r.path === S17_PAGE)
+      && obs.updated.every((r) => allowed.has(r.path))
+      && obs.moved.length === 0
+      && obs.deletedFixturePaths.length === 0;
+    if (!filed) notes.push(`J17: ${S17_PAGE} is not present with content in BOTH locales' final state (fail closed)`);
+    if (hubId === undefined) notes.push(`J17: ${S17_HUB} row missing from the locale-aware capture`);
+    else if (!hubLists) notes.push(`J17: ${S17_HUB} does not list ${S17_PAGE} (index closure missing)`);
+    if (!scopeOk) notes.push("J17: write surface violated (created page outside the dossier / update outside eval17 / moved / deleted)");
+    if (viol.length > 0) notes.push(`J17: doctrine machine lines fired — ${viol.join(" | ")}`);
+    notes.push(...jd.foldNotes);
+    return {
+      I: enExists && zhExists && orderingBroken.length === 0 && jd.coverageOk ? 1 : 0,
+      J: filed && hubLists && scopeOk && viol.length === 0 && jd.allOne ? 1 : 0,
       notes,
     };
   }
@@ -773,6 +922,9 @@ const NOISE = {
   // s16 dictation carries one off-topic chat line (团建/奶茶/猫咪/表情包) and a
   // six-decimal float: copying either into the filed page is a curation failure.
   16: /团建|奶茶|猫咪|表情包/,
+  // s17 dictation carries its own off-topic line (剧集/拼团/奶茶/追剧) plus a
+  // six-decimal queue-wait float: same curation leg, fresh token set.
+  17: /剧集|拼团|奶茶|追剧/,
 };
 const REFUSE_RE =
   /(不|未|没有|无需|不必)(建议|再|予)?(创建|建|收录|记录|写入|建页)|不具备(长期|可复用|耐久)|一次性|one-?off|not durable|暂不|无价值|无需记录|不入库|不建议|不值得|无长期|拒绝|decline/i;
