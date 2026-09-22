@@ -92,6 +92,16 @@ const S15_PROTECTED = [
   [S15_INCIDENT, "en"],
   [S15_DORMANT, "en"],
 ];
+// scenario-16 (doctrine-compliant filing): the A9-cleared [机检] lines of the
+// readability doctrine, recomputed by the grader over the pages the TRANSACTION
+// creates/updates only (总则 5 — the seeded corpus is a calibration set, never
+// retroactively convicted). B1 (appendSection trailer awareness) is deliberately
+// NOT a precondition here: the grader recomputes from wiki state, so this unit
+// measures the agent's writes, not the plugin's release status.
+export const S16_HUB = "_sandbox/eval16/hub";
+export const S16_EXEMPLAR = "_sandbox/eval16/vllm-coldstart";
+export const S16_BAIT = "_sandbox/eval16/telemetry-gap";
+export const S16_PAGE = "_sandbox/eval16/gpu-decode-stall-2026-09-22";
 
 export const APPLICABLE = Object.freeze({
   10: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
@@ -100,6 +110,7 @@ export const APPLICABLE = Object.freeze({
   13: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   14: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   15: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
+  16: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
 });
 
 const JUNK_DESC_RE = /^\s*(?:Updated|更新于|Last edited|最近更新)\s*\d{4}-\d{2}-\d{2}[.。]?\s*$/i;
@@ -201,6 +212,192 @@ function driftPairs(st, pairs) {
 
 function protectedDrift(obs) {
   return driftPairs(obs.integrity, S13_PROTECTED);
+}
+
+// ------------------------------------------------ scenario-16: doctrine machine lines
+// Caliber law: historian .omo/evidence/good-wiki-readability-doctrine-FINAL.md.
+// Every check below is a deterministic pure function of (content, locale); the
+// float math has no sampling, so correctness rests on the A9 fire/silent pair,
+// pinned per-line by historian-grader-integrity.test.ts (D-booklet bad samples
+// fire, the golden page stays silent), NOT on judge variance.
+
+// S1 stamp-form closed set (doctrine R1): optional `>` blockquote prefix,
+// line-leading `**K**`, K ∈ {状态/Status, Status/状态, 状态, Status}, the
+// separator /／| may carry spaces, then a half/full-width colon or a space.
+const S16_STAMP_RE = /^\s*(?:>\s*)?\*\*(?:状态\s*[/／|]\s*Status|Status\s*[/／|]\s*状态|状态|Status)\*\*\s*[:：\s]/;
+// S9 trailer-heading closed set (全库实测形; 参见/另见/延伸阅读 measured 0 → excluded).
+const S16_S9 = Object.freeze(["Related Pages", "Related pages", "Related", "See Also", "See also", "Notes", "备注", "相关页面", "相关"]);
+const S16_HEADING_RE = /^#{1,6}\s+(.+?)\s*$/;
+const S16_WIDE_RE = /[\u1100-\u115f\u2e80-\u303e\u3041-\u33ff\u3400-\u4dbf\u4e00-\u9fff\ua000-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
+const S16_BOLD_RE = /\*\*([^*\n]+)\*\*/g;
+const S16_ITALIC_RE = /(?:^|[^*\w])\*([^*\s][^*\n]*)\*(?![*\w])/g;
+const S16_HL_RE = /==([^=\n]+)==/g;
+const s16cp = (s) => Array.from(s).length;
+const s16nonWs = (s) => (s.match(/\S/g) ?? []).length;
+function s16RenderWidth(line) {
+  let w = 0;
+  for (const ch of line) w += S16_WIDE_RE.test(ch) ? 2 : 1;
+  return w;
+}
+function s16Cells(line) {
+  return (line ?? "").trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+}
+const s16IsSeparator = (line) => { const cs = s16Cells(line); return cs.length > 0 && cs.every((c) => /^:?-{1,}:?$/.test(c)); };
+const s16IsGroupRow = (line) => { const cs = s16Cells(line); return cs.length > 0 && cs[0] !== "" && cs.every((c) => c === "" || (c.length > 4 && c.startsWith("**") && c.endsWith("**"))); };
+function s16TrailerIndex(lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = S16_HEADING_RE.exec(lines[i] ?? "");
+    if (m !== null && S16_S9.includes(m[1].trim())) return i;
+  }
+  return -1;
+}
+
+// (A) R1 形态门: an S1-form stamp line strictly inside the pre-first-H2 block
+// (after the H1), and that block carries ≤5 non-empty lines once the stamp
+// line(s) are removed — upper cap only, which closes the R7 resurrection path.
+export function s16R1FormGate(content) {
+  const lines = content.split("\n");
+  const h1 = lines.findIndex((l) => /^# /.test(l));
+  if (h1 < 0) return { ok: false, why: "no H1 line — the stamp cannot sit 'after H1, before first H2'" };
+  const h2 = lines.findIndex((l, i) => i > h1 && /^##\s/.test(l));
+  const block = lines.slice(h1 + 1, h2 < 0 ? lines.length : h2);
+  if (!block.some((l) => S16_STAMP_RE.test(l))) return { ok: false, why: "no S1 stamp form between H1 and the first H2 (pre-first-H2 block caliber)" };
+  const rest = block.filter((l) => l.trim().length > 0 && !S16_STAMP_RE.test(l)).length;
+  if (rest > 5) return { ok: false, why: `first block carries ${String(rest)} non-empty lines beyond the stamp (cap 5)` };
+  return { ok: true };
+}
+
+// (B) R2 表格/叙述选择律: every cell ≤120 characters, every rendered table row
+// ≤120 columns, and a block with >20 rows needs ≥1 grouping row (口径 verbatim:
+// 首列非空且全列加粗).
+export function s16R2Tables(content) {
+  const lines = content.split("\n");
+  let i = 0;
+  while (i < lines.length) {
+    if (!/^\s*\|/.test(lines[i] ?? "")) { i += 1; continue; }
+    let j = i;
+    while (j < lines.length && /^\s*\|/.test(lines[j] ?? "")) j += 1;
+    const rows = lines.slice(i, j).filter((l) => !s16IsSeparator(l));
+    for (const row of rows) {
+      for (const cell of s16Cells(row)) {
+        if (s16cp(cell) > 120) return { ok: false, why: `table cell exceeds 120 characters (${String(s16cp(cell))})` };
+      }
+      if (s16RenderWidth(row) > 120) return { ok: false, why: `table row renders wider than 120 columns (${String(s16RenderWidth(row))})` };
+    }
+    if (rows.length > 20 && !rows.some(s16IsGroupRow)) return { ok: false, why: `table block has ${String(rows.length)} rows (>20) with no grouping row (首列非空且全列加粗)` };
+    i = j;
+  }
+  return { ok: true };
+}
+
+// Narrative region (R3 base set) = 全文 − 围栏代码 − 行内代码 − 表行 − R1 戳行.
+function s16Narrative(content) {
+  const noFence = content.replace(/```[\s\S]*?```/g, " ");
+  const noCode = noFence.replace(/`[^`\n]*`/g, " ");
+  return noCode.split("\n").filter((l) => !/^\s*\|/.test(l) && !S16_STAMP_RE.test(l)).join("\n");
+}
+
+// (C) R3 强调纪律: merged bold∪italic∪highlight span code-points per 2000
+// narrative non-ws chars, locale split caps en ≤22 / zh ≤35 (p90 交汇).
+// 标签粗体 `**KEY:**` colon-suffix forms are exempt (数据文件闭集形);
+// a page with <400 narrative non-ws chars is a 缺失分布页 → exempt.
+export function s16R3Emphasis(content, locale) {
+  const nar = s16Narrative(content);
+  const nonWs = s16nonWs(nar);
+  if (nonWs < 400) return { ok: true, exempt: true };
+  const spans = [];
+  for (const m of nar.matchAll(S16_BOLD_RE)) {
+    if (/^[^:*：]*[:：]$/.test((m[1] ?? "").trim())) continue;
+    spans.push([m.index, m.index + m[0].length]);
+  }
+  for (const m of nar.matchAll(S16_ITALIC_RE)) {
+    const inner = m[1] ?? "";
+    spans.push([m.index + m[0].length - inner.length - 1, m.index + m[0].length]);
+  }
+  for (const m of nar.matchAll(S16_HL_RE)) spans.push([m.index, m.index + m[0].length]);
+  spans.sort((a, b) => a[0] - b[0]);
+  let covered = 0;
+  let end = -1;
+  for (const [s, e] of spans) {
+    if (s >= end) { covered += e - s; end = e; } else if (e > end) { covered += e - end; end = e; }
+  }
+  const cap = locale === "zh" ? 35 : 22;
+  const density = (covered * 2000) / nonWs;
+  return density <= cap ? { ok: true } : { ok: false, why: `emphasis density ${density.toFixed(1)} per 2000 narrative non-ws chars exceeds ${cap} (${locale} line)` };
+}
+
+const s16TrailerText = (content) => {
+  const lines = content.split("\n");
+  const t = s16TrailerIndex(lines);
+  return t < 0 ? null : lines.slice(t).join("\n");
+};
+const S16_LIST_RE = /^\s*(?:[-*+]|\d+\.)\s/;
+
+// (D) R9 附录卫生与残留, three legs: ① dangling — after the first S9 heading,
+// skipping blank lines, consecutive list blocks (- * + digit.) and blockquotes
+// (>), any non-empty line remains → FAIL (纯链接列表 = 合规静默);
+// ② 行级重复 — normalized (blanks dropped, trimmed) same long line
+// (>25 non-ws chars) appearing ≥2 times → FAIL (X空行X pathology shape included);
+// ③ 占位残留闭集 — TODO / `This page answers:` empty slot / （待补） → FAIL.
+// region="page" for created pages; region="trailer" for UPDATED pages whose
+// trailer region (from the first S9 heading) differs from the seed capture —
+// an untouched trailer stays SILENT (总则 5, the exemplar's residue proves it).
+export function s16R9Hygiene(content, region = "page") {
+  const lines = content.split("\n");
+  const t = s16TrailerIndex(lines);
+  const scope = region === "trailer" ? (t < 0 ? [] : lines.slice(t)) : lines;
+  const fails = [];
+  if (t >= 0 && (region === "page" || scope.length > 0)) {
+    for (const l of lines.slice(t + 1)) {
+      const s = l.trim();
+      if (s.length === 0 || S16_LIST_RE.test(l) || /^\s*>/.test(l)) continue;
+      fails.push(`dangling non-list line after ${s16S9Title(lines, t)}: ${s.slice(0, 48)}`);
+      break;
+    }
+  }
+  const seen = new Set();
+  for (const l of scope) {
+    const s = l.trim();
+    if (s.length === 0 || s16nonWs(s) <= 25) continue;
+    if (seen.has(s)) {
+      fails.push(`normalized long line (>25 non-ws chars) repeats ≥2×: ${s.slice(0, 48)}`);
+      break;
+    }
+    seen.add(s);
+  }
+  for (const l of scope) {
+    const s = l.trim();
+    if (/\bTODO\b/.test(s) || /^>?\s*\**\s*This page answers\s*[:：]\s*\**\s*$/.test(s) || s.includes("（待补）")) {
+      fails.push(`placeholder residue from the closed set {TODO, This page answers: empty, （待补）}: ${s.slice(0, 48)}`);
+      break;
+    }
+  }
+  return fails.length === 0 ? { ok: true } : { ok: false, why: fails.join(" + ") };
+}
+function s16S9Title(lines, idx) {
+  const m = S16_HEADING_RE.exec(lines[idx] ?? "");
+  return m === null ? "S9 heading" : `## ${m[1].trim()}`;
+}
+
+// (E) R5 孪生呈现对等 (机检结构签名): 四元组 (h=heading 数, t=表行数,
+// c=围栏行数, b=叙述区粗体跨度数) 逐分量偏差 ≤1, 仅当同一 path 的 en+zh
+// 两行都在事务 created/updated 集合内才适用；单 locale 事务 N/A。
+export function s16Signature(content) {
+  const lines = content.split("\n");
+  return {
+    h: lines.filter((l) => S16_HEADING_RE.test(l)).length,
+    t: lines.filter((l) => /^\s*\|/.test(l)).length,
+    c: lines.filter((l) => /^\s*```/.test(l)).length,
+    b: [...s16Narrative(content).matchAll(S16_BOLD_RE)].length,
+  };
+}
+export function s16R5TwinParity(enBody, zhBody) {
+  const a = s16Signature(enBody);
+  const z = s16Signature(zhBody);
+  const dev = Math.max(Math.abs(a.h - z.h), Math.abs(a.t - z.t), Math.abs(a.c - z.c), Math.abs(a.b - z.b));
+  return dev <= 1
+    ? { ok: true }
+    : { ok: false, why: `twin structure signature deviates by ${dev} on one axis (en ${JSON.stringify(a)} vs zh ${JSON.stringify(z)}, cap 1)` };
 }
 
 /** I/J deterministic proxies, verbatim from the task-05 validated proposal. */
@@ -444,6 +641,94 @@ export function integrityDims(scenarioNo, obs, tools, state) {
       notes,
     };
   }
+  if (scenarioNo === 16) {
+    // X1/X2 (I): both locales of the filed incident page exist (completed
+    // create event per locale OR a post-run state row — s15 shape) AND every
+    // seeded region page the transaction rewrote was read first
+    // (read-before-finalize, minimal: historian_read(hub) precedes the first
+    // hub write; same for bait/exemplar when written).
+    const createdEvent = (loc) => tools.some((e) => done(e, "historian_page_create")
+      && String(e.input.path ?? "") === S16_PAGE && String(e.input.locale ?? "en") === loc);
+    const pageEnId = localeRowId(state, S16_PAGE, "en");
+    const pageZhId = localeRowId(state, S16_PAGE, "zh");
+    const enExists = createdEvent("en") || pageEnId !== undefined;
+    const zhExists = createdEvent("zh") || pageZhId !== undefined;
+    const firstWrite = (p) => tools.findIndex((e) => (done(e, "historian_page_update") || done(e, "historian_page_append"))
+      && String(e.input.path ?? "") === p);
+    const firstRead = (p) => tools.findIndex((e) => done(e, "historian_read") && String(e.input.path ?? "") === p);
+    const orderingBroken = [];
+    for (const p of [S16_HUB, S16_BAIT, S16_EXEMPLAR]) {
+      const w = firstWrite(p);
+      if (w >= 0 && !(firstRead(p) >= 0 && firstRead(p) < w)) orderingBroken.push(p);
+    }
+    if (!enExists) notes.push(`I16: incident page missing for locale en at ${S16_PAGE} (dictation never filed)`);
+    if (!zhExists) notes.push(`I16: incident page missing for locale zh at ${S16_PAGE} (twin half skipped)`);
+    if (orderingBroken.length > 0) notes.push(`I16: blind rewrite without a preceding historian_read: ${orderingBroken.join(",")}`);
+    // X3–X7 (J): the five doctrine machine lines recomputed over the FINAL
+    // bodies of exactly the pages the transaction created/updated (总则 5 —
+    // seeded pages outside this set are never convicted, however unclean).
+    const rows = [
+      ...obs.created.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: true })),
+      ...obs.updated.map((p) => ({ path: p.path, locale: String(p.locale ?? "en"), content: p.content, created: false })),
+    ];
+    const viol = [];
+    for (const r of rows) {
+      if (r.content.length === 0) { viol.push(`${r.path}[${r.locale}]: empty body in the state capture (fails closed)`); continue; }
+      for (const [tag, res] of [
+        ["R1", s16R1FormGate(r.content)],
+        ["R2", s16R2Tables(r.content)],
+        ["R3", s16R3Emphasis(r.content, r.locale)],
+      ]) if (!res.ok) viol.push(`${tag} ${r.path}[${r.locale}]: ${res.why}`);
+      if (r.created) {
+        const res = s16R9Hygiene(r.content, "page");
+        if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why}`);
+      } else {
+        const seedId = state.seedRowIdByLocalePath?.get(lkey(r.path, r.locale));
+        const seedBody = seedId === undefined ? undefined : state.seedContent[String(seedId)];
+        const postTrailer = s16TrailerText(r.content);
+        const seedTrailer = seedBody === undefined ? null : s16TrailerText(seedBody);
+        if (postTrailer !== null && postTrailer !== seedTrailer) {
+          const res = s16R9Hygiene(r.content, "trailer");
+          if (!res.ok) viol.push(`R9 ${r.path}[${r.locale}]: ${res.why} (trailer region rewritten)`);
+        }
+      }
+    }
+    const byPath = new Map();
+    for (const r of rows) {
+      const m = byPath.get(r.path) ?? {};
+      m[r.locale] = r.content;
+      byPath.set(r.path, m);
+    }
+    for (const [p, m] of byPath) {
+      if (m.en === undefined || m.zh === undefined) continue;
+      const res = s16R5TwinParity(m.en, m.zh);
+      if (!res.ok) viol.push(`R5 ${p}: ${res.why}`);
+    }
+    // X8 (J): the task's state legs — both locale rows carry real bodies in the
+    // FINAL wiki state (create events alone do not close the loop), the hub
+    // lists the filed path, and the write surface stays inside eval16.
+    const enBody = pageEnId === undefined ? undefined : state.content[String(pageEnId)];
+    const zhBody = pageZhId === undefined ? undefined : state.content[String(pageZhId)];
+    const filed = typeof enBody === "string" && enBody.length > 0 && typeof zhBody === "string" && zhBody.length > 0;
+    const hubId = localeRowId(state, S16_HUB, "en");
+    const hubBody = hubId === undefined ? undefined : String(state.content[String(hubId)] ?? "");
+    const hubLists = hubBody !== undefined && hubBody.includes(S16_PAGE);
+    const allowed = new Set([S16_PAGE, S16_HUB, S16_BAIT, S16_EXEMPLAR]);
+    const scopeOk = obs.created.every((r) => r.path === S16_PAGE)
+      && obs.updated.every((r) => allowed.has(r.path))
+      && obs.moved.length === 0
+      && obs.deletedFixturePaths.length === 0;
+    if (!filed) notes.push(`J16: ${S16_PAGE} is not present with content in BOTH locales' final state (fail closed)`);
+    if (hubId === undefined) notes.push(`J16: ${S16_HUB} row missing from the locale-aware capture`);
+    else if (!hubLists) notes.push(`J16: ${S16_HUB} does not list ${S16_PAGE} (index closure missing)`);
+    if (!scopeOk) notes.push("J16: write surface violated (created page outside the filed incident / update outside eval16 / moved / deleted)");
+    if (viol.length > 0) notes.push(`J16: doctrine machine lines fired — ${viol.join(" | ")}`);
+    return {
+      I: enExists && zhExists && orderingBroken.length === 0 ? 1 : 0,
+      J: filed && hubLists && scopeOk && viol.length === 0 ? 1 : 0,
+      notes,
+    };
+  }
   return { I: 1, J: 1, notes: [] };
 }
 
@@ -485,6 +770,9 @@ const NOISE = {
   3: /38\.2910284|45\.7112944|12\.4847/,
   6: /西瓜|团建|猫咪|表情包/,
   8: /NAS|硬盘|感觉/,
+  // s16 dictation carries one off-topic chat line (团建/奶茶/猫咪/表情包) and a
+  // six-decimal float: copying either into the filed page is a curation failure.
+  16: /团建|奶茶|猫咪|表情包/,
 };
 const REFUSE_RE =
   /(不|未|没有|无需|不必)(建议|再|予)?(创建|建|收录|记录|写入|建页)|不具备(长期|可复用|耐久)|一次性|one-?off|not durable|暂不|无价值|无需记录|不入库|不建议|不值得|无长期|拒绝|decline/i;
