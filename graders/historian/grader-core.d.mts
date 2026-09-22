@@ -31,6 +31,10 @@ export interface IntegrityState {
   readonly seedDescByPath: ReadonlyMap<string, string>;
   readonly seedRowIdByLocalePath?: ReadonlyMap<string, string> | undefined;
   readonly seedContent: Readonly<Record<string, string>>;
+  /** scenario-17 only: the parsed `.bench/judge-verdicts.json` instrument output
+   *  (judge-bench blind double runs + B4 §4 arbitration rows). undefined = the
+   *  file is absent (the 蜂判 legs fail CLOSED); {parseError} = unparseable. */
+  readonly judgeVerdicts?: unknown;
 }
 
 export interface Observation {
@@ -101,6 +105,12 @@ export const S16_HUB: string;
 export const S16_EXEMPLAR: string;
 export const S16_BAIT: string;
 export const S16_PAGE: string;
+export const S17_HUB: string;
+export const S17_SOURCE: string;
+export const S17_BAIT: string;
+export const S17_PAGE: string;
+export const S17_JUDGE_RUBRICS: readonly string[];
+export const S17_JUDGE_LOCALES: readonly string[];
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 /** Doctrine machine-line verdict (scenario-16): deterministic check result. */
@@ -133,6 +143,20 @@ export interface StatusTokens {
   readonly header: string | null;
   readonly rows: readonly string[];
 }
+
+/** Deterministic fold over `.bench/judge-verdicts.json` (scenario-17 蜂判 lines).
+ *  coverageOk = the expected (rubric × locale) key set is fully double-run covered
+ *  (2 ok reps, rep3 when the two disagree), malformed rows excluded-with-count;
+ *  allOne = every expected key resolves to a majority 1. Absent/unparseable input
+ *  fails both closed. Pure — no LLM, no IO. */
+export interface JudgeFold {
+  readonly coverageOk: boolean;
+  readonly allOne: boolean;
+  readonly coverageNotes: readonly string[];
+  readonly foldNotes: readonly string[];
+  readonly majority: ReadonlyMap<string, 0 | 1>;
+}
+export function s17FoldJudgeVerdicts(verdicts: unknown, page?: string): JudgeFold;
 
 export interface IntegrityResult extends IntegrityDims {
   readonly notes: readonly IntegrityNote[];

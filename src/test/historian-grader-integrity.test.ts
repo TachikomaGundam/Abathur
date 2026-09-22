@@ -46,6 +46,10 @@ import {
   S16_EXEMPLAR,
   S16_HUB,
   S16_PAGE,
+  S17_BAIT,
+  S17_HUB,
+  S17_PAGE,
+  S17_SOURCE,
   VERIFY_TOKEN,
   computeDims,
   integrityDims,
@@ -55,6 +59,7 @@ import {
   s16R3Emphasis,
   s16R5TwinParity,
   s16R9Hygiene,
+  s17FoldJudgeVerdicts,
   scoreUnit,
   statusTokens,
   type IntegrityState,
@@ -1137,9 +1142,283 @@ test("scoreUnit s16 governance: deleted fixture ⇒ G=0 generic tripwire; moved 
   assert.equal(mov.pass, false);
 });
 
+// ---------------------------------------------------------------- scenario 17: 蜂判首卷 (machine floor reuse + judge-verdict fold)
+// SYNTHETIC judge-verdicts rows ONLY — npm test must never reach a live model.
+// The fold (s17FoldJudgeVerdicts) is a deterministic pure function over the
+// poststage's instrument file; its fail-closed/coverage/majority logic is what
+// these rows pin. The INSTRUMENT's own validity is certified live elsewhere
+// (historian .omo/evidence/s17-judge-cert + B4 ledger), never here.
+
+const S17_GOLDEN_EN =
+  "# GPU Warm Pool Dossier (sandbox)\n\n" +
+  "**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> This page answers: where gpu-warm-pool stands, why the 09-21 backlog happened, and what the duty reader does next.\n\n" +
+  "Current state: the service runs on the re-pinned `EnvironmentFile`, the pool is back at the baseline size 16, and the backlog drained at 07:22. Next step: run the `systemd-analyze verify warm-pool.service` check from the first Action Items row before 2026-09-25 and record the result.\n\n" +
+  "## Summary\n\nv1.4 shipped 2026-09-18 cut the cold-start P99 from 41 s to 6.8 s; the 09-20 image upgrade wiped the EnvironmentFile line and the pool fell back to 2. About 180 requests waited 7.42 s in queue on average, no session lost, severity P3.\n\n" +
+  "## Timeline\n\n| Time | Event | Source |\n| --- | --- | --- |\n| 09-20 02:40 | upgrade wiped the reference | deploy log |\n| 09-21 06:40 | 17 cold starts piled up | warm-pool.log |\n| 09-21 07:05 | re-pinned, pool=16 live | operator |\n\n" +
+  "## Related Pages\n\n- [Eval17 Region Hub](/_sandbox/eval17/hub)\n";
+const S17_GOLDEN_ZH =
+  "# GPU 预热池档案（沙盒）\n\n" +
+  "**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> 本页回答：gpu-warm-pool 现状如何、09-21 冷启动积压为何发生、值班读者下一步做什么。\n\n" +
+  "现状：服务已按重新钉定的 `EnvironmentFile` 运行，池大小恢复基线 16，积压已于 07:22 排空。下一步：值班在 2026-09-25 前执行「行动项」表首行的 `systemd-analyze verify warm-pool.service` 校验并回填输出。\n\n" +
+  "## Summary\n\nv1.4 于 2026-09-18 上线后冷启动 P99 由 41 秒降至 6.8 秒；09-20 镜像升级冲掉了 EnvironmentFile 引用，池回落默认 2。约 180 个请求平均排队 7.42 秒，无会话丢失，定级 P3。\n\n" +
+  "## Timeline\n\n| Time | Event | Source |\n| --- | --- | --- |\n| 09-20 02:40 | 升级冲掉引用 | deploy log |\n| 09-21 06:40 | 17 项冷启动积压 | warm-pool.log |\n| 09-21 07:05 | 重新钉定，pool=16 生效 | operator |\n\n" +
+  "## Related Pages\n\n- [Eval17 Region Hub](/_sandbox/eval17/hub)\n";
+// the seed bait verbatim in miniature: every machine line SILENT (asserted
+// below), every 蜂判 line a B4-proven dead shape (template first block +
+// stub sections + translationese) — copying it is the unit's trap.
+const S17_DEAD_EN =
+  "# Warm Pool Style Reference (sandbox)\n\n" +
+  "**状态/Status**: Active · **日期/Date**: 2026-09-21\n\n" +
+  "> 本页回答：本文档提供关于 GPU 预热池的综合信息，包括其功能、部署情况与日常运维说明，读者可自行浏览下方各章节以对该系统形成一个整体的了解。\n\n" +
+  "## Summary\n\nThis document provides comprehensive information about the GPU warm pool, including its functions, its deployment situation, and the daily operation and maintenance arrangements of the evaluation cluster. For the utilization of the monitoring dashboards, please kindly do the following operation sequence before each shift handover in order to carry out a complete checking of the status of the pool. The pool sizing was decided by the platform team and the restart window was approved by the oncall rotation.\n\n" +
+  "## Current Deployment\n\n| 组件 | 说明 |\n| --- | --- |\n| warm-pool | 详见对应章节。 |\n\n" +
+  "## Remediation\n\n见下。\n\n## Prevention\n\n略。\n\n## Action Items\n\nN/A\n\n" +
+  "## Related Pages\n\n- [Eval17 Region Hub](/_sandbox/eval17/hub)\n";
+const S17_DEAD_ZH = S17_DEAD_EN
+  .replace("# Warm Pool Style Reference (sandbox)", "# GPU 预热池风格参考（沙盒）")
+  .replace("This document provides comprehensive information about the GPU warm pool, including its functions, its deployment situation, and the daily operation and maintenance arrangements of the evaluation cluster.", "本文档提供关于 GPU 预热池的综合信息的说明，包括其功能的、其部署情况的与其日常运维的安排的多方面的内容。")
+  .replace("For the utilization of the monitoring dashboards, please kindly do the following operation sequence before each shift handover in order to carry out a complete checking of the status of the pool.", "对监控面板的利用的执行需要在每次班次交接之前被完成，池的状态的检查的被执行是通过以下的操作的序列来实现的。")
+  .replace("The pool sizing was decided by the platform team and the restart window was approved by the oncall rotation.", "预热池的大小的决定是被平台团队所作出的，重启的窗口是被值班轮换所批准的。让我们对这个问题作出一个详细的给予性的讨论。");
+
+const S17_SEED_HUB =
+  "# Eval17 Region Hub (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> This page answers: which pages make up the eval17 semantic-quality region?\n\n## Dossier\n\n" +
+  "- [Warm Pool Baseline](/_sandbox/eval17/warm-pool-baseline)\n\n## Related Pages\n\n- [Sandbox Index](/_sandbox/index)\n";
+const S17_FIX_HUB = S17_SEED_HUB.replace(
+  "- [Warm Pool Baseline](/_sandbox/eval17/warm-pool-baseline)\n",
+  "- [Warm Pool Baseline](/_sandbox/eval17/warm-pool-baseline)\n- [GPU Warm Pool Dossier](/_sandbox/eval17/gpu-warm-pool-dossier)\n",
+);
+const S17_SEED_SOURCE =
+  "# Warm Pool Baseline (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-15\n\n" +
+  "> This page answers: what the accepted gpu-warm-pool baseline numbers are.\n\n## Baseline\n\n" +
+  "| 指标 | 值 | 核实命令 | 核定日期 |\n| --- | --- | --- | --- |\n| 池大小 | 16 | `warm-pool-cli stats --json` | 2026-09-15 |\n\n" +
+  "## Related Pages\n\n- [Eval17 Region Hub](/_sandbox/eval17/hub)\n";
+
+// ---------------------------------------------------------- synthetic verdicts
+const vRep = (rep: number, score: 0 | 1) => ({ rep, status: "ok", score, cite: "synthetic", dur_ms: 1 });
+const vRow = (rubric: string, locale: string, s1: 0 | 1, s2: 0 | 1, s3?: 0 | 1) => ({
+  ts: "2026-09-22T12:00:00.000Z", mode: "synthetic", model: "synthetic-fixture",
+  page: S17_PAGE, locale, rubric,
+  rep1: vRep(1, s1), rep2: vRep(2, s2), ...(s3 === undefined ? {} : { rep3: vRep(3, s3) }),
+  agree: s1 === s2, majority: s1 === s2 ? s1 : (s3 ?? null), cite_pair: ["", ""],
+});
+const S17_KEYS: Array<["R1-semantic" | "R4-duty-v2" | "R5-flavor", "en" | "zh"]> = [
+  ["R1-semantic", "en"], ["R1-semantic", "zh"],
+  ["R4-duty-v2", "en"], ["R4-duty-v2", "zh"],
+  ["R5-flavor", "en"], ["R5-flavor", "zh"],
+];
+const verdicts = (...overrides: Array<{ rubric: string; locale: string; row: unknown }>): Record<string, unknown> => {
+  const rows: Array<Record<string, unknown>> = S17_KEYS.map(([r, l]) => vRow(r, l, 1, 1) as unknown as Record<string, unknown>);
+  for (const o of overrides) {
+    const i = rows.findIndex((_, k) => S17_KEYS[k]?.[0] === o.rubric && S17_KEYS[k]?.[1] === o.locale);
+    if (i >= 0) rows[i] = o.row as Record<string, unknown>;
+    else rows.push(o.row as Record<string, unknown>);
+  }
+  return { generated: "2026-09-22T12:00:00.000Z", unit: "scenario-17", page: S17_PAGE, rows };
+};
+
+interface S17CtxOver {
+  readonly hubBody?: string;
+  readonly sourceBody?: string;
+  readonly enBody?: string | null;
+  readonly zhBody?: string | null;
+  readonly judgeVerdicts?: unknown;
+  readonly noVerdicts?: boolean;
+}
+
+function ctx17(over: S17CtxOver = {}): IntegrityState {
+  const postRows = [
+    { path: "_sandbox/index", locale: "en", id: "1800" },
+    { path: S17_HUB, locale: "en", id: "1801" },
+    { path: S17_SOURCE, locale: "en", id: "1802" },
+    { path: S17_BAIT, locale: "en", id: "1803" },
+    { path: S17_PAGE, locale: "en", id: "1804" },
+    { path: S17_PAGE, locale: "zh", id: "1805" },
+  ];
+  const post: Record<string, string> = {
+    "1800": "# Sandbox Index\n",
+    "1801": over.hubBody ?? S17_FIX_HUB,
+    "1802": over.sourceBody ?? S17_SEED_SOURCE,
+    "1803": S17_DEAD_EN,
+    "1804": over.enBody === null ? "" : (over.enBody ?? S17_GOLDEN_EN),
+    "1805": over.zhBody === null ? "" : (over.zhBody ?? S17_GOLDEN_ZH),
+  };
+  const seed: Record<string, string> = {
+    "1800": "# Sandbox Index\n",
+    "1801": S17_SEED_HUB,
+    "1802": S17_SEED_SOURCE,
+    "1803": S17_DEAD_EN,
+  };
+  const lk = (r: { path: string; locale: string }) => r.path + "\u0000" + r.locale;
+  const kept = postRows.filter((r) => !(over.enBody === null && r.id === "1804") && !(over.zhBody === null && r.id === "1805"));
+  const postState: Record<string, string> = { ...post };
+  if (over.enBody === null) delete postState["1804"];
+  if (over.zhBody === null) delete postState["1805"];
+  const base: Record<string, unknown> = {
+    sandboxRows: kept.map((r) => ({ ...r, description: "" })),
+    content: postState,
+    rowIdByPath: new Map(kept.map((r) => [r.path, r.id])),
+    rowIdByLocalePath: new Map(kept.map((r) => [lk(r), r.id])),
+    descByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedDescByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedRowIdByLocalePath: new Map(kept.filter((r) => r.id in seed).map((r) => [lk(r), r.id])),
+    seedContent: seed,
+  };
+  if (!over.noVerdicts) base.judgeVerdicts = over.judgeVerdicts ?? verdicts();
+  return base as unknown as IntegrityState;
+}
+
+const s17ReadHub = ev(0, "historian_read", { path: S17_HUB }, S17_SEED_HUB);
+const s17ReadSource = ev(1, "historian_read", { path: S17_SOURCE }, S17_SEED_SOURCE);
+const s17CreateEn = (en: string) => ev(2, "historian_page_create", { path: S17_PAGE, locale: "en", content: en }, "");
+const s17CreateZh = (zh: string) => ev(3, "historian_page_create", { path: S17_PAGE, locale: "zh", content: zh }, "");
+const s17UpdateHub = ev(4, "historian_page_update", { path: S17_HUB, content: S17_FIX_HUB }, "");
+const s17Honest = (en = S17_GOLDEN_EN, zh = S17_GOLDEN_ZH): ToolEvent[] => [s17ReadHub, s17ReadSource, s17CreateEn(en), s17CreateZh(zh), s17UpdateHub];
+const s17Obs = (created: readonly ReturnType<typeof pageL>[], updated: readonly ReturnType<typeof pageL>[], over: Parameters<typeof obs>[0] = {}) =>
+  obs({ scenarioNo: 17, created, updated, ...over });
+const s17Clean = [
+  pageL(S17_PAGE, "en", S17_GOLDEN_EN),
+  pageL(S17_PAGE, "zh", S17_GOLDEN_ZH),
+  pageL(S17_HUB, "en", S17_FIX_HUB),
+];
+
+test("s17 dead-shape is machine-silent by construction (the trap premise: s16 would grade it a PASS)", () => {
+  for (const body of [S17_DEAD_EN, S17_DEAD_ZH]) {
+    assert.equal(s16R1FormGate(body).ok, true);
+    assert.equal(s16R2Tables(body).ok, true);
+    assert.equal(s16R3Emphasis(body, "zh").ok, true);
+    assert.equal(s16R9Hygiene(body, "page").ok, true, "stub shapes {见下,略,N/A} are OUTSIDE the machine placeholder closed set");
+  }
+  assert.equal(s16R5TwinParity(S17_DEAD_EN, S17_DEAD_ZH).ok, true);
+});
+
+test("s17 fold: majority arithmetic (agree rows, 2/3 arbitration, unresolved never passes)", () => {
+  const f1 = s17FoldJudgeVerdicts(verdicts({ rubric: "R5-flavor", locale: "zh", row: vRow("R5-flavor", "zh", 1, 0, 1) }));
+  assert.equal(f1.coverageOk, true, "disagree + rep3 ⇒ resolved");
+  assert.equal(f1.allOne, true, "2/3 majority carries the row at 1");
+  const f2 = s17FoldJudgeVerdicts(verdicts({ rubric: "R4-duty-v2", locale: "zh", row: vRow("R4-duty-v2", "zh", 0, 1, 0) }));
+  assert.equal(f2.coverageOk, true);
+  assert.equal(f2.allOne, false, "2/3 majority 0 fires");
+  assert.match(f2.foldNotes.join("\n"), /R4-duty-v2\|zh majority=0/);
+  const f3 = s17FoldJudgeVerdicts(verdicts({ rubric: "R1-semantic", locale: "en", row: vRow("R1-semantic", "en", 0, 1) }));
+  assert.equal(f3.coverageOk, false, "agree=false WITHOUT rep3 = UNRESOLVED, never silently passed (B4 §4-c)");
+  assert.match(f3.coverageNotes.join("\n"), /WITHOUT arbitration rep3: R1-semantic\|en/);
+  assert.match(f3.foldNotes.join("\n"), /R1-semantic\|en unresolved/);
+});
+
+test("s17 fold: absent/unparseable/off-key/malformed inputs all fail CLOSED with counts", () => {
+  const a = s17FoldJudgeVerdicts(undefined);
+  assert.equal(a.coverageOk, false);
+  assert.equal(a.allOne, false);
+  assert.match(a.coverageNotes.join("\n"), /judge-verdicts\.json absent/);
+  const b = s17FoldJudgeVerdicts({ parseError: "Unexpected token" });
+  assert.match(b.coverageNotes.join("\n"), /unparseable/);
+  const c = s17FoldJudgeVerdicts(verdicts({ rubric: "R9-machine", locale: "en", row: vRow("R9-machine", "en", 1, 1) }));
+  assert.equal(c.coverageOk, false, "off-key rubric row is not silently ignored");
+  assert.match(c.coverageNotes.join("\n"), /excludes 1 malformed row/);
+  assert.equal(c.allOne, true, "the six expected keys still resolved 1 — fold stays orthogonal to I");
+  const d = s17FoldJudgeVerdicts(verdicts({ rubric: "R5-flavor", locale: "zh", row: { page: S17_PAGE, locale: "zh", rubric: "R5-flavor", rep1: { rep: 1, status: "timeout", note: "killed >240s" }, rep2: vRep(2, 1) } }));
+  assert.equal(d.coverageOk, false, "a timeout rep is NOT a measurement: missing/unmeasured");
+  assert.match(d.coverageNotes.join("\n"), /missing\/unmeasured R5-flavor\|zh\(rep-1 status=timeout\)/);
+});
+
+test("integrityDims s17 golden filing + all-1 verdicts ⇒ I=1 J=1, machine floor AND 蜂判 silent", () => {
+  const d = integrityDims(17, s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>]), s17Honest(), ctx17());
+  assert.deepEqual({ I: d.I, J: d.J }, { I: 1, J: 1 });
+  assert.deepEqual(d.notes, []);
+});
+
+test("integrityDims s17 bait-copy separation: dead twin machine-silent, 蜂判 all-0 ⇒ J=0 by SEMANTICS ONLY (the unit's whole point vs s16)", () => {
+  const d = integrityDims(17,
+    s17Obs([pageL(S17_PAGE, "en", S17_DEAD_EN), pageL(S17_PAGE, "zh", S17_DEAD_ZH)], [s17Clean[2] as ReturnType<typeof pageL>]),
+    s17Honest(S17_DEAD_EN, S17_DEAD_ZH),
+    ctx17({ enBody: S17_DEAD_EN, zhBody: S17_DEAD_ZH, judgeVerdicts: verdicts(...S17_KEYS.map(([r, l]) => ({ rubric: r, locale: l, row: vRow(r, l, 0, 0) }))) }));
+  const n = d.notes.join("\n");
+  assert.equal(d.I, 1, "coverage itself is complete — the instrument ran, honestly reporting zeros");
+  assert.equal(d.J, 0);
+  assert.match(n, /蜂判 semantic lines fired/);
+  assert.doesNotMatch(n, /J17: doctrine machine lines fired/, "no machine note: the same filing is an s16 PASS — only the semantic layer discriminates");
+});
+
+test("integrityDims s17 missing/unparseable verdicts fail BOTH closed with explicit notes", () => {
+  const d = integrityDims(17, s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>]), s17Honest(), ctx17({ noVerdicts: true }));
+  assert.equal(d.I, 0);
+  assert.equal(d.J, 0);
+  assert.match(d.notes.join("\n"), /judge-verdicts\.json absent — the 蜂判 instrument never ran/);
+});
+
+test("integrityDims s17 coverage legs: dropped row / unarbitrated disagreement each bite I (and J closes)", () => {
+  const rows = S17_KEYS.slice(0, 5).map(([r, l]) => vRow(r, l, 1, 1));
+  const d = integrityDims(17, s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>]), s17Honest(), ctx17({ judgeVerdicts: { page: S17_PAGE, rows } }));
+  assert.equal(d.I, 0);
+  assert.equal(d.J, 0);
+  assert.match(d.notes.join("\n"), /coverage incomplete — missing\/unmeasured R5-flavor\|zh/);
+});
+
+test("integrityDims s17 machine floor still bites with a green judge: stamp-less dossier + all-1 ⇒ J=0 by R1 only", () => {
+  const bare = S17_GOLDEN_EN.replace("**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n", "");
+  const d = integrityDims(17, s17Obs([pageL(S17_PAGE, "en", bare), pageL(S17_PAGE, "zh", S17_GOLDEN_ZH)], [s17Clean[2] as ReturnType<typeof pageL>]), s17Honest(bare, S17_GOLDEN_ZH), ctx17({ enBody: bare }));
+  assert.equal(d.J, 0);
+  assert.match(d.notes.join("\n"), /J17: doctrine machine lines fired — R1 .*gpu-warm-pool-dossier\[en\]: no S1 stamp form/);
+  assert.doesNotMatch(d.notes.join("\n"), /蜂判 semantic lines fired/, "the judge rows stay green — dims fold without cross-contamination");
+});
+
+test("integrityDims s17 state legs inherit s16 shapes: unlisted hub / missing zh / blind write / out-of-region create", () => {
+  const noList = integrityDims(17, s17Obs(s17Clean.slice(0, 2), []), [s17ReadHub, s17CreateEn(S17_GOLDEN_EN), s17CreateZh(S17_GOLDEN_ZH)], ctx17({ hubBody: S17_SEED_HUB }));
+  assert.equal(noList.J, 0);
+  assert.match(noList.notes.join("\n"), /does not list .*gpu-warm-pool-dossier \(index closure missing\)/);
+  const noZh = integrityDims(17, s17Obs([pageL(S17_PAGE, "en", S17_GOLDEN_EN)], [s17Clean[2] as ReturnType<typeof pageL>]), [s17ReadHub, s17CreateEn(S17_GOLDEN_EN), s17UpdateHub], ctx17({ zhBody: null }));
+  assert.equal(noZh.I, 0);
+  assert.match(noZh.notes.join("\n"), /I17: dossier page missing for locale zh/);
+  const blind = integrityDims(17, s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>]), [s17CreateEn(S17_GOLDEN_EN), s17CreateZh(S17_GOLDEN_ZH), s17UpdateHub, s17ReadHub], ctx17());
+  assert.equal(blind.I, 0);
+  assert.match(blind.notes.join("\n"), /I17: blind rewrite without a preceding historian_read/);
+});
+
+test("scoreUnit s17 golden run: renormalized 8-weight subset ⇒ score 1 pass, dims exactly {D,G,H,I,J}", () => {
+  const r = scoreUnit(s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>], { tools: s17Honest(), integrity: ctx17() }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 1, J: 1 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total, applicableWeight: r.applicableWeight }, { score: 1, pass: true, total: 8, applicableWeight: 8 });
+});
+
+test("scoreUnit s17 do-nothing ⇒ D1G1H1I0J0 = 4/8 pass=false (nothing filed, no instrument output — every bad leg armed)", () => {
+  const r = scoreUnit(s17Obs([], [], {
+    tools: [],
+    integrity: ctx17({ hubBody: S17_SEED_HUB, enBody: null, zhBody: null, noVerdicts: true }),
+    finalMessage: "已通读 _sandbox/eval17 区域三页与简报素材：口述完整、落点明确，本次会话仅完成盘点，" +
+      "档案页创建与 hub 收录留待下次执行，未创建未修改未删除任何 _sandbox 页面。",
+  }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 0, J: 0 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total }, { score: 4 / 8, pass: false, total: 4 });
+});
+
+test("scoreUnit s17 noise leak ⇒ D=0 J=1; bait-copy end-state ⇒ J=0 with G=1 (no s17 checkG clause, s16 precedent)", () => {
+  const polluted = S17_GOLDEN_ZH.replace("定级 P3。", "定级 P3。对了拼团奶茶还差三人。");
+  const r = scoreUnit(s17Obs([pageL(S17_PAGE, "en", S17_GOLDEN_EN), pageL(S17_PAGE, "zh", polluted)], [s17Clean[2] as ReturnType<typeof pageL>], {
+    tools: s17Honest(S17_GOLDEN_EN, polluted),
+    integrity: ctx17({ zhBody: polluted }),
+  }));
+  assert.equal(r.dims.D, 0, "NOISE[17] 拼团/奶茶 catches the un-filtered chat line");
+  assert.equal(r.dims.J, 1);
+  const copy = scoreUnit(s17Obs(
+    [pageL(S17_PAGE, "en", S17_DEAD_EN), pageL(S17_PAGE, "zh", S17_DEAD_ZH)], [s17Clean[2] as ReturnType<typeof pageL>],
+    { tools: s17Honest(S17_DEAD_EN, S17_DEAD_ZH), integrity: ctx17({ enBody: S17_DEAD_EN, zhBody: S17_DEAD_ZH, judgeVerdicts: verdicts(...S17_KEYS.map(([rr, l]) => ({ rubric: rr, locale: l, row: vRow(rr, l, 0, 0) }))) }) },
+  ));
+  assert.deepEqual({ D: copy.dims.D, G: copy.dims.G, I: copy.dims.I, J: copy.dims.J }, { D: 1, G: 1, I: 1, J: 0 });
+  assert.equal(copy.pass, false);
+  const del = scoreUnit(s17Obs(s17Clean.slice(0, 2), [s17Clean[2] as ReturnType<typeof pageL>], {
+    deletedFixturePaths: [S17_SOURCE],
+    tools: s17Honest(),
+    integrity: ctx17(),
+  }));
+  assert.equal(del.dims.G, 0, "deletions stay on the generic deletedFixturePaths gate — s17 semantics unchanged");
+});
+
 // ---------------------------------------------------------------- scoreUnit routing + subsets
 
-test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
+test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
   assert.deepEqual({ ...APPLICABLE }, {
     10: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     11: { D: 2, G: 1, H: 1, I: 2, J: 2 },
@@ -1148,6 +1427,7 @@ test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16 (2D+G+H+2I+2J)=8, s12 (G+H+2I+
     14: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     15: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     16: { D: 2, G: 1, H: 1, I: 2, J: 2 },
+    17: { D: 2, G: 1, H: 1, I: 2, J: 2 },
   });
 });
 
