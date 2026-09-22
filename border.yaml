@@ -111,3 +111,4 @@ allow:
   # class: guard-config self-occurrence (the literal appears ONLY in this border.yaml hosts list; source-tree occurrences stay CRITICAL)
   - { rule: 'internal-host:bailian', match: 'c159fd3a23342dc20d346131f0a02ef9e5650cbe6709f7e6cf58bca7cc6cf25b', file: 'border.yaml' }
   - { rule: 'internal-host:token-plan', match: 'f06ab118a62a8faa4e0be2916f471aafc025dc9935e86a451bd580eb7d59c8e1', file: 'border.yaml' }
+  - { rule: 'path-pattern:*', match: 'fdd56f645f4af729987a3d7524a20f4733fff3cd75c4062a675f38f78bb0e756', file: 'src/test/historian-grader-integrity.test.ts' }
