@@ -97,7 +97,37 @@ export const S15_INCIDENT: string;
 export const S15_DORMANT: string;
 export const S15_ARCHIVE: string;
 export const S15_TOKEN: string;
+export const S16_HUB: string;
+export const S16_EXEMPLAR: string;
+export const S16_BAIT: string;
+export const S16_PAGE: string;
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
+
+/** Doctrine machine-line verdict (scenario-16): deterministic check result. */
+export interface DoctrineCheck {
+  readonly ok: boolean;
+  readonly why?: string | undefined;
+  readonly exempt?: boolean | undefined;
+}
+
+export interface DoctrineSignature {
+  readonly h: number;
+  readonly t: number;
+  readonly c: number;
+  readonly b: number;
+}
+
+/** (A) R1 形态门 — S1 stamp-form closed set, pre-first-H2 block, cap-5 tail. */
+export function s16R1FormGate(content: string): DoctrineCheck;
+/** (B) R2 — cell ≤120 chars, rendered row ≤120 cols, >20 rows need a grouping row. */
+export function s16R2Tables(content: string): DoctrineCheck;
+/** (C) R3 — emphasis spans per 2000 narrative non-ws chars, en ≤22 / zh ≤35. */
+export function s16R3Emphasis(content: string, locale: string): DoctrineCheck;
+/** (D) R9 — trailer dangling / normalized long-line repeat / placeholder closed set. */
+export function s16R9Hygiene(content: string, region?: "page" | "trailer"): DoctrineCheck;
+/** (E) R5 — twin structure signature (h, t, c, b), per-axis deviation cap. */
+export function s16Signature(content: string): DoctrineSignature;
+export function s16R5TwinParity(enBody: string, zhBody: string): DoctrineCheck;
 
 export interface StatusTokens {
   readonly header: string | null;

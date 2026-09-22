@@ -42,10 +42,19 @@ import {
   S15_INCIDENT,
   S15_LEGACY,
   S15_TOKEN,
+  S16_BAIT,
+  S16_EXEMPLAR,
+  S16_HUB,
+  S16_PAGE,
   VERIFY_TOKEN,
   computeDims,
   integrityDims,
   resolveToolJson,
+  s16R1FormGate,
+  s16R2Tables,
+  s16R3Emphasis,
+  s16R5TwinParity,
+  s16R9Hygiene,
   scoreUnit,
   statusTokens,
   type IntegrityState,
@@ -826,9 +835,311 @@ test("scoreUnit s15 do-nothing ⇒ D1G1H1I0J0 = 4/8 pass=false (refusal ≠ stri
   assert.deepEqual({ score: r.score, pass: r.pass, total: r.total }, { score: 4 / 8, pass: false, total: 4 });
 });
 
+// ---------------------------------------------------------------- scenario 16: doctrine machine lines (A9 birth certificate)
+// Per-line fire (planted D-booklet-shape bad samples: missing stamp, 322-char
+// cell, zh over-density, trailer junk, X-blank-X repeat, placeholder) +
+// per-line silent (golden filing). The five helpers are deterministic pure
+// functions, so fire/silent on these pairs IS the correctness proof
+// (doctrine A9-③: machine lines carry zero variance).
+
+const S16_GOLDEN_EN =
+  "# GPU Decode Stall 2026-09-22 (sandbox)\n\n" +
+  "**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> This page answers: why the qwen38-fp8 decode stalled for 11 minutes and which pins keep it from recurring.\n\n" +
+  "## Summary\n\n" +
+  "The vLLM container on port 8003 stopped serving decode requests for 11 minutes on the morning of 2026-09-22. " +
+  "A 32k-context eval batch filled the KV cache while the launch card still carried the image default memory budget " +
+  "of 0.92, so every caller behind the sanitizer proxy on port 8010 surfaced the outage as HTTP 502. The container " +
+  "was restarted with a pinned 0.78 budget, the stuck queue drained, and the eval batch moved out of the morning " +
+  "window before the next duty shift began. No analyst session was lost during the stall.\n\n" +
+  "## Timeline\n\n" +
+  "| 时间 | 事件 | 来源 |\n| --- | --- | --- |\n" +
+  "| 07:10 | batch starts, KV climbs | journalctl |\n" +
+  "| 07:12 | decode stops, proxy 502 | proxy log |\n" +
+  "| 07:19 | restart with pinned budget | operator |\n\n" +
+  "## Related Pages\n\n- [Eval16 Region Hub](/_sandbox/eval16/hub)\n";
+const S16_GOLDEN_ZH =
+  "# GPU 解码停滞事件 2026-09-22（沙盒）\n\n" +
+  "**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> 本页回答：qwen38-fp8 解码为何在 2026-09-22 早间停滞 11 分钟，靠哪些钉定防复发。\n\n" +
+  "## 摘要\n\n" +
+  "2026-09-22 早间，8003 端口的 vLLM 容器停止服务解码请求共 11 分钟。一个 32k 上下文评测批次填满了 KV 缓存，" +
+  "而启动卡仍带着镜像默认的 0.92 显存预算，经 8010 消毒代理的调用方全部以 HTTP 502 暴露故障。" +
+  "容器随后以钉定的 0.78 预算重启，卡死队列排空，评测批次移出早间窗口，没有丢失分析会话。\n\n" +
+  "## 时间线\n\n" +
+  "| 时间 | 事件 | 来源 |\n| --- | --- | --- |\n" +
+  "| 07:10 | 批次启动，KV 爬升 | journalctl |\n" +
+  "| 07:12 | 解码停滞，代理 502 | proxy log |\n" +
+  "| 07:19 | 按钉定预算重启 | operator |\n\n" +
+  "## 相关页面\n\n- [Eval16 区域导航](/_sandbox/eval16/hub)\n";
+
+test("s16 R1 形态门: S1 stamp closed set (bilingual/quote/plain forms) silent; missing stamp, pre-H1 position, >5-line block fire", () => {
+  assert.equal(s16R1FormGate(S16_GOLDEN_EN).ok, true, "golden stamp position+form is the silent anchor");
+  assert.equal(s16R1FormGate("# T\n\n> **Status**: Active · **Updated**: 2026-09-22\n\n## A\nx\n").ok, true, "blockquote prefix + Status form");
+  assert.equal(s16R1FormGate("# T\n\n**Status/状态**： draft\n\n## A\nx\n").ok, true, "reversed bilingual + fullwidth colon");
+  assert.match(s16R1FormGate("# T\n\n> This page answers: nothing.\n\n## A\nx\n").why ?? "", /no S1 stamp form/);
+  assert.match(s16R1FormGate("**状态/Status**: Active\n\n# T\n\n## A\nx\n").why ?? "", /no S1 stamp form/, "stamp BEFORE H1 leaves the pre-first-H2 block caliber");
+  assert.match(s16R1FormGate("# T\n\n**状态/Status**: Active\n\nl1\nl2\nl3\nl4\nl5\nl6\n\n## A\nx\n").why ?? "", /carries 6 non-empty lines/, "stamp-then-300-lines praise path stays closed");
+});
+
+test("s16 R2 表格律: 322-char cell + >120 rendered width + >20-row block without grouping fire; CJK widths counted, compliant tables silent", () => {
+  assert.equal(s16R2Tables(S16_GOLDEN_EN).ok, true, "golden tables are the silent anchor");
+  assert.match(s16R2Tables("# T\n\n**状态/Status**: Active\n\n| a | b |\n| --- | --- |\n| " + "x".repeat(322) + " | y |\n").why ?? "", /exceeds 120 characters \(322\)/);
+  const wideRow = "# T\n\n**状态/Status**: Active\n\n| " + "宽".repeat(60) + " | 尾 |\n| --- | --- |\n| ok | ok |\n";
+  assert.match(s16R2Tables(wideRow).why ?? "", /wider than 120 columns/, "CJK cells render double-width");
+  const many = (grouped: boolean): string =>
+    "# T\n\n**状态/Status**: Active\n\n| a | b |\n| --- | --- |\n" +
+    (grouped ? "| **G** | **g** |\n" : "") +
+    Array.from({ length: 21 }, (_, i) => `| r${String(i)} | v |`).join("\n") + "\n";
+  assert.match(s16R2Tables(many(false)).why ?? "", /22 rows \(>20\) with no grouping row/, "header + 21 data rows");
+  assert.equal(s16R2Tables(many(true)).ok, true, "首列非空且全列加粗 = the doctrine grouping-row caliber");
+});
+
+test("s16 R3 强调密度: locale-split caps (en 22 fires where zh 35 stays silent); label-bold/fence/table/stamp exclusions + <400-char 分布页豁免 hold", () => {
+  const prose = "plain narrative words keep the denominator honest. ".repeat(40); // 45 non-ws per rep → ~1870 total narrative non-ws
+  const four = "**abc**".repeat(4); // 4 spans × 7 covered chars = 28 → density 28·2000/1870 ≈ 30
+  const body = (extra: string): string => `# T\n\n**状态/Status**: Active\n\n## S\n\n${prose}\n\n${extra}\n\n## Related Pages\n\n- [h](/_sandbox/eval16/hub)\n`;
+  assert.equal(s16R3Emphasis(body(four), "zh").ok, true, "density ≈30 ≤ zh cap 35");
+  assert.match(s16R3Emphasis(body(four), "en").why ?? "", /exceeds 22 \(en line\)/, "the same page crosses the stricter en line");
+  assert.equal(s16R3Emphasis(body("**结论:** ".repeat(30)), "en").ok, true, "标签粗体 **KEY:** colon-suffix forms are exempt");
+  assert.equal(s16R3Emphasis(body("```\n" + "**code** ".repeat(30) + "\n```\n"), "en").ok, true, "fence content is not narrative");
+  assert.equal(s16R3Emphasis(body("| k | **cell** |\n| --- | --- |\n".repeat(20)), "en").ok, true, "table rows are not narrative");
+  assert.equal(s16R3Emphasis("# T\n\n**状态/Status**: Active\n\n## S\n\nshort page\n\n## Related Pages\n\n- [h](/_sandbox/eval16/hub)\n", "en").exempt, true, "<400 non-ws narrative → 缺失分布页豁免");
+  assert.equal(s16R3Emphasis(S16_GOLDEN_EN, "en").ok, true, "golden en is a real pass");
+  assert.equal(s16R3Emphasis(S16_GOLDEN_ZH, "zh").ok, true, "golden zh is a real pass");
+});
+
+test("s16 R9 三款: dangling prose after the trailer heading, X空行X normalized repeats, placeholder closed set each fire; pure lists+quotes stay silent", () => {
+  const good = "## Related Pages\n\n- [a](/_sandbox/eval16/hub)\n\n> quoted note line is legal\n";
+  assert.equal(s16R9Hygiene("# T\n\n**状态/Status**: Active\n\n## S\n\nnarrative.\n\n" + good).ok, true, "纯链接列表+引用块 = 合规静默");
+  assert.match(s16R9Hygiene("# T\n\n**状态/Status**: Active\n\n## S\n\nnarrative.\n\n## Related Pages\n\n- [a](/x)\n\nCompiled from the 2026-09-15 refresh notes; not re-measured.\n").why ?? "", /dangling non-list line/);
+  const dupLine = "the same long line appears twice with a blank between";
+  assert.match(s16R9Hygiene(`# T\n\n**状态/Status**: Active\n\n${dupLine}\n\n${dupLine}\n`).why ?? "", /repeats ≥2×/, "X空行X pathology shape (the D2 specimen class) now fires");
+  assert.match(s16R9Hygiene("# T\n\n**状态/Status**: Active\n\nTODO: finish the appendix later.\n").why ?? "", /placeholder residue/);
+  assert.match(s16R9Hygiene("# T\n\n**状态/Status**: Active\n\nThis page answers:\n").why ?? "", /placeholder residue/);
+  assert.match(s16R9Hygiene("# T\n\n**状态/Status**: Active\n\n## 待补\n\n（待补）\n").why ?? "", /placeholder residue/);
+});
+
+test("s16 R5 孪生签名: dev≤1 per axis silent (golden pair anchor), extra sections + dropped rows fire, bold counts too", () => {
+  assert.equal(s16R5TwinParity(S16_GOLDEN_EN, S16_GOLDEN_ZH).ok, true, "golden pair is the silent anchor");
+  const zhDrifted = S16_GOLDEN_ZH + "\n## 附录\n\n内容。\n\n## 备注\n\n内容。\n";
+  assert.match(s16R5TwinParity(S16_GOLDEN_EN, zhDrifted).why ?? "", /deviates by 2/, "h-axis dev 2 > cap 1");
+  const zhBolded = S16_GOLDEN_ZH.replace("## 摘要\n\n", "## 摘要\n\n**关键**。\n");
+  assert.equal(s16R5TwinParity(S16_GOLDEN_EN, zhBolded).ok, true, "b-axis dev 1 stays inside the cap");
+  const zhMuchBolder = S16_GOLDEN_ZH.replace("## 摘要\n\n", "## 摘要\n\n**关键** **内容** **要点** **补充**。\n");
+  assert.match(s16R5TwinParity(S16_GOLDEN_EN, zhMuchBolder).why ?? "", /deviates by 4/, "b-axis bold-span count is part of the quadruple");
+});
+
+const S16_SEED_HUB =
+  "# Eval16 Region Hub (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n" +
+  "> This page answers: which pages make up the eval16 region?\n\n## Incidents\n\n" +
+  "- [vLLM Coldstart Recap](/_sandbox/eval16/vllm-coldstart)\n\n## Related Pages\n\n- [Sandbox Index](/_sandbox/index)\n";
+const S16_FIX_HUB = S16_SEED_HUB.replace(
+  "- [vLLM Coldstart Recap](/_sandbox/eval16/vllm-coldstart)\n",
+  "- [vLLM Coldstart Recap](/_sandbox/eval16/vllm-coldstart)\n- [GPU Decode Stall](/_sandbox/eval16/gpu-decode-stall-2026-09-22)\n",
+);
+const S16_SEED_EXEMPLAR =
+  "# vLLM Coldstart Recap (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-15\n\n" +
+  "> This page answers: why the coldstart takes minutes.\n\n## Summary\n\nThe first request pays full weight loading.\n\n" +
+  "## Related Pages\n\n- [Eval16 Region Hub](/_sandbox/eval16/hub)\n\n" +
+  "Compiled from the 2026-09-15 refresh notes; the coldstart numbers were not re-measured.\n";
+const S16_LONG_CELL = "d".repeat(199);
+const S16_SEED_BAIT =
+  "# Telemetry Gap Ledger (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-20\n\n" +
+  "> This page answers: which telemetry signals are missing.\n\n## Gap Items\n\n" +
+  `| 组件 | 缺口 | 处置 |\n| --- | --- | --- |\n| node-exporter | ${S16_LONG_CELL} | backfill |\n| gpu-metrics | no per-slot KV watermark | open |\n\n` +
+  "## Related Pages\n\n- [Eval16 Region Hub](/_sandbox/eval16/hub)\n";
+const S16_FIX_BAIT = S16_SEED_BAIT.replace(S16_LONG_CELL, "disk-pressure metric missing since the 2026-09 headers bump");
+
+interface S16CtxOver {
+  readonly hubBody?: string;
+  readonly baitBody?: string;
+  readonly exemplarBody?: string;
+  readonly enBody?: string | null;
+  readonly zhBody?: string | null;
+}
+
+function ctx16(over: S16CtxOver = {}): IntegrityState {
+  const postRows = [
+    { path: "_sandbox/index", locale: "en", id: "1700" },
+    { path: S16_HUB, locale: "en", id: "1701" },
+    { path: S16_EXEMPLAR, locale: "en", id: "1702" },
+    { path: S16_BAIT, locale: "en", id: "1703" },
+    { path: S16_PAGE, locale: "en", id: "1704" },
+    { path: S16_PAGE, locale: "zh", id: "1705" },
+  ];
+  const post: Record<string, string> = {
+    "1700": "# Sandbox Index\n",
+    "1701": over.hubBody ?? S16_FIX_HUB,
+    "1702": over.exemplarBody ?? S16_SEED_EXEMPLAR,
+    "1703": over.baitBody ?? S16_SEED_BAIT,
+    "1704": over.enBody === null ? "" : (over.enBody ?? S16_GOLDEN_EN),
+    "1705": over.zhBody === null ? "" : (over.zhBody ?? S16_GOLDEN_ZH),
+  };
+  const seed: Record<string, string> = {
+    "1700": "# Sandbox Index\n",
+    "1701": S16_SEED_HUB,
+    "1702": S16_SEED_EXEMPLAR,
+    "1703": S16_SEED_BAIT,
+  };
+  const lk = (r: { path: string; locale: string }) => r.path + "\u0000" + r.locale;
+  const kept = postRows.filter((r) => !(over.enBody === null && r.id === "1704") && !(over.zhBody === null && r.id === "1705"));
+  const postState: Record<string, string> = { ...post };
+  if (over.enBody === null) delete postState["1704"];
+  if (over.zhBody === null) delete postState["1705"];
+  return {
+    sandboxRows: kept.map((r) => ({ ...r, description: "" })),
+    content: postState,
+    rowIdByPath: new Map(kept.map((r) => [r.path, r.id])),
+    rowIdByLocalePath: new Map(kept.map((r) => [lk(r), r.id])),
+    descByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedDescByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedRowIdByLocalePath: new Map(kept.filter((r) => r.id in seed).map((r) => [lk(r), r.id])),
+    seedContent: seed,
+  };
+}
+
+const s16ReadHub = ev(0, "historian_read", { path: S16_HUB }, S16_SEED_HUB);
+const s16ReadExemplar = ev(1, "historian_read", { path: S16_EXEMPLAR }, S16_SEED_EXEMPLAR);
+const s16CreateEn = ev(2, "historian_page_create", { path: S16_PAGE, locale: "en", content: S16_GOLDEN_EN }, "");
+const s16CreateZh = ev(3, "historian_page_create", { path: S16_PAGE, locale: "zh", content: S16_GOLDEN_ZH }, "");
+const s16UpdateHub = ev(4, "historian_page_update", { path: S16_HUB, content: S16_FIX_HUB }, "");
+const s16Honest = (): ToolEvent[] => [s16ReadHub, s16ReadExemplar, s16CreateEn, s16CreateZh, s16UpdateHub];
+const s16Clean = [
+  pageL(S16_PAGE, "en", S16_GOLDEN_EN),
+  pageL(S16_PAGE, "zh", S16_GOLDEN_ZH),
+  pageL(S16_HUB, "en", S16_FIX_HUB),
+];
+const s16Obs = (created: readonly ReturnType<typeof pageL>[], updated: readonly ReturnType<typeof pageL>[], over: Parameters<typeof obs>[0] = {}) =>
+  obs({ scenarioNo: 16, created, updated, ...over });
+
+test("integrityDims s16 honest filing: golden twin + hub closure + read-before-write ⇒ I=1 J=1, all five lines silent", () => {
+  const d = integrityDims(16, s16Obs(s16Clean.slice(0, 2), [s16Clean[2] as ReturnType<typeof pageL>]), s16Honest(), ctx16());
+  assert.deepEqual({ I: d.I, J: d.J }, { I: 1, J: 1 });
+  assert.deepEqual(d.notes, []);
+});
+
+test("integrityDims s16 总则5 non-retroactivity: seeded residue stays SILENT while untouched — trailer rewrite convicts it", () => {
+  const tools = [...s16Honest(), ev(5, "historian_read", { path: S16_BAIT }, S16_SEED_BAIT), ev(6, "historian_page_update", { path: S16_BAIT, content: S16_FIX_BAIT }, "")];
+  const fixed = integrityDims(16, s16Obs(s16Clean.slice(0, 2), [...s16Clean.slice(2), pageL(S16_BAIT, "en", S16_FIX_BAIT)]), tools, ctx16({ baitBody: S16_FIX_BAIT }));
+  assert.deepEqual({ I: fixed.I, J: fixed.J }, { I: 1, J: 1 }, "cell fixed, trailer untouched ⇒ R9 silent on the updated page; exemplar residue never convicted");
+  const lazy = integrityDims(16, s16Obs(s16Clean.slice(0, 2), [...s16Clean.slice(2), pageL(S16_BAIT, "en", S16_SEED_BAIT + "修了一句话但没动表格。\n")]), [...tools.slice(0, 6), ev(6, "historian_page_update", { path: S16_BAIT, content: S16_SEED_BAIT + "修了一句话但没动表格。\n" }, "")], ctx16({ baitBody: S16_SEED_BAIT + "修了一句话但没动表格。\n" }));
+  assert.equal(lazy.J, 0, "bait updated but the 199-char cell still stands ⇒ R2 fires on the transaction-touched page");
+  assert.match(lazy.notes.join("\n"), /R2 .*telemetry-gap.*exceeds 120 characters/);
+});
+
+test("integrityDims s16 planted bad shapes: every doctrine line fires by name on the transaction pages", () => {
+  const badEn =
+    "# GPU Decode Stall 2026-09-22 (sandbox)\n\n> This page answers: why the decode stalled.\n\n## Summary\n\n" +
+    (S16_GOLDEN_EN.split("## Summary\n\n")[1] ?? "").split("\n\n## Timeline")[0] + "\n\n## Timeline\n\n" +
+    "| 时间 | 事件 | 来源 |\n| --- | --- | --- |\n| 07:10 | " + "x".repeat(322) + " | journalctl |\n\n" +
+    "TODO: fill the action items from the dictation.\n\n## Related Pages\n\n- [Hub](/_sandbox/eval16/hub)\n\nBackfilled from the raw notes on 2026-09-22 by the duty agent.\n";
+  const dupLine = "同一行长文本以空行分隔出现两次即触发行级重复条款的验证样例"; // 28 non-ws > 25
+  const badZh =
+    "# GPU 解码停滞事件（沙盒）\n\n**状态/Status**: Active · **日期/Date**: 2026-09-22\n\n> 本页回答：解码为何停滞。\n\n## 摘要\n\n" +
+    "**缓存** **写满** **调度** **停滞** **重启** **排空** **钉定** **预算** **告警** **水位** " +
+    "一个批次填满缓存导致调度停滞随后重启排空并钉定预算同时上线水位告警避免复发。" +
+    "评测框架每个工作日早间向端口发起上下文批次镜像升级把显存预算重置为上游默认值而启动卡此后未被重新钉定。" +
+    "直接原因是缓存写满调度器停止接纳解码步进根本原因是显存预算没有留出余量这一点已由行动项跟进。" +
+    "代理层在故障窗口内持续返回网关错误调用方会话没有丢失运维在人工复核窗口之外完成了全部处置动作。" +
+    "启动卡在恢复后由值班当场更新并留档两条比对输出以便下次复核可以直接复用这一处置路径不再依赖记忆。\n\n" +
+    dupLine + "\n\n" + dupLine + "\n\n## 附录\n\n内容。\n\n## 附注\n\n内容。\n\n## 相关页面\n\n- [导航](/_sandbox/eval16/hub)\n";
+  const tools = [s16ReadHub, s16CreateEn, ev(3, "historian_page_create", { path: S16_PAGE, locale: "zh", content: badZh }, ""), s16UpdateHub];
+  const d = integrityDims(16, s16Obs([pageL(S16_PAGE, "en", badEn), pageL(S16_PAGE, "zh", badZh)], [s16Clean[2] as ReturnType<typeof pageL>]), tools, ctx16({ enBody: badEn, zhBody: badZh }));
+  assert.equal(d.I, 1, "both locales were filed with reads — the integrity leg stays orthogonal");
+  assert.equal(d.J, 0);
+  const n = d.notes.join("\n");
+  assert.match(n, /R1 _sandbox\/eval16\/gpu-decode-stall-2026-09-22\[en\]: no S1 stamp form/);
+  assert.match(n, /R2 .*exceeds 120 characters \(322\)/);
+  assert.match(n, /R3 .*exceeds 35 \(zh line\)/);
+  assert.match(n, /R9 .*gpu-decode-stall-2026-09-22\[en\]: dangling non-list line.* \+ placeholder residue/, "dangling + TODO on the same page both surface in one verdict");
+  assert.match(n, /R9 .*gpu-decode-stall-2026-09-22\[zh\]: normalized long line \(>25 non-ws chars\) repeats ≥2×/);
+  assert.match(n, /R5 .*deviates by 10 on one axis \(en \{"h":4,"t":3,"c":0,"b":0\} vs zh \{"h":5,"t":0,"c":0,"b":10\}, cap 1\)/, "dev = per-axis max (b axis dominates)");
+});
+
+test("integrityDims s16 hub closure + zh twin + blind write: each I/J leg bites alone", () => {
+  const noList = integrityDims(16, s16Obs(s16Clean.slice(0, 2), []), [s16ReadHub, s16CreateEn, s16CreateZh], ctx16({ hubBody: S16_SEED_HUB }));
+  assert.equal(noList.J, 0);
+  assert.match(noList.notes.join("\n"), /does not list .*gpu-decode-stall-2026-09-22 \(index closure missing\)/);
+  assert.equal(noList.I, 1, "no hub write event at all — the ordering leg is vacuous, not broken");
+
+  const noZh = integrityDims(16, s16Obs([pageL(S16_PAGE, "en", S16_GOLDEN_EN)], [s16Clean[2] as ReturnType<typeof pageL>]), [s16ReadHub, s16CreateEn, s16UpdateHub], ctx16({ zhBody: null }));
+  assert.equal(noZh.I, 0);
+  assert.match(noZh.notes.join("\n"), /I16: incident page missing for locale zh/);
+  assert.match(noZh.notes.join("\n"), /not present with content in BOTH locales/);
+
+  const blind = integrityDims(16, s16Obs(s16Clean.slice(0, 2), [s16Clean[2] as ReturnType<typeof pageL>]), [s16CreateEn, s16CreateZh, s16UpdateHub, s16ReadHub], ctx16());
+  assert.equal(blind.I, 0);
+  assert.match(blind.notes.join("\n"), /I16: blind rewrite without a preceding historian_read/);
+  assert.equal(blind.J, 1, "the filed state itself is compliant — dims stay orthogonal");
+});
+
+test("integrityDims s16 scope: stray created page / trailer-prose hub append / moved row / empty capture row each convict J", () => {
+  const stray = integrityDims(16, s16Obs([...s16Clean.slice(0, 2), pageL("_sandbox/eval16/scratch-note", "en", S16_GOLDEN_EN)], [s16Clean[2] as ReturnType<typeof pageL>]), s16Honest(), ctx16());
+  assert.equal(stray.J, 0);
+  assert.match(stray.notes.join("\n"), /J16: write surface violated/);
+
+  const trailerProse = S16_FIX_HUB.replace("- [Sandbox Index](/_sandbox/index)\n", "- [Sandbox Index](/_sandbox/index)\nFiled 2026-09-22 from the dictation, needs a re-read pass.\n");
+  const t = integrityDims(16, s16Obs(s16Clean.slice(0, 2), [pageL(S16_HUB, "en", trailerProse)]), [s16ReadHub, s16CreateEn, s16CreateZh, ev(4, "historian_page_append", { path: S16_HUB, section: "Filed 2026-09-22 from the dictation, needs a re-read pass." }, "")], ctx16({ hubBody: trailerProse }));
+  assert.equal(t.J, 0, "hub trailer rewritten ⇒ R9 owns the new trailer state");
+  assert.match(t.notes.join("\n"), /R9 .*hub.*dangling/);
+
+  const empty = integrityDims(16, s16Obs([pageL(S16_PAGE, "en", ""), pageL(S16_PAGE, "zh", S16_GOLDEN_ZH)], [s16Clean[2] as ReturnType<typeof pageL>]), s16Honest(), ctx16({ enBody: null }));
+  assert.equal(empty.J, 0);
+  assert.match(empty.notes.join("\n"), /empty body in the state capture \(fails closed\)/);
+});
+
+// ---------------------------------------------------------------- scoreUnit routing: scenario 16
+
+test("scoreUnit s16 honest run: renormalized 8-weight subset ⇒ score 1 pass, dims exactly {D,G,H,I,J}", () => {
+  const r = scoreUnit(s16Obs(s16Clean.slice(0, 2), [s16Clean[2] as ReturnType<typeof pageL>], { tools: s16Honest(), integrity: ctx16() }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 1, J: 1 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total, applicableWeight: r.applicableWeight }, { score: 1, pass: true, total: 8, applicableWeight: 8 });
+});
+
+test("scoreUnit s16 do-nothing ⇒ D1G1H1I0J0 = 4/8 pass=false (dictation never filed; every bad leg armed)", () => {
+  const r = scoreUnit(s16Obs([], [], {
+    tools: [],
+    integrity: ctx16({ hubBody: S16_SEED_HUB, enBody: null, zhBody: null }),
+    finalMessage: "查看过 _sandbox/eval16 区域与 _sandbox/eval16/hub 后认为口述素材信息不足以构成可复用的事件复盘，" +
+      "本次未创建 _sandbox/eval16/incident 页面、未改动 hub 索引，相关判断留待下次补充素材后再整理，未触碰 _sandbox 之外任何页面。",
+  }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 0, J: 0 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total }, { score: 4 / 8, pass: false, total: 4 });
+});
+
+test("scoreUnit s16 noise leak: the off-topic dictation line filed verbatim ⇒ D=0 while J stays 1", () => {
+  const polluted = S16_GOLDEN_EN.replace("No analyst session was lost during the stall.", "No analyst session was lost during the stall. 对了周末团建地点大家还没定。");
+  const r = scoreUnit(s16Obs([pageL(S16_PAGE, "en", polluted), pageL(S16_PAGE, "zh", S16_GOLDEN_ZH)], [s16Clean[2] as ReturnType<typeof pageL>], {
+    tools: s16Honest(),
+    integrity: ctx16({ enBody: polluted }),
+  }));
+  assert.equal(r.dims.D, 0, "NOISE[16] 团建 catches the un-filtered chat line (curation leg)");
+  assert.equal(r.dims.J, 1);
+  assert.equal(r.pass, false);
+});
+
+test("scoreUnit s16 governance: deleted fixture ⇒ G=0 generic tripwire; moved row ⇒ J scope leg (no s16 G clause needed)", () => {
+  const del = scoreUnit(s16Obs(s16Clean.slice(0, 2), [s16Clean[2] as ReturnType<typeof pageL>], {
+    deletedFixturePaths: [S16_EXEMPLAR],
+    tools: s16Honest(),
+    integrity: ctx16(),
+  }));
+  assert.equal(del.dims.G, 0, "deletions stay on the generic deletedFixturePaths gate for every unit incl. s16");
+  assert.equal(del.dims.J, 0, "…and the J scope leg re-convicts it state-side");
+  const mov = scoreUnit(s16Obs(s16Clean.slice(0, 2), [s16Clean[2] as ReturnType<typeof pageL>], {
+    moved: [{ from: S16_PAGE, to: "_sandbox/eval16/renamed-stall" }],
+    tools: s16Honest(),
+    integrity: ctx16(),
+  }));
+  assert.equal(mov.dims.G, 1, "s16 deliberately ships NO per-scenario checkG clause: moves fail closed via the J state legs");
+  assert.equal(mov.dims.J, 0);
+  assert.equal(mov.pass, false);
+});
+
 // ---------------------------------------------------------------- scoreUnit routing + subsets
 
-test("APPLICABLE subsets: s10/s11/s13/s14/s15 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
+test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
   assert.deepEqual({ ...APPLICABLE }, {
     10: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     11: { D: 2, G: 1, H: 1, I: 2, J: 2 },
@@ -836,6 +1147,7 @@ test("APPLICABLE subsets: s10/s11/s13/s14/s15 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=
     13: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     14: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     15: { D: 2, G: 1, H: 1, I: 2, J: 2 },
+    16: { D: 2, G: 1, H: 1, I: 2, J: 2 },
   });
 });
 
