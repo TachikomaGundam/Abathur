@@ -56,6 +56,11 @@ import {
   S18_HUB,
   S18_PAGE,
   S18_STEP2,
+  S19_DEAD,
+  S19_DOSSIER,
+  S19_GLOSSARY,
+  S19_HUB,
+  S19_SUMMARY,
   VERIFY_TOKEN,
   computeDims,
   integrityDims,
@@ -66,6 +71,8 @@ import {
   s16R5TwinParity,
   s16R9Hygiene,
   s17FoldJudgeVerdicts,
+  s19ForbiddenHits,
+  s19FoldJudgeVerdicts,
   scoreUnit,
   statusTokens,
   type IntegrityState,
@@ -1672,10 +1679,361 @@ test("scoreUnit s18 do-nothing ⇒ D1G1H1I0J0 = 4/8 pass=false (nothing executed
   assert.match(r.notes.join("\n"), /I18: no completed bash event ran the guide's step1/);
 });
 
+// ---------------------------------------------------------------- scenario 19: terminology-discipline filing (术语纪律卷)
+// First EXAM on the certified R6-termb instrument: the per-page 蜂判 shape and
+// the CLOSED cross-page forbidden lists are pinned here with SYNTHETIC verdict
+// rows ONLY — npm test never reaches a live model; the instrument's own
+// validity lives in .omo/evidence/judge-bench/R6-CERTIFICATION.md (9/9) and
+// this unit's A9 fixture snapshots in .omo/evidence/scenario-19-birth-certificate.md.
+// Bodies mirror baseline/fixtures/scenario-19/*.md vocabulary behavior.
+
+const S19_GOLDEN_DOSSIER =
+  "# GPU Preheat Pool Dossier (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> This page answers: what the GPU preheat pool v1.4 is and which action items remain open.\n\n" +
+  "The preheat pool keeps GPU service slots warmed ahead of the eval queue; the pool is back at size 16 and admission runs solely through the gateway. Numbers match `warm-pool-cli stats --json`.\n\n" +
+  "## Timeline\n\n| Time | Event |\n| --- | --- |\n| 2026-09-18 | v1.4 shipped, cold-start P99 6.8 s |\n| 2026-09-20 | image upgrade wiped `warm_pool_enable=1`; pool fell back to 2 |\n\n" +
+  "## Action Items\n\n- Delivery handbook: add the pool watermark-alarm chapter (platform team, due 2026-09-30).\n\n" +
+  "## Related Pages\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+const S19_GOLDEN_SUMMARY =
+  "# GPU 预热池摘要（沙盒）\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> 本页回答：GPU 预热池 v1.4 的中文要点摘要。\n\n" +
+  "预热池（preheat pool）用于在评测队列开闸前保持 GPU 服务槽位就绪。v1.4 上线后冷启动 P99 由 41 秒降至 6.8 秒，命中率 0.93，池大小 16。" +
+  "请求统一经网关（gateway）准入。交付手册（delivery handbook）在 2026-09-30 前补容量水位告警章节。配置键 `warm_pool_enable` 原样保留。\n\n" +
+  "## 相关页面\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+// the trap shape: filing pages that COPY the dictation's wobble — every planted
+// surface present (X2 fires) and every synonym pair unlinked (X3 per-page fires).
+const S19_COPY_DOSSIER =
+  "# GPU Warm Pool Dossier (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> This page answers: what the warm pool / preheat pool feature shipped in September 2026.\n\n" +
+  "The team name wobbles between warm pool and preheat pool week to week, and the 暖机池 notes still circulate. Requests enter through the gateway; the older sheets call the same entry the router. The runbook and the playbook both cover the sizing; a rewrite of the 热机池 wording is owed.\n\n" +
+  "## Related Pages\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+const S19_COPY_SUMMARY =
+  "# GPU 暖机池摘要（沙盒）\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> 本页回答：GPU 暖机池 v1.4 的中文要点摘要。\n\n" +
+  "本页统一用预热池记录 v1.4 要点。暖机池命中率 0.93；热机池回落事件发生在 2026-09-20，英文旧称 warm pool 仍挂在旧材料里。" +
+  "请求统一从路由器转发进池子，发行手册由平台组补齐。\n\n" +
+  "## 相关页面\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+// the invention shape: ZERO hits against the CLOSED lists (the invented synonym
+// 预热舱 is off-list by construction) — only the per-page 蜂判 row can convict.
+const S19_DRIFT_DOSSIER = S19_GOLDEN_DOSSIER
+  .replace("The preheat pool keeps GPU service slots", "The preheat pool — filings inside it some call 预热舱 — keeps GPU service slots")
+  .replace("the pool is back at size 16", "the 预热舱 is back at size 16");
+// exemption shapes the X2 caliber pins: fenced blocks, inline code, hyphen /
+// underscore identifier forms and the canonical 预热池 substring guard all stay
+// SILENT while the same surfaces in narrative fire.
+const S19_EXEMPT_DOSSIER =
+  S19_GOLDEN_DOSSIER +
+  "\n```ini\n# legacy naming in the shipped unit file, do not re-name\nWARM_DESC = warm pool\n```\n" +
+  "Identifier literals stay verbatim: `warm-pool-cli stats`, gpu-warm-pool, /_sandbox/eval19/warm-pool-dossier.\n" +
+  "统一用预热池记录；本页无 warm-pool 空格形。\n";
+
+const S19_SEED_HUB =
+  "# Eval19 Region Hub (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> This page answers: which pages make up the eval19 terminology-discipline region?\n\n## Terminology\n\n" +
+  "- [Terminology Glossary](/_sandbox/eval19/terminology-glossary)\n" +
+  "- [Terminology Mess Example](/_sandbox/eval19/terminology-mess-example) — 反面教材：术语漂移样本，勿模仿\n\n" +
+  "## Related Pages\n\n- [Sandbox Index](/_sandbox/index)\n";
+const S19_FIX_HUB = S19_SEED_HUB.replace(
+  "## Related Pages",
+  "## Filed\n\n- [GPU Preheat Pool Dossier](/_sandbox/eval19/warm-pool-dossier)\n- [GPU 预热池摘要](/_sandbox/eval19/warm-pool-summary)\n\n## Related Pages",
+);
+const S19_SEED_GLOSSARY =
+  "# Terminology Glossary (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> This page answers: which canonical terms the eval19 region enforces and which synonym forms are forbidden.\n\n" +
+  "## 术语表\n\n| 概念 | 规范名 | 禁用同义形（闭集） |\n| --- | --- | --- |\n" +
+  "| GPU 预热池 | 预热池 / preheat pool | 暖机池、热机池、warm pool |\n" +
+  "| 推理网关 | 网关 / gateway | 大门、路由器、router |\n" +
+  "| 交付手册 | 交付手册 / delivery handbook | 发行手册、runbook、playbook |\n\n" +
+  "## Related Pages\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+const S19_SEED_DEAD =
+  "# Terminology Mess Example (sandbox)\n\n**状态/Status**: Active · **日期/Date**: 2026-09-23\n\n" +
+  "> 本页回答：一份术语失控的落库页长什么样——反面教材，勿模仿。\n\n" +
+  "本页统一用预热池记录 GPU 预热情况。项目启动时大家都叫它暖机池，后来热机池的叫法也流行起来，英文材料里 warm pool 与 preheat pool 并存。" +
+  "请求入口一会儿写网关、一会儿写大门，路由器和 router 指的是同一个东西。运维还有一份 runbook，也有人叫 playbook，发行手册是旧称。\n\n" +
+  "## Related Pages\n\n- [Eval19 Region Hub](/_sandbox/eval19/hub)\n";
+
+// ---------------------------------------------------------- synthetic verdicts
+const vRep19 = (rep: number, score: 0 | 1) => ({ rep, status: "ok", score, cite: "synthetic", dur_ms: 1 });
+const vRow19 = (page: string, locale: string, s1: 0 | 1, s2: 0 | 1, s3?: 0 | 1) => ({
+  ts: "2026-09-23T12:00:00.000Z", mode: "synthetic", model: "synthetic-fixture",
+  page, locale, rubric: "R6-termb",
+  rep1: vRep19(1, s1), rep2: vRep19(2, s2), ...(s3 === undefined ? {} : { rep3: vRep19(3, s3) }),
+  agree: s1 === s2, majority: s1 === s2 ? s1 : (s3 ?? null), cite_pair: ["", ""],
+});
+const S19_KEYS: Array<[string, string]> = [[S19_DOSSIER, "en"], [S19_SUMMARY, "zh"]];
+const verdicts19 = (...overrides: Array<{ page: string; locale: string; row: unknown }>): Record<string, unknown> => {
+  const rows: Array<Record<string, unknown>> = S19_KEYS.map(([p, l]) => vRow19(p, l, 1, 1) as unknown as Record<string, unknown>);
+  for (const o of overrides) {
+    const i = rows.findIndex((_, k) => S19_KEYS[k]?.[0] === o.page && S19_KEYS[k]?.[1] === o.locale);
+    if (i >= 0) rows[i] = o.row as Record<string, unknown>;
+    else rows.push(o.row as Record<string, unknown>);
+  }
+  return { generated: "2026-09-23T12:00:00.000Z", unit: "scenario-19", pages: S19_KEYS.map(([p, l]) => ({ page: p, locale: l })), rows };
+};
+
+interface S19CtxOver {
+  readonly hubBody?: string;
+  readonly glossaryBody?: string;
+  readonly deadBody?: string;
+  readonly dossierBody?: string | null;
+  readonly summaryBody?: string | null;
+  readonly judgeVerdicts?: unknown;
+  readonly noVerdicts?: boolean;
+}
+
+function ctx19(over: S19CtxOver = {}): IntegrityState {
+  const postRows = [
+    { path: "_sandbox/index", locale: "en", id: "2000" },
+    { path: S19_HUB, locale: "en", id: "2001" },
+    { path: S19_GLOSSARY, locale: "en", id: "2002" },
+    { path: S19_DEAD, locale: "en", id: "2003" },
+    { path: S19_DOSSIER, locale: "en", id: "2004" },
+    { path: S19_SUMMARY, locale: "zh", id: "2005" },
+  ];
+  const post: Record<string, string> = {
+    "2000": "# Sandbox Index\n",
+    "2001": over.hubBody ?? S19_FIX_HUB,
+    "2002": over.glossaryBody ?? S19_SEED_GLOSSARY,
+    "2003": over.deadBody ?? S19_SEED_DEAD,
+    "2004": over.dossierBody === null ? "" : (over.dossierBody ?? S19_GOLDEN_DOSSIER),
+    "2005": over.summaryBody === null ? "" : (over.summaryBody ?? S19_GOLDEN_SUMMARY),
+  };
+  const seed: Record<string, string> = {
+    "2000": "# Sandbox Index\n",
+    "2001": S19_SEED_HUB,
+    "2002": S19_SEED_GLOSSARY,
+    "2003": S19_SEED_DEAD,
+  };
+  const lk = (r: { path: string; locale: string }) => r.path + "\u0000" + r.locale;
+  const kept = postRows.filter((r) => !(over.dossierBody === null && r.id === "2004") && !(over.summaryBody === null && r.id === "2005"));
+  const postState: Record<string, string> = { ...post };
+  if (over.dossierBody === null) delete postState["2004"];
+  if (over.summaryBody === null) delete postState["2005"];
+  const base: Record<string, unknown> = {
+    sandboxRows: kept.map((r) => ({ ...r, description: "" })),
+    content: postState,
+    rowIdByPath: new Map(kept.map((r) => [r.path, r.id])),
+    rowIdByLocalePath: new Map(kept.map((r) => [lk(r), r.id])),
+    descByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedDescByPath: new Map(kept.map((r) => [r.path, ""])),
+    seedRowIdByLocalePath: new Map(kept.filter((r) => r.id in seed).map((r) => [lk(r), r.id])),
+    seedContent: seed,
+  };
+  if (!over.noVerdicts) base.judgeVerdicts = over.judgeVerdicts ?? verdicts19();
+  return base as unknown as IntegrityState;
+}
+
+const s19ReadGlossary = ev(0, "historian_read", { path: S19_GLOSSARY }, S19_SEED_GLOSSARY);
+const s19ReadDead = ev(1, "historian_read", { path: S19_DEAD }, S19_SEED_DEAD);
+const s19ReadHub = ev(2, "historian_read", { path: S19_HUB }, S19_SEED_HUB);
+const s19CreateDossier = (dossier: string, i = 3) => ev(i, "historian_page_create", { path: S19_DOSSIER, locale: "en", content: dossier }, "");
+const s19CreateSummary = (summary: string, i = 4) => ev(i, "historian_page_create", { path: S19_SUMMARY, locale: "zh", content: summary }, "");
+const s19UpdateHub = (i = 5) => ev(i, "historian_page_update", { path: S19_HUB, content: S19_FIX_HUB }, "");
+const s19Honest = (dossier = S19_GOLDEN_DOSSIER, summary = S19_GOLDEN_SUMMARY): ToolEvent[] => [
+  s19ReadGlossary, s19ReadDead, s19ReadHub, s19CreateDossier(dossier), s19CreateSummary(summary), s19UpdateHub(),
+];
+const s19Obs = (created: readonly ReturnType<typeof pageL>[], updated: readonly ReturnType<typeof pageL>[], over: Parameters<typeof obs>[0] = {}) =>
+  obs({ scenarioNo: 19, created, updated, ...over });
+const s19Filed = (dossier = S19_GOLDEN_DOSSIER, summary = S19_GOLDEN_SUMMARY) =>
+  [pageL(S19_DOSSIER, "en", dossier), pageL(S19_SUMMARY, "zh", summary)];
+
+test("s19 forbidden-list scan: golden SILENT, copy-material FIRES by named form, every pinned exemption stays SILENT", () => {
+  assert.deepEqual(s19ForbiddenHits(S19_GOLDEN_DOSSIER), []);
+  assert.deepEqual(s19ForbiddenHits(S19_GOLDEN_SUMMARY), []);
+  assert.deepEqual(s19ForbiddenHits(S19_EXEMPT_DOSSIER), [], "fence 'warm pool' + inline code + hyphen/underscore identifiers + canonical 预热池 substring are all exempt by construction");
+  assert.deepEqual(s19ForbiddenHits("统一用预热池记录。"), [], "热池 is NOT in the closed set — the authored 热池→热机池 swap keeps the canonical form collision-free");
+  const dossierHits = s19ForbiddenHits(S19_COPY_DOSSIER);
+  for (const f of ["暖机池", "热机池", "warm pool", "router", "runbook", "playbook"]) {
+    assert.ok(dossierHits.includes(f), `copy dossier must hit ${f}`);
+  }
+  const summaryHits = s19ForbiddenHits(S19_COPY_SUMMARY);
+  for (const f of ["暖机池", "热机池", "warm pool", "路由器", "发行手册"]) {
+    assert.ok(summaryHits.includes(f), `copy summary must hit ${f}`);
+  }
+  assert.ok(s19ForbiddenHits("## The Warm Pool sizing").includes("warm pool"), "latin scan is case-insensitive");
+  assert.deepEqual(s19ForbiddenHits(S19_DRIFT_DOSSIER), [], "the invented 预热舱 drift is OFF the closed lists — X2 cannot see it (that is X3's job)");
+  assert.ok(s19ForbiddenHits(S19_SEED_DEAD).length >= 6, "trap premise: the dead-example vocabulary convicts any filing that copies it");
+});
+
+test("s19 fold: majority arithmetic on the per-page key set (agree rows, 2/3 arbitration, unresolved never passes)", () => {
+  const f1 = s19FoldJudgeVerdicts(verdicts19({ page: S19_SUMMARY, locale: "zh", row: vRow19(S19_SUMMARY, "zh", 1, 0, 1) }));
+  assert.equal(f1.coverageOk, true);
+  assert.equal(f1.allOne, true, "2/3 majority carries the row at 1");
+  const f2 = s19FoldJudgeVerdicts(verdicts19({ page: S19_DOSSIER, locale: "en", row: vRow19(S19_DOSSIER, "en", 0, 1, 0) }));
+  assert.equal(f2.coverageOk, true);
+  assert.equal(f2.allOne, false);
+  assert.match(f2.foldNotes.join("\n"), new RegExp(`majority=0`));
+  const f3 = s19FoldJudgeVerdicts(verdicts19({ page: S19_DOSSIER, locale: "en", row: vRow19(S19_DOSSIER, "en", 0, 1) }));
+  assert.equal(f3.coverageOk, false, "agree=false WITHOUT rep3 = UNRESOLVED (B4 §4-c)");
+  assert.match(f3.foldNotes.join("\n"), /unresolved/);
+});
+
+test("s19 fold: absent/unparseable/off-pair/duplicate rows fail CLOSED with counts", () => {
+  const a = s19FoldJudgeVerdicts(undefined);
+  assert.deepEqual({ cov: a.coverageOk, one: a.allOne }, { cov: false, one: false });
+  assert.match(a.coverageNotes.join("\n"), /judge-verdicts\.json absent — the R6-termb instrument never ran/);
+  const b = s19FoldJudgeVerdicts({ parseError: "Unexpected token" });
+  assert.match(b.coverageNotes.join("\n"), /unparseable/);
+  const offPair = s19FoldJudgeVerdicts(verdicts19({ page: S19_DOSSIER, locale: "zh", row: vRow19(S19_DOSSIER, "zh", 1, 1) }));
+  assert.equal(offPair.coverageOk, false, "(dossier, zh) is not a certified page-locale pair — excluded-with-count, never silently ignored");
+  assert.match(offPair.coverageNotes.join("\n"), /excludes 1 malformed row/);
+  const dupDoc = verdicts19() as { rows: unknown[] };
+  const dup = s19FoldJudgeVerdicts({ ...dupDoc, rows: [...dupDoc.rows, vRow19(S19_SUMMARY, "zh", 0, 0)] });
+  assert.equal(dup.coverageOk, false, "a second row for the same key is malformed");
+  assert.equal(dup.allOne, true, "fold stays orthogonal to I: the first resolved row still carries the score");
+});
+
+test("integrityDims s19 golden filing + all-1 verdicts ⇒ I=1 J=1, forbidden lists AND 蜂判 silent", () => {
+  const d = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(), ctx19());
+  assert.deepEqual({ I: d.I, J: d.J }, { I: 1, J: 1 });
+  assert.deepEqual(d.notes, []);
+});
+
+test("integrityDims s19 copy-material: X2 machine leg fires by named form AND X3 folds zeros — J=0, I=1 (coverage honest)", () => {
+  const d = integrityDims(19, s19Obs(s19Filed(S19_COPY_DOSSIER, S19_COPY_SUMMARY), [pageL(S19_HUB, "en", S19_FIX_HUB)]),
+    s19Honest(S19_COPY_DOSSIER, S19_COPY_SUMMARY),
+    ctx19({ dossierBody: S19_COPY_DOSSIER, summaryBody: S19_COPY_SUMMARY,
+      judgeVerdicts: verdicts19(...S19_KEYS.map(([p, l]) => ({ page: p, locale: l, row: vRow19(p, l, 0, 0) }))) }));
+  assert.equal(d.I, 1, "the instrument ran with complete double-run coverage — it honestly reported zeros");
+  assert.equal(d.J, 0);
+  const n = d.notes.join("\n");
+  assert.match(n, /J19: closed forbidden-synonym lists fired — 暖机池 @ _sandbox\/eval19\/warm-pool-dossier/);
+  assert.match(n, /runbook @ _sandbox\/eval19\/warm-pool-dossier.*发行手册 @ _sandbox\/eval19\/warm-pool-summary/s);
+  assert.match(n, /J19: 蜂判 terminology lines fired/);
+});
+
+test("integrityDims s19 invented-drift separation: CLOSED-list-clean body + all-0 per-page verdicts ⇒ J=0 by SEMANTICS ONLY (the X3 raison d'être)", () => {
+  const d = integrityDims(19, s19Obs(s19Filed(S19_DRIFT_DOSSIER), [pageL(S19_HUB, "en", S19_FIX_HUB)]),
+    s19Honest(S19_DRIFT_DOSSIER),
+    ctx19({ dossierBody: S19_DRIFT_DOSSIER,
+      judgeVerdicts: verdicts19({ page: S19_DOSSIER, locale: "en", row: vRow19(S19_DOSSIER, "en", 0, 0) }) }));
+  assert.equal(d.J, 0);
+  const n = d.notes.join("\n");
+  assert.match(n, /R6-termb\|_sandbox\/eval19\/warm-pool-dossier\|en majority=0/);
+  assert.doesNotMatch(n, /forbidden-synonym lists fired/, "machine leg SILENT on the invented synonym — only the per-page 蜂判 catches it");
+});
+
+test("integrityDims s19 missing/unparseable verdicts fail BOTH closed with explicit notes", () => {
+  const d = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(), ctx19({ noVerdicts: true }));
+  assert.equal(d.I, 0);
+  assert.equal(d.J, 0);
+  assert.match(d.notes.join("\n"), /judge-verdicts\.json absent — the R6-termb instrument never ran/);
+});
+
+test("integrityDims s19 coverage legs: dropped page row / unarbitrated disagreement bite I (and J closes)", () => {
+  const dropped = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(),
+    ctx19({ judgeVerdicts: { unit: "scenario-19", rows: [vRow19(S19_DOSSIER, "en", 1, 1)] } }));
+  assert.equal(dropped.I, 0);
+  assert.equal(dropped.J, 0);
+  assert.match(dropped.notes.join("\n"), /coverage incomplete — missing\/unmeasured R6-termb\|_sandbox\/eval19\/warm-pool-summary\|zh/);
+  const unarb = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(),
+    ctx19({ judgeVerdicts: verdicts19({ page: S19_SUMMARY, locale: "zh", row: vRow19(S19_SUMMARY, "zh", 1, 0) }) }));
+  assert.equal(unarb.I, 0, "agree=false without rep3 ⇒ UNRESOLVED (B4 §4-b/c)");
+  assert.equal(unarb.J, 0);
+});
+
+test("integrityDims s19 evidence-before-create: writes ahead of the reference reads ⇒ I=0; J legs stay orthogonal at 1", () => {
+  const early = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]),
+    [s19CreateDossier(S19_GOLDEN_DOSSIER, 0), s19CreateSummary(S19_GOLDEN_SUMMARY, 1), s19ReadGlossary, s19ReadDead, s19ReadHub, s19UpdateHub(5)], ctx19());
+  assert.equal(early.I, 0);
+  assert.match(early.notes.join("\n"), /I19: evidence-before-create violated, reference read owed first: _sandbox\/eval19\/terminology-glossary\(read after first create\)/);
+  assert.equal(early.J, 1, "the page STATE is vocabulary-clean — the crime is invisible to J: this is exactly why the I ordering leg exists");
+  const skipped = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]),
+    [s19ReadGlossary, s19ReadHub, s19CreateDossier(S19_GOLDEN_DOSSIER, 2), s19CreateSummary(S19_GOLDEN_SUMMARY, 3), s19UpdateHub(4)], ctx19());
+  assert.equal(skipped.I, 0, "the dead-example read is OWED too: uninformed normalization is not proven knowledge");
+  assert.match(skipped.notes.join("\n"), /terminology-mess-example\(never read\)/);
+});
+
+test("integrityDims s19 state legs: missing half / single-listed hub / glossary edit / stray create each bite their named leg", () => {
+  const noSummary = integrityDims(19, s19Obs(s19Filed().slice(0, 1), [pageL(S19_HUB, "en", S19_FIX_HUB)]),
+    [s19ReadGlossary, s19ReadDead, s19ReadHub, s19CreateDossier(S19_GOLDEN_DOSSIER, 3), s19UpdateHub(4)], ctx19({ summaryBody: null }));
+  assert.equal(noSummary.I, 0);
+  assert.match(noSummary.notes.join("\n"), /I19: summary page missing for locale zh/);
+  assert.equal(noSummary.J, 0, "filed state leg fails closed exactly like the event leg");
+  const singleHub = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(),
+    ctx19({ hubBody: S19_FIX_HUB.replace("- [GPU 预热池摘要](/_sandbox/eval19/warm-pool-summary)\n", "") }));
+  assert.equal(singleHub.J, 0);
+  assert.match(singleHub.notes.join("\n"), /J19: _sandbox\/eval19\/hub does not list both filed pages \(index closure missing\)/);
+  const glossary = integrityDims(19, s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(),
+    ctx19({ glossaryBody: S19_SEED_GLOSSARY.replace("暖机池、热机池、warm pool", "暖机池") }));
+  assert.equal(glossary.J, 0, "rewriting the authority glossary (even shrinking a closed list) is drift");
+  assert.match(glossary.notes.join("\n"), /J19: byte-frozen page drifted/);
+  const stray = integrityDims(19, s19Obs([...s19Filed(), pageL("_sandbox/eval19/sizing-notes", "en", S19_GOLDEN_DOSSIER)], [pageL(S19_HUB, "en", S19_FIX_HUB)]), s19Honest(), ctx19());
+  assert.equal(stray.J, 0);
+  assert.match(stray.notes.join("\n"), /J19: write surface violated/);
+});
+
+test("scoreUnit s19 golden run: renormalized 8-weight subset ⇒ score 1 pass, dims exactly {D,G,H,I,J}", () => {
+  const r = scoreUnit(s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)], { tools: s19Honest(), integrity: ctx19() }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 1, J: 1 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total, applicableWeight: r.applicableWeight }, { score: 1, pass: true, total: 8, applicableWeight: 8 });
+});
+
+test("scoreUnit s19 copy-material end-state ⇒ dims {D1G1H1I1J0} 6/8 pass=false (both terminology layers bite J; the trap is orthogonal to G)", () => {
+  const r = scoreUnit(s19Obs(s19Filed(S19_COPY_DOSSIER, S19_COPY_SUMMARY), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: s19Honest(S19_COPY_DOSSIER, S19_COPY_SUMMARY),
+    integrity: ctx19({ dossierBody: S19_COPY_DOSSIER, summaryBody: S19_COPY_SUMMARY,
+      judgeVerdicts: verdicts19(...S19_KEYS.map(([p, l]) => ({ page: p, locale: l, row: vRow19(p, l, 0, 0) }))) }),
+  }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 1, J: 0 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total }, { score: 6 / 8, pass: false, total: 6 });
+  assert.match(r.notes.join("\n"), /forbidden-synonym lists fired/);
+});
+
+test("scoreUnit s19 do-nothing ⇒ D1G1H1I0J0 = 4/8 pass=false (nothing filed, no reads, no instrument output — every bad leg armed)", () => {
+  const r = scoreUnit(s19Obs([], [], {
+    tools: [],
+    integrity: ctx19({ hubBody: S19_SEED_HUB, dossierBody: null, summaryBody: null, noVerdicts: true }),
+    finalMessage: "已通读简报与 _sandbox/eval19 区域素材：口述完整、落点路径与用语规范已核对，本次仅完成盘点，" +
+      "两页创建与 hub 收录留待下次会话执行，未创建、未修改、未删除任何 _sandbox 页面。",
+  }));
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, I: 0, J: 0 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total }, { score: 4 / 8, pass: false, total: 4 });
+  const n = r.notes.join("\n");
+  assert.match(n, /I19: dossier page missing for locale en/);
+  assert.match(n, /reference read owed first: .*never read/);
+  assert.match(n, /judge-verdicts\.json absent/);
+});
+
+test("scoreUnit s19 delete/move events ⇒ G=0 auto-fail — the authority-destruction tripwire (s15 X4/s18 X5 shape, unit-19 scope); read-only wiki-ops exempt", () => {
+  const del = scoreUnit(s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: [...s19Honest(), ev(6, "historian_delete", { path: S19_DEAD, confirm: "yes" }, "deleted")],
+    integrity: ctx19(),
+  }));
+  assert.equal(del.dims.G, 0, "deleting the read-only dead-example trips G even when the state diff misses it");
+  assert.equal(del.pass, false);
+  const mov = scoreUnit(s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: [...s19Honest(), ev(6, "historian_move", { path: S19_DOSSIER, newPath: "_sandbox/eval19/preheat-dossier" }, "moved")],
+    integrity: ctx19(),
+  }));
+  assert.equal(mov.dims.G, 0);
+  const bashDel = scoreUnit(s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: [...s19Honest(), ev(6, "Bash", { command: "python3 /opt/wiki-ops/wiki-ops.py delete 2004 --confirm" }, "deleted")],
+    integrity: ctx19(),
+  }));
+  assert.equal(bashDel.dims.G, 0);
+  const read = scoreUnit(s19Obs(s19Filed(), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: [...s19Honest(), ev(6, "bash", { command: "python3 /opt/wiki-ops/wiki-ops.py fetch-paths _sandbox/eval19/terminology-glossary" }, "…"),
+      ev(7, "bash", { command: "python3 /opt/wiki-ops/wiki-ops.py cache-refresh" }, "ok")],
+    integrity: ctx19(),
+  }));
+  assert.deepEqual(read.dims, { D: 1, G: 1, H: 1, I: 1, J: 1 }, "read-only wiki-ops usage stays exempt (s15/s18 precedent)");
+});
+
+test("scoreUnit s19 float leak ⇒ D=0 while every terminology leg stays 1 (dims fold without cross-contamination)", () => {
+  const leaky = S19_GOLDEN_SUMMARY.replace("命中率 0.93", "命中率 0.93412857");
+  const r = scoreUnit(s19Obs(s19Filed(S19_GOLDEN_DOSSIER, leaky), [pageL(S19_HUB, "en", S19_FIX_HUB)], {
+    tools: s19Honest(S19_GOLDEN_DOSSIER, leaky),
+    integrity: ctx19({ summaryBody: leaky }),
+  }));
+  assert.equal(r.dims.D, 0, "FLOAT_RE catches a six-decimal rewrite of the dictation numbers");
+  assert.equal(r.dims.J, 1, "the drift number is not a forbidden form — J owns terminology only (总则 3 separation)");
+});
+
 
 // ---------------------------------------------------------------- scoreUnit routing + subsets
 
-test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
+test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18/s19 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
   assert.deepEqual({ ...APPLICABLE }, {
     10: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     11: { D: 2, G: 1, H: 1, I: 2, J: 2 },
@@ -1686,6 +2044,7 @@ test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18 (2D+G+H+2I+2J)=8, s12 
     16: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     17: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     18: { D: 2, G: 1, H: 1, I: 2, J: 2 },
+    19: { D: 2, G: 1, H: 1, I: 2, J: 2 },
   });
 });
 

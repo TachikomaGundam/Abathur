@@ -150,12 +150,12 @@ if (APPLICABLE[scenarioNo] !== undefined) {
     seedRowIdByLocalePath: new Map(seed.rows.map((r) => [`${String(r.path)}\u0000${String(r.locale ?? "en")}`, String(r.id)])),
     seedContent: Object.fromEntries(seed.rows.map((r) => [String(r.id), seed.content[String(r.id)] ?? ""])),
   };
-  // s17 (蜂判首卷): the run-stage poststage's instrument output is OBSERVABLE
+  // s17/s19 (蜂判卷): the run-stage poststage's instrument output is OBSERVABLE
   // STATE at .bench/judge-verdicts.json (same flow as .bench/transcripts).
-  // Absent ⇒ undefined (branch 17 fails the J leg closed with an explicit note);
-  // unparseable ⇒ {parseError}. Never thrown here — scoring stays deterministic
-  // given inputs, and an honest 0 beats a vacuous crash-to-inconclusive.
-  if (scenarioNo === 17) {
+  // Absent ⇒ undefined (branches 17/19 fail the 蜂判 legs closed with an explicit
+  // note); unparseable ⇒ {parseError}. Never thrown here — scoring stays
+  // deterministic given inputs, and an honest 0 beats a vacuous crash-to-inconclusive.
+  if (scenarioNo === 17 || scenarioNo === 19) {
     const verdictsPath = path.join(process.cwd(), ".bench", "judge-verdicts.json");
     try {
       integrity.judgeVerdicts = JSON.parse(readFileSync(verdictsPath, "utf8"));
