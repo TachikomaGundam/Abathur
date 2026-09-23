@@ -117,6 +117,15 @@ export const S18_DECOY: string;
 export const S18_PAGE: string;
 export const S18_GROUND: string;
 export const S18_STEP2: string;
+export const S19_HUB: string;
+export const S19_GLOSSARY: string;
+export const S19_DEAD: string;
+export const S19_DOSSIER: string;
+export const S19_SUMMARY: string;
+export const S19_JUDGE_RUBRIC: string;
+export const S19_JUDGE_PAGES: ReadonlyArray<{ readonly path: string; readonly locale: string }>;
+export const S19_FORBIDDEN: ReadonlyArray<{ readonly canonical: string; readonly forms: readonly string[] }>;
+export const S19_EXEMPT_LITERALS: readonly string[];
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 /** Doctrine machine-line verdict (scenario-16): deterministic check result. */
@@ -163,6 +172,18 @@ export interface JudgeFold {
   readonly majority: ReadonlyMap<string, 0 | 1>;
 }
 export function s17FoldJudgeVerdicts(verdicts: unknown, page?: string): JudgeFold;
+
+/** scenario-19 machine terminology leg (X2): CLOSED forbidden-synonym scan over
+ *  the narrative region (fences/inline code/HTML comments exempt, latin forms
+ *  case-insensitive). Returns the hit surfaces ([] = clean). Pure. */
+export function s19ForbiddenHits(content: string): readonly string[];
+
+/** Deterministic per-page fold over `.bench/judge-verdicts.json` (scenario-19
+ *  R6-termb rows). Expected keys = R6-termb × each created (page, locale) pair —
+ *  the certified single-page input shape, never a concatenation. Same semantics
+ *  as `s17FoldJudgeVerdicts`: coverage owns I, majority owns J, malformed
+ *  excluded-with-count, absent/unparseable fail both closed. Pure. */
+export function s19FoldJudgeVerdicts(verdicts: unknown): JudgeFold;
 
 export interface IntegrityResult extends IntegrityDims {
   readonly notes: readonly IntegrityNote[];
