@@ -20,6 +20,22 @@
 set -euo pipefail
 unit_id="${1:?usage: run-scenario.sh <unitId> <scenario-file> [repoRoot]}"
 scenario_file="${2:?usage: run-scenario.sh <unitId> <scenario-file> [repoRoot]}"
+# Per-unit hook dispatch (s19 autopsy 2026-09-25): a unit may own a hook script
+# run-scenario-<NN>.sh that wraps THIS agent stage plus an instrumented poststage
+# (e.g. the R6-termb 蜂判 for scenario-19). The registered runCommand is one
+# genome-global string, so the dispatch lives here rather than in the spec: when
+# this unit owns a hook and we are not already running inside it (recursion guard
+# set on the way in), defer to the hook. Units without a hook — and every caller
+# that passes an id with no matching file — fall through byte-identical (F1).
+_here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+case "$unit_id" in
+  scenario-*)
+    _hook="$_here/run-scenario-${unit_id#scenario-}.sh"
+    if [ -f "$_hook" ] && [ -z "${ABATHUR_HOOK_INNER:-}" ]; then
+      exec env ABATHUR_HOOK_INNER=1 bash "$_hook" "$@"
+    fi
+    ;;
+esac
 [ -f "$scenario_file" ] || { echo "run-scenario: missing scenario file $scenario_file" >&2; exit 2; }
 [ -n "${ABATHUR_TRANSCRIPT:-}" ] || { echo "run-scenario: ABATHUR_TRANSCRIPT not set" >&2; exit 2; }
 key="${ABATHUR_WIKI_KEY_FILE:-}"
