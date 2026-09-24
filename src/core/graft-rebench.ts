@@ -17,6 +17,7 @@ import type { GenomeRef } from "./genome-paths.js";
 import { newGeneration, openGenome, sealGeneration, snapshotCommit } from "./worktree.js";
 import { git, tryGit } from "../util/git.js";
 import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./evolve/run-bench.js";
+import { loadScoreBank } from "./evolve/score-bank.js";
 import { addCounters, readResume, type GenerationRowData, type UnitMatrixRow } from "./evolve/run-rows.js";
 import { ChildTracker, reapOrphans } from "./evolve/child-track.js";
 import { clampReps, evaluate, VERDICT_EXIT, type BudgetCaps, type BudgetCounters, type Verdict } from "./stats.js";
@@ -106,6 +107,7 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
     incUnits = out.units;
   }
 
+  const scoreBank = loadScoreBank(spec.repoPath);
   const out = await benchTarget({
     spec: { ...spec, repoPath: gen.worktreePath },
     genId: graftGenId,
@@ -127,6 +129,7 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
     stats: spec.bench.stats,
     budgetCaps: caps,
     nPairs: 1,
+    ...(scoreBank === null ? {} : { bank: scoreBank.units }),
   });
 
   // EXACTLY ONE graft_import decision row lands BEFORE any further writes.

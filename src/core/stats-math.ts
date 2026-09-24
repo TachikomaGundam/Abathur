@@ -72,6 +72,41 @@ function betai(a: number, b: number, x: number): number {
 }
 
 /**
+ * Standard normal CDF Φ(x): Abramowitz-Stegun 7.1.26 erf approximation,
+ * |error| < 1.5e-7 — far tighter than the 4-decimal P values the acceptance
+ * gate reports. ±∞ map to 1/0; NaN maps to NaN (callers branch on se===0
+ * before dividing, so 0/0 NaN never reaches here by design).
+ */
+export function normalCdf(x: number): number {
+  if (Number.isNaN(x)) return Number.NaN;
+  if (x === Number.POSITIVE_INFINITY) return 1;
+  if (x === Number.NEGATIVE_INFINITY) return 0;
+  const z = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * z);
+  const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+  const erf = 1 - poly * Math.exp(-z * z);
+  return 0.5 * (1 + (x < 0 ? -erf : erf));
+}
+
+/**
+ * Inverse standard normal Φ⁻¹(p), bisection against normalCdf above — the two
+ * are mutually consistent by construction (a band built from normalQuantile(q)
+ * and tested through normalCdf lands exactly at probability q). Same shape as
+ * studentTQuantile's bisection; |error| < 1e-13.
+ */
+export function normalQuantile(p: number): number {
+  if (!(p > 0 && p < 1)) throw new RangeError(`normalQuantile: p=${String(p)} must be in (0, 1)`);
+  let lo = -40;
+  let hi = 40;
+  for (let i = 0; i < 80; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (normalCdf(mid) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
  * Two-sided Student-t critical value: the t such that P(|T| ≤ t) = 1 − alpha
  * with T ~ t(df). Planned accuracy: matches t-table values to < 1e-3 for the
  * checked rows (stats.test.ts). alpha in (0,1), df ≥ 1.

@@ -43,6 +43,7 @@ import type { RunFrictionInput } from "./friction.js";
 import { startRunFriction } from "./run-friction.js";
 import { runMutatorSession } from "./reflect.js";
 import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./run-bench.js";
+import { loadScoreBank } from "./score-bank.js";
 import { selfGuardVerdict } from "./self-snapshot.js";
 import { effectiveCaps, planLines } from "./run-plan.js";
 import {
@@ -236,6 +237,19 @@ async function evolve(
     lines.push(`incumbent baseline: ${String(out.units.length)} units x ${String(reps)} reps${out.complete ? "" : " (BUDGET-TRUNCATED)"}`);
   }
 
+  // ---- score bank for acceptance-semantics gates (loaded after the incumbent
+  // row commit so this campaign's baseline reps price the bank — gate-time view;
+  // candidate rows land only after evaluate, never feeding their own verdict).
+  const scoreBank = loadScoreBank(genomeRepo);
+  if (scoreBank === null) {
+    lines.push("score bank: none — legacy cross-arm gate");
+  } else {
+    lines.push(
+      `score bank: ${String(scoreBank.units.size)} unit(s), prior sigma ${scoreBank.priorSigma.toFixed(4)}, pooled df ${String(scoreBank.totalDf)}`,
+    );
+    for (const notice of scoreBank.notices) lines.push(`score bank: ${notice}`);
+  }
+
   // ---- candidate generation session
   const remaining = caps.maxCandidates - counters.candidates;
   const considered: GenerationVerdict[] = [];
@@ -307,6 +321,7 @@ async function evolve(
         stats: spec.bench.stats,
         budgetCaps: caps,
         nPairs,
+        ...(scoreBank === null ? {} : { bank: scoreBank.units }),
       });
       const guarded = selfMode ? selfGuardVerdict(out.failures, verdict.verdict) : verdict.verdict;
       const finalVerdict = guarded;
