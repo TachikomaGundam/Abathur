@@ -26,6 +26,21 @@
 //  - Pareto over (trainScore, tokens, wallS); budget-truncated generations
 //    (complete:false) never enter the set.
 //
+// ACCEPTANCE SEMANTICS (2026-09-24 redesign; design doc lives in the target
+// genome repo's evidence folder, not shipped here): when EvaluateInput.bank
+// carries the historical per-unit variance bank, precision/regression checks
+// price NOISE
+// with bank σ instead of per-arm t(df=n−1) CIs (the campaign-9/10 resolution
+// floor: t(0.05,1)=12.706 turned a 2-point sample into a 1.5883 half-width).
+// A val unit with bank σ clears when P(Δ ≤ −halfWidth) < q_pair AND the
+// acceptance band Z(q)·σ/√n_candidate ≤ halfWidth; the aggregate additionally
+// requires P(gain shift > 0) = Φ(gain/SE) ≥ q_pair, q_pair = 1−(1−ACCEPT_Q)/nPairs.
+// EVERY fail-closed rule ABOVE the bank path is untouched and can never be
+// bypassed by it: budget⇒inconclusive, one-sided n<2⇒indeterminate,
+// both-unmeasured⇒symmetric exclusion. A unit the bank cannot price falls back
+// to the exact legacy t-CI line; a null/absent bank reproduces the pre-2026-09-24
+// gate verbatim. minEffect 0.1 / halfWidth 0.15 point semantics stand.
+//
 // The inverse Student-t lives in stats-math.ts and the Pareto ranking in
 // stats-pareto.ts; both are re-exported here so the public surface of this
 // module — the one todos 9/10/12 consume — is unchanged. Accuracy: |t − table|
@@ -50,9 +65,9 @@ export interface BudgetCaps {
 }
 
 /** Per-unit replicate scores (train and val units alike). */
-import { studentTQuantile } from "./stats-math.js";
+import { studentTQuantile, normalCdf, normalQuantile } from "./stats-math.js";
 import { seededRandom, paretoFrontier } from "./stats-pareto.js";
-export { studentTQuantile, seededRandom, paretoFrontier };
+export { studentTQuantile, normalCdf, normalQuantile, seededRandom, paretoFrontier };
 export type { ParetoPoint } from "./stats-pareto.js";
 
 export interface UnitReplicates {
@@ -81,15 +96,58 @@ export interface IncumbentResult {
   readonly units: readonly UnitReplicates[];
 }
 
+/**
+ * One unit's historical per-replicate noise from the score bank: σ pooled
+ * within bench groups across the whole lineage (mean-removed ⇒ doc changes
+ * shift group means, never the pooled variance) and ν₀=2-shrunk toward the
+ * bank-wide prior. df counts the pooled within-group degrees of freedom.
+ */
+export interface UnitBankStat {
+  readonly sigma: number;
+  readonly df: number;
+}
+
+/** Nomination acceptance probability (per finalist pair after Bonferroni). */
+export const ACCEPT_Q = 0.9;
+
+/** q_pair = 1 − (1 − ACCEPT_Q)/nPairs — Bonferroni on the acceptance ERROR rate. */
+export function bonferroniQ(nPairs: number): number {
+  if (!Number.isInteger(nPairs) || nPairs < 1) {
+    throw new RangeError(`bonferroniQ: nPairs=${String(nPairs)} must be an integer >= 1`);
+  }
+  return Math.min(0.9999, 1 - (1 - ACCEPT_Q) / nPairs);
+}
+
+/** Per-val-unit acceptance diagnostics (only for units the bank could price). */
+export interface AcceptanceUnitReport {
+  readonly unitId: string;
+  readonly sigma: number;
+  readonly df: number;
+  readonly delta: number;
+  readonly se: number;
+  /** Acceptance band Z(q)·σ/√n_candidate replacing the legacy t-CI half-width. */
+  readonly band: number;
+  /** P(Δ ≤ −halfWidth) — the guard regression veto probability. */
+  readonly pRegression: number;
+}
+
+/** Surface of the acceptance path: exact numbers behind the verdict. */
+export interface AcceptanceReport {
+  readonly q: number; // q_pair actually applied
+  readonly gainSe: number | null; // null ⇒ a train-pool unit lacks bank σ ⇒ legacy point-gain gate
+  readonly pShift: number | null; // P(gain shift > 0)
+  readonly units: readonly AcceptanceUnitReport[];
+}
+
 /** Per-unit comparison on a val unit: candidate vs incumbent point estimate. */
 export interface UnitComparison {
   readonly unitId: string;
   readonly candidateMean: number;
   readonly incumbentMean: number;
-  readonly ciHalfWidth: number;
+  readonly ciHalfWidth: number; // legacy: t-CI half-width; banked: acceptance band Z(q)·σ/√n_c
   readonly delta: number; // candidateMean − incumbentMean
   readonly ciPasses: boolean; // ciHalfWidth ≤ stats.halfWidth
-  readonly passes: boolean; // delta ≥ −ciHalfWidth (ties allowed)
+  readonly passes: boolean; // legacy: delta ≥ −ciHalfWidth (ties allowed); banked: P(Δ ≤ −halfWidth) < q_pair
 }
 
 export type Verdict = "nominated" | "culled" | "indeterminate" | "inconclusive";
@@ -106,6 +164,8 @@ export interface GateVerdict {
   readonly nPairs: number;
   readonly unitComparisons: readonly UnitComparison[];
   readonly failures: readonly string[];
+  /** Present iff a score bank was supplied — the exact acceptance numbers behind the verdict. */
+  readonly acceptance?: AcceptanceReport;
 }
 
 export interface EvaluateInput {
@@ -114,6 +174,12 @@ export interface EvaluateInput {
   readonly stats: BenchStats;
   readonly budgetCaps: BudgetCaps;
   readonly nPairs: number; // simultaneous finalist pairs sharing the family alpha
+  /**
+   * Historical variance bank (unit → σ, df); null/absent ⇒ the legacy
+   * per-arm t-CI gate runs verbatim. Loaded once per campaign from the
+   * genome's ledger + archives by score-bank.ts; the gate itself stays I/O-free.
+   */
+  readonly bank?: ReadonlyMap<string, UnitBankStat> | null;
 }
 
 
@@ -259,39 +325,88 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   const incKept = incumbent.units.filter((u) => !excluded.has(u.unitId));
   const candByUnitKept = new Map(candKept.map((u) => [u.unitId, u]));
 
-  // 3) Per-val-unit comparisons + the two precision gates.
+  // 3) Per-val-unit comparisons + the two precision gates. With a bank that
+  //    knows the unit, acceptance semantics (see module header) replace the
+  //    per-arm t-CI machinery FOR THAT UNIT ONLY; bank-unknown units keep the
+  //    legacy lines verbatim. The fail-closed rules above run before and
+  //    independently of any bank.
+  const bank = input.bank ?? null;
+  const qPair = bonferroniQ(nPairs);
+  const acceptanceUnits: AcceptanceUnitReport[] = [];
   const unitComparisons: UnitComparison[] = [];
   for (const [unitId, incUnit] of incByUnit) {
     if (incUnit.split !== "val" || excluded.has(unitId)) continue;
     const candUnit = candByUnitKept.get(unitId);
     if (candUnit === undefined) continue; // excluded/unreachable
-    const cs = summarizeUnit(candUnit.scores, alpha);
     const incumbentMean = summarizeUnit(incUnit.scores).mean;
+    const cs = summarizeUnit(candUnit.scores, alpha);
     const delta = cs.mean - incumbentMean;
-    unitComparisons.push({
-      unitId,
-      candidateMean: cs.mean,
-      incumbentMean,
-      ciHalfWidth: cs.ciHalfWidth,
-      delta,
-      ciPasses: cs.ciHalfWidth <= stats.halfWidth,
-      passes: delta >= -cs.ciHalfWidth, // ties allowed
-    });
-    if (cs.ciHalfWidth > stats.halfWidth) {
-      failures.push(`CI half-width ${fmt(cs.ciHalfWidth)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}'`);
+    const banked = bank?.get(unitId) ?? null;
+    if (banked === null) {
+      unitComparisons.push({
+        unitId,
+        candidateMean: cs.mean,
+        incumbentMean,
+        ciHalfWidth: cs.ciHalfWidth,
+        delta,
+        ciPasses: cs.ciHalfWidth <= stats.halfWidth,
+        passes: delta >= -cs.ciHalfWidth, // ties allowed
+      });
+      if (cs.ciHalfWidth > stats.halfWidth) {
+        failures.push(`CI half-width ${fmt(cs.ciHalfWidth)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}'`);
+      }
+      if (delta < -cs.ciHalfWidth) {
+        failures.push(`regression on unit '${unitId}': delta ${fmt(delta)} < ${fmt(-cs.ciHalfWidth)} (mean ${fmt(cs.mean)} < ${fmt(incumbentMean)} - ${fmt(cs.ciHalfWidth)})`);
+      }
+      continue;
     }
-    if (delta < -cs.ciHalfWidth) {
-      failures.push(`regression on unit '${unitId}': delta ${fmt(delta)} < ${fmt(-cs.ciHalfWidth)} (mean ${fmt(cs.mean)} < ${fmt(incumbentMean)} - ${fmt(cs.ciHalfWidth)})`);
+    const se = banked.sigma * Math.sqrt(1 / candUnit.scores.length + 1 / incUnit.scores.length);
+    const band = (normalQuantile(qPair) * banked.sigma) / Math.sqrt(candUnit.scores.length);
+    const pRegression = se === 0 ? (delta <= -stats.halfWidth ? 1 : 0) : normalCdf((-stats.halfWidth - delta) / se);
+    const ciPasses = band <= stats.halfWidth;
+    const passes = pRegression < qPair; // ties at −halfWidth sit at Φ(0)=0.5 < q ⇒ still pass
+    unitComparisons.push({ unitId, candidateMean: cs.mean, incumbentMean, ciHalfWidth: band, delta, ciPasses, passes });
+    acceptanceUnits.push({ unitId, sigma: banked.sigma, df: banked.df, delta, se, band, pRegression });
+    if (!ciPasses) {
+      failures.push(`acceptance band ${fmt(band)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}' (bank sigma ${fmt(banked.sigma)}, df ${String(banked.df)})`);
+    } else if (!passes) {
+      failures.push(`regression on unit '${unitId}': delta ${fmt(delta)} — P(Δ ≤ −${fmt(stats.halfWidth)}) = ${fmt(pRegression)} ≥ q ${fmt(qPair)} (bank sigma ${fmt(banked.sigma)})`);
     }
   }
 
-  // 4) Effect-size floor on the aggregate gain (shared, symmetric pool).
+  // 4) Effect-size floor on the aggregate gain (shared, symmetric pool) —
+  //    unchanged — plus the acceptance gate: when the bank can price EVERY
+  //    unit of the gain pool, nomination additionally requires P(Δ>0) ≥ q.
+  //    A bank-priced point mass exactly at 0 (se=0, gain=0) fails (pShift=0):
+  //    demonstrated-identical arms are never nominated on a tie.
   const gain = aggregateScore(candKept) - aggregateScore(incKept);
   if (gain < stats.minEffect) {
     failures.push(`gain ${fmt(gain)} < minEffect ${fmt(stats.minEffect)}`);
   }
+  let gainSe: number | null = null;
+  let pShift: number | null = null;
+  if (bank !== null) {
+    const train = candKept.filter((u) => u.split === "train");
+    const pool = train.length > 0 ? train : candKept;
+    const incCounts = new Map(incKept.map((u) => [u.unitId, u.scores.length]));
+    const priced = pool.map((u) => bank.get(u.unitId) ?? null);
+    if (priced.every((s): s is UnitBankStat => s !== null)) {
+      const k = pool.length;
+      let variance = 0;
+      pool.forEach((u, index) => {
+        const s = priced[index] as UnitBankStat;
+        variance += ((s.sigma * s.sigma) * (1 / u.scores.length + 1 / (incCounts.get(u.unitId) ?? 0))) / (k * k);
+      });
+      gainSe = Math.sqrt(variance);
+      pShift = gainSe === 0 ? (gain > 0 ? 1 : 0) : normalCdf(gain / gainSe);
+      if (pShift < qPair) {
+        failures.push(`acceptance: P(gain shift > 0) = ${fmt(pShift)} < q ${fmt(qPair)} (se ${fmt(gainSe)}, gain ${fmt(gain)})`);
+      }
+    }
+  }
 
   const verdict: Verdict = failures.length === 0 ? "nominated" : "culled";
-  return { ...base, verdict, exitCode: needsExit(verdict), gain, unitComparisons, failures };
+  const acceptance: AcceptanceReport | undefined = bank === null ? undefined : { q: qPair, gainSe, pShift, units: acceptanceUnits };
+  return { ...base, verdict, exitCode: needsExit(verdict), gain, unitComparisons, failures, ...(acceptance === undefined ? {} : { acceptance }) };
 }
 
