@@ -41,7 +41,7 @@ const DEFAULTS = {
 };
 
 function parseArgs(argv) {
-  const o = { ...DEFAULTS, rubrics: [...DEFAULTS.rubrics], out: path.join(".bench", "judge-verdicts.json"), ledger: null, reps: 2, sleepS: 2, timeoutS: 240, specs: [], wikiBase: null, files: null };
+  const o = { ...DEFAULTS, rubrics: [...DEFAULTS.rubrics], out: path.join(".bench", "judge-verdicts.json"), ledger: null, reps: 2, sleepS: 2, timeoutS: 240, specs: [], wikiBase: null, files: null, title: process.env.S19_JUDGE_TITLE || "s19-bee" }; // session batch-tag (B): every judge spawn carries this title for audit/cleanup
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     const need = () => { i += 1; if (i >= argv.length) throw new Error(`${a} needs a value`); return argv[i]; };
@@ -154,7 +154,7 @@ const ledgerPath = opts.ledger ?? path.join(".bench", "judge-ledger.jsonl");
 mkdirSync(path.dirname(ledgerPath), { recursive: true });
 const files = [...staged.values()].join(",");
 log(`matrix: ${opts.rubrics.length} rubric(s) × ${String(staged.size)} page file(s) × ${String(opts.reps)} reps = ${String(opts.rubrics.length * staged.size * opts.reps)} calls`);
-runBench(opts.bench, ["matrix", "--rubrics", opts.rubrics.join(","), "--pages", files, "--reps", String(opts.reps),
+runBench(opts.bench, ["matrix", "--title", opts.title, "--rubrics", opts.rubrics.join(","), "--pages", files, "--reps", String(opts.reps),
   "--sleep-s", String(opts.sleepS), "--timeout-s", String(opts.timeoutS), "--model", opts.model, "--ledger", ledgerPath]);
 const fileToLeg = new Map([...staged.entries()].map(([i, f]) => [f, opts.specs[i]]));
 let rows = ledgerRows(ledgerPath).filter((r) => fileToLeg.has(r.page));
@@ -171,7 +171,7 @@ for (const row of rows) {
   const leg = fileToLeg.get(row.page);
   log(`arbitration (B4 §4-b): ${row.rubric} × ${leg === undefined ? row.page : `${leg.path}=${leg.locale}`} — fresh isolated rep3`);
   try {
-    runBench(opts.bench, ["pair", "--rubric", opts.rubrics.find((r) => path.basename(r, ".md") === row.rubric) ?? row.rubric,
+    runBench(opts.bench, ["pair", "--title", opts.title, "--rubric", opts.rubrics.find((r) => path.basename(r, ".md") === row.rubric) ?? row.rubric,
       "--page", row.page, "--reps", "1", "--sleep-s", String(opts.sleepS), "--timeout-s", String(opts.timeoutS),
       "--model", opts.model, "--ledger", arbLedger]);
     const arb = ledgerRows(arbLedger).filter((r) => r.rubric === row.rubric && r.page === row.page).pop();
@@ -191,7 +191,7 @@ const doc = {
   pages: opts.specs.map((s) => ({ page: s.path, locale: s.locale })),
   mode: opts.files !== null ? "offline-files" : "live-wiki",
   model: opts.model,
-  instrument: { bench: opts.bench, rubrics: opts.rubrics.map((r) => ({ file: r, name: path.basename(r, ".md"), sha256: sha256(readFileSync(r, "utf8")) })), reps: opts.reps, sleepS: opts.sleepS, timeoutS: opts.timeoutS, ledger: ledgerPath, arbitrations },
+  instrument: { bench: opts.bench, title: opts.title, rubrics: opts.rubrics.map((r) => ({ file: r, name: path.basename(r, ".md"), sha256: sha256(readFileSync(r, "utf8")) })), reps: opts.reps, sleepS: opts.sleepS, timeoutS: opts.timeoutS, ledger: ledgerPath, arbitrations },
   wall_ms: Date.now() - t0,
   rows: rows.map((r) => ({ ...r, page: String(fileToLeg.get(r.page)?.path ?? r.page), locale: String(fileToLeg.get(r.page)?.locale ?? "en") })),
 };
