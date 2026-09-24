@@ -19,6 +19,7 @@ interface RowSpec {
   readonly tree?: string | undefined;
   readonly units: ReadonlyArray<{ unitId: string; split: string; scores: readonly number[] }>;
   readonly complete?: boolean | undefined;
+  readonly ts?: string | undefined;
 }
 
 function generationLine(row: RowSpec): string {
@@ -33,7 +34,7 @@ function generationLine(row: RowSpec): string {
     manifest: [],
     benchProvenance: { benchType: "toy", versions: [] },
   };
-  return `${JSON.stringify({ v: 1, ts: "2026-09-24T00:00:00.000Z", kind: "generation_complete", genId: "g-1", runId: "a-1", data })}\n`;
+  return `${JSON.stringify({ v: 1, ts: row.ts ?? "2026-09-24T00:00:00.000Z", kind: "generation_complete", genId: "g-1", runId: "a-1", data })}\n`;
 }
 
 function withRepo(write: (repo: string) => void): void {
@@ -195,6 +196,83 @@ describe("loadScoreBank row hygiene", () => {
       assert.equal(hidden?.units.get("u")?.df, 3);
       assert.equal(hidden?.totalDf, 3);
       assert.equal(loadScoreBank(repo, { excludeFiles: ["ledger.campaign1-x.jsonl", "ledger.campaign2-y.jsonl"] }), null);
+    });
+  });
+});
+
+describe("loadScoreBank bank-epoch lineage quarantine", () => {
+  const quietNew: RowSpec = {
+    source: "incumbent",
+    head: "h1",
+    ts: "2026-09-25T00:00:00.000Z",
+    units: [{ unitId: "scenario-9", split: "val", scores: [1, 1] }],
+  };
+  const noisyOld: RowSpec = {
+    source: "incumbent",
+    head: "h1",
+    ts: "2026-09-20T00:00:00.000Z",
+    units: [{ unitId: "scenario-9", split: "val", scores: [0, 1, 0, 1] }],
+  };
+
+  it("groups with ts before the epoch are quarantined: df drops, notice names the count and why", () => {
+    withRepo((repo) => {
+      const dir = stateDir(repo);
+      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
+      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", why: "pin era voided" } }));
+      const bank = loadScoreBank(repo);
+      assert.ok(bank !== null);
+      const stat = bank.units.get("scenario-9");
+      assert.ok(stat !== undefined);
+      assert.equal(stat.df, 1); // only the quiet new group counts
+      assert.ok(stat.sigma >= BANK_QUANTUM - 1e-12); // thin history floor holds the prior
+      assert.ok(bank.notices.some((n) => n.includes("bank-epoch 'scenario-9' since") && n.includes("1 group(s) quarantined") && n.includes("pin era voided")));
+    });
+  });
+
+  it("quarantined-only units leave zero pooled df ⇒ bank null ⇒ caller runs the legacy gate", () => {
+    withRepo((repo) => {
+      const dir = stateDir(repo);
+      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld));
+      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }));
+      assert.equal(loadScoreBank(repo), null);
+    });
+  });
+
+  it("unreadable row ts fails closed for quarantined units but leaves unruled units untouched", () => {
+    withRepo((repo) => {
+      const dir = stateDir(repo);
+      const ruled: RowSpec = { ...noisyOld, ts: "not-a-date", units: [
+        { unitId: "scenario-9", split: "val", scores: [0, 1] },
+        { unitId: "scenario-8", split: "val", scores: [1, 0] },
+      ] };
+      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(ruled));
+      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }));
+      const bank = loadScoreBank(repo);
+      assert.ok(bank !== null);
+      assert.equal(bank.units.has("scenario-9"), false); // provably-at-or-after failed ⇒ quarantined
+      assert.ok(bank.units.has("scenario-8")); // no rule ⇒ untouched
+    });
+  });
+
+  it("malformed quarantine sidecars disable the WHOLE bank (never a silently ignored quarantine)", () => {
+    const bad: readonly string[] = ["{not json", JSON.stringify({ "scenario-9": { sinceIso: "not-a-date" } }), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", extra: 1 } }), JSON.stringify(["scenario-9"])];
+    for (const body of bad) {
+      withRepo((repo) => {
+        const dir = stateDir(repo);
+        writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
+        writeFileSync(path.join(dir, "bank-epoch.json"), body);
+        assert.equal(loadScoreBank(repo), null, `sidecar must disable bank: ${body.slice(0, 24)}`);
+      });
+    }
+  });
+
+  it("absent sidecar = no quarantine, byte-identical legacy behavior", () => {
+    withRepo((repo) => {
+      const dir = stateDir(repo);
+      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
+      const bank = loadScoreBank(repo);
+      assert.ok(bank !== null);
+      assert.equal(bank.units.get("scenario-9")?.df, 4); // 3 df old + 1 df new — nothing skipped
     });
   });
 });

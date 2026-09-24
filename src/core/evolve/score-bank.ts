@@ -40,10 +40,68 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 import { LEDGER_KIND_GENERATION_COMPLETE, ledgerPath, ledgerRecordSchema } from "../ledger.js";
 import { generationRowDataSchema } from "./run-rows.js";
 import type { UnitBankStat } from "../stats.js";
+
+// ------------------------------------------------------------- bank epoch
+// Lineage-restart quarantine (institutional addition 2026-09-25, born of the
+// s19 pin era + the s16 churn window): an operator-ruled epoch start for a
+// unit voids every bank group whose row.ts predates it — a broken or polluted
+// measurement era must not teach the gate the wrong noise level. The LEDGER
+// FILES STAY IMMUTABLE (doctrine): the verdict on which rows count lives in
+// this sidecar, beside its prose provenance (rotation NOTEs / evidence pages).
+// FAIL-CLOSED IN BOTH DIRECTIONS: absent sidecar ⇒ no quarantine; present but
+// malformed/unreadable/unparsable-dates ⇒ the WHOLE bank returns null and the
+// caller runs the legacy gate verbatim — a quarantine we cannot read honestly
+// is a quarantine we cannot silently ignore.
+
+const BANK_EPOCH_FILE = "bank-epoch.json";
+
+const bankEpochSchema = z.record(
+  z.string().min(1),
+  z
+    .object({ sinceIso: z.string().min(1), why: z.string().optional() })
+    .strict(),
+);
+
+type BankEpoch = ReadonlyMap<string, { readonly sinceMs: number; readonly why: string }>;
+
+function loadBankEpoch(dir: string, note: (line: string) => void): BankEpoch | null | undefined {
+  let raw: string;
+  try {
+    raw = readFileSync(path.join(dir, BANK_EPOCH_FILE), "utf8");
+  } catch (cause) {
+    const code = (cause as { code?: string } | null)?.code;
+    if (code === "ENOENT") return undefined; // absent: nothing quarantined
+    note(`${BANK_EPOCH_FILE}: unreadable (${String(cause)}) — bank disabled, legacy gate`);
+    return null;
+  }
+  let doc: unknown;
+  try {
+    doc = JSON.parse(raw);
+  } catch (cause) {
+    note(`${BANK_EPOCH_FILE}: invalid JSON (${String(cause)}) — bank disabled, legacy gate`);
+    return null;
+  }
+  const parsed = bankEpochSchema.safeParse(doc);
+  if (!parsed.success) {
+    note(`${BANK_EPOCH_FILE}: schema violation (${parsed.error.issues[0]?.message ?? "?"}) — bank disabled, legacy gate`);
+    return null;
+  }
+  const out = new Map<string, { sinceMs: number; why: string }>();
+  for (const [unitId, rule] of Object.entries(parsed.data)) {
+    const sinceMs = Date.parse(rule.sinceIso);
+    if (!Number.isFinite(sinceMs)) {
+      note(`${BANK_EPOCH_FILE}: bad sinceIso for '${unitId}' — bank disabled, legacy gate`);
+      return null;
+    }
+    out.set(unitId, { sinceMs, why: rule.why ?? "" });
+  }
+  return out;
+}
 
 /** Half of one 1/8-grid checklist step between two reps — the sd of that pair. */
 export const BANK_QUANTUM = 0.125 / Math.SQRT2;
@@ -116,6 +174,10 @@ export function loadScoreBank(genomeRepo: string, opts: ScoreBankOptions = {}): 
     else if (notices.length === NOTICE_CAP) notices.push("score bank: further notices suppressed");
   };
 
+  const bankEpoch = loadBankEpoch(dir, note);
+  if (bankEpoch === null) return null; // malformed quarantine ⇒ legacy gate, never a silently ignored one
+  const quarantined = new Map<string, number>();
+
   const acc = new Map<string, Accumulator>();
   for (const file of files) {
     let text: string;
@@ -144,8 +206,19 @@ export function loadScoreBank(genomeRepo: string, opts: ScoreBankOptions = {}): 
         return;
       }
       if (row.data.source === "candidate" && row.data.treeSha !== undefined && excluded.has(row.data.treeSha)) return;
-      for (const u of row.data.units) accumulate(acc, u.unitId, u.scores);
+      const rowMs = Date.parse(parsed.data.ts);
+      for (const u of row.data.units) {
+        const rule = bankEpoch?.get(u.unitId);
+        if (rule !== undefined && !(Number.isFinite(rowMs) && rowMs >= rule.sinceMs)) {
+          quarantined.set(u.unitId, (quarantined.get(u.unitId) ?? 0) + 1);
+          continue; // only rows provably at/after the epoch start count; unreadable ts fails closed
+        }
+        accumulate(acc, u.unitId, u.scores);
+      }
     });
+  }
+  for (const [unitId, rule] of [...(bankEpoch ?? new Map()).entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    note(`bank-epoch '${unitId}' since ${rule.sinceIso}: ${String(quarantined.get(unitId) ?? 0)} group(s) quarantined${rule.why === "" ? "" : ` — ${rule.why}`}`);
   }
 
   let totalDf = 0;
