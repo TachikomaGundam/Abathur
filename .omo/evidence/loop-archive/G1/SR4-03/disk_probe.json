@@ -1,0 +1,53 @@
+{
+  "item": "SR4-03",
+  "probed_at": "2026-09-24T09:18:07Z",
+  "seeded_files": {
+    "home/.bashrc": {
+      "status": "OK",
+      "sha256_now": "c7df465a2246f1eea3fe8e59ac6ebeb05dc1ab346ae56318c6973150167e33d7",
+      "sha256_seeded": "c7df465a2246f1eea3fe8e59ac6ebeb05dc1ab346ae56318c6973150167e33d7"
+    },
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "home/.profile": {
+      "status": "OK",
+      "sha256_now": "5e09a479032ffcdc4dc9eef2f5d936310f9ce01b9f9434ff741125df1ce77cd1",
+      "sha256_seeded": "5e09a479032ffcdc4dc9eef2f5d936310f9ce01b9f9434ff741125df1ce77cd1"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "214bdbbad9f39cae55f44e4b2ccae6481f9f789b0310262d5f9f2c2a2d2d8200",
+      "sha256_seeded": "214bdbbad9f39cae55f44e4b2ccae6481f9f789b0310262d5f9f2c2a2d2d8200"
+    },
+    "workshop/README.md": {
+      "status": "OK",
+      "sha256_now": "674d5bfe3a1c26555c2148f73685c21d6c4f650d526b05dae7d4fd259e7e0156",
+      "sha256_seeded": "674d5bfe3a1c26555c2148f73685c21d6c4f650d526b05dae7d4fd259e7e0156"
+    },
+    "workshop/bin/opencode-wrapper": {
+      "status": "OK",
+      "sha256_now": "590f2c40a94307b4d127c57b6610a598e3e8657142c2687c25bc83fbc648a538",
+      "sha256_seeded": "590f2c40a94307b4d127c57b6610a598e3e8657142c2687c25bc83fbc648a538"
+    },
+    "workshop/bin/pin-path.sh": {
+      "status": "OK",
+      "sha256_now": "82536968dc91db023ba58c3cb33b40e649c8c982a2b09bc601087e5ac91fdbc5",
+      "sha256_seeded": "82536968dc91db023ba58c3cb33b40e649c8c982a2b09bc601087e5ac91fdbc5"
+    }
+  },
+  "seeded_symlinks": {
+    "home/.local/bin/opencode": {
+      "status": "OK",
+      "target_seeded": "/tmp/abathur-loop-G1/SR4-03/candidate/workshop/bin/opencode-wrapper",
+      "target_now": "/tmp/abathur-loop-G1/SR4-03/candidate/workshop/bin/opencode-wrapper",
+      "resolves": true
+    }
+  },
+  "new_files": [
+    "workshop/diagnostics/2026-09-24-opencode-launch.md"
+  ],
+  "new_symlinks": {}
+}

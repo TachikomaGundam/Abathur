@@ -1,0 +1,206 @@
+{
+  "db": "/tmp/abathur-loop-G0/P0-DUMMY/candidate/home/.local/share/opencode/opencode.db",
+  "tables": [
+    "workspace",
+    "data_migration",
+    "account_state",
+    "account",
+    "control_account",
+    "credential",
+    "event_sequence",
+    "event",
+    "permission",
+    "project_directory",
+    "project",
+    "message",
+    "part",
+    "session_context_epoch",
+    "session_input",
+    "session_message",
+    "session",
+    "todo",
+    "session_share",
+    "migration"
+  ],
+  "session": [
+    {
+      "id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "project_id": "global",
+      "workspace_id": null,
+      "parent_id": null,
+      "slug": "sunny-lagoon",
+      "directory": "/tmp/abathur-loop-G0/P0-DUMMY/candidate/workshop",
+      "path": "tmp/abathur-loop-G0/P0-DUMMY/candidate/workshop",
+      "title": "loop-G0-P0-DUMMY-cand",
+      "version": "1.18.32",
+      "share_url": null,
+      "summary_additions": 0,
+      "summary_deletions": 0,
+      "summary_files": 0,
+      "summary_diffs": null,
+      "metadata": null,
+      "cost": 0.0,
+      "tokens_input": 8135,
+      "tokens_output": 4,
+      "tokens_reasoning": 75,
+      "tokens_cache_read": 0,
+      "tokens_cache_write": 0,
+      "revert": null,
+      "permission": [
+        {
+          "permission": "question",
+          "pattern": "*",
+          "action": "deny"
+        },
+        {
+          "permission": "plan_enter",
+          "pattern": "*",
+          "action": "deny"
+        },
+        {
+          "permission": "plan_exit",
+          "pattern": "*",
+          "action": "deny"
+        }
+      ],
+      "agent": "build",
+      "model": {
+        "id": "qwen3.8-flash-next",
+        "providerID": "local-qwen",
+        "variant": "default"
+      },
+      "time_created": 1790239956408,
+      "time_updated": 1790239961823,
+      "time_compacting": null,
+      "time_archived": null
+    }
+  ],
+  "message": [
+    {
+      "id": "msg_0d29dde22001CUfLhLjwwGG4m2",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239956514,
+      "time_updated": 1790239956528,
+      "data": {
+        "role": "user",
+        "time": {
+          "created": 1790239956514
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "local-qwen",
+          "modelID": "qwen3.8-flash-next"
+        }
+      }
+    },
+    {
+      "id": "msg_0d29de1f7001wyppxVK0Dcn5eJ",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239957495,
+      "time_updated": 1790239961788,
+      "data": {
+        "parentID": "msg_0d29dde22001CUfLhLjwwGG4m2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/tmp/abathur-loop-G0/P0-DUMMY/candidate/workshop",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8214,
+          "input": 8135,
+          "output": 4,
+          "reasoning": 75,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "qwen3.8-flash-next",
+        "providerID": "local-qwen",
+        "time": {
+          "created": 1790239957495,
+          "completed": 1790239961787
+        },
+        "finish": "stop"
+      }
+    }
+  ],
+  "part": [
+    {
+      "id": "prt_0d29dde2c001CK3CDhL3sCevEO",
+      "message_id": "msg_0d29dde22001CUfLhLjwwGG4m2",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239957473,
+      "time_updated": 1790239957476,
+      "data": {
+        "type": "text",
+        "text": "\"回复 OK 即可。不要写任何文件。\""
+      }
+    },
+    {
+      "id": "prt_0d29dec3500198TnaiVtXA3WZG",
+      "message_id": "msg_0d29de1f7001wyppxVK0Dcn5eJ",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239960117,
+      "time_updated": 1790239960121,
+      "data": {
+        "type": "step-start"
+      }
+    },
+    {
+      "id": "prt_0d29dec3c001eoCg1sR4J08PS5",
+      "message_id": "msg_0d29de1f7001wyppxVK0Dcn5eJ",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239960125,
+      "time_updated": 1790239961754,
+      "data": {
+        "type": "reasoning",
+        "text": "The user is saying \"回复 OK 即可。不要写任何文件。\" (Just reply OK. Don't write any files). This is straightforward — respond with \"OK\". The instructions say to keep responses under 4 lines, concise. Also regarding proactiveness — the user is asking me to just reply OK and not write files. I should simply comply.\n",
+        "time": {
+          "start": 1790239960124,
+          "end": 1790239961750
+        }
+      }
+    },
+    {
+      "id": "prt_0d29df29d001PPPQOaIBHFvdD8",
+      "message_id": "msg_0d29de1f7001wyppxVK0Dcn5eJ",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239961758,
+      "time_updated": 1790239961767,
+      "data": {
+        "type": "text",
+        "text": "\n\nOK",
+        "time": {
+          "start": 1790239961757,
+          "end": 1790239961765
+        }
+      }
+    },
+    {
+      "id": "prt_0d29df2ae001NfGcSagifwWcsN",
+      "message_id": "msg_0d29de1f7001wyppxVK0Dcn5eJ",
+      "session_id": "ses_f2d622247ffeMzLkwmmSHzCKT2",
+      "time_created": 1790239961775,
+      "time_updated": 1790239961776,
+      "data": {
+        "reason": "stop",
+        "type": "step-finish",
+        "tokens": {
+          "total": 8214,
+          "input": 8135,
+          "output": 4,
+          "reasoning": 75,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "cost": 0
+      }
+    }
+  ]
+}

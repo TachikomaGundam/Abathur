@@ -1,0 +1,29 @@
+{
+  "item": "SR4-09R2",
+  "probed_at": "2026-09-25T09:45:19Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "ad623e152168585f2773a91f828171ed96b919528d55a60a5d771bc2f237e952",
+      "sha256_seeded": "ad623e152168585f2773a91f828171ed96b919528d55a60a5d771bc2f237e952"
+    },
+    "workshop/metrics/DASHBOARD.md": {
+      "status": "CHANGED",
+      "sha256_now": "f62b32164ee6c5f17b35a94bd7cf79b73ecaa59389ed3c7e8c9197cc292fd73e",
+      "sha256_seeded": "47aa8fd9b033c01e4d2378e7394003d429acf439e30e5ca7f92529ae580228a7"
+    },
+    "workshop/metrics/hitrate.txt": {
+      "status": "OK",
+      "sha256_now": "d5acda43b14e8b2510a300a69c94ed448f9597593eea10a0850b0d66840e46c5",
+      "sha256_seeded": "d5acda43b14e8b2510a300a69c94ed448f9597593eea10a0850b0d66840e46c5"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}

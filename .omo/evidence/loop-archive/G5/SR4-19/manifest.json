@@ -1,0 +1,16 @@
+{
+  "gen": "G5",
+  "item": "SR4-19",
+  "seeded_at": "2026-09-25T09:31:47Z",
+  "files": {
+    "home/.config/opencode/opencode.jsonc": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+    "workshop/AGENTS.md": "ad623e152168585f2773a91f828171ed96b919528d55a60a5d771bc2f237e952",
+    "workshop/TASK.md": "eebd1fd3a4f9bdd5844539ead6e77ea9b5ec2f22787c62cf9f9669015b6bc9bf",
+    "workshop/app/README.md": "ac09f2fb3beab86a8bdb193028ec8611e6967df81da98736254b56ff04da912e",
+    "workshop/app/package.json": "6ee554094565d4f9c6484c14ba7a73f5ed7e1f3fec1a12de5e9b018e4f9f43b7"
+  },
+  "symlinks": {},
+  "ground_truth": {
+    "truth": "repo has no .github/ and no CI; release is manual with OTP"
+  }
+}

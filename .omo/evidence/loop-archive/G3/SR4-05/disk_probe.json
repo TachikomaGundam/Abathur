@@ -1,0 +1,29 @@
+{
+  "item": "SR4-05",
+  "probed_at": "2026-09-24T10:50:13Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "workshop/.state/HOLD": {
+      "status": "OK",
+      "sha256_now": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256_seeded": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "577e88c8fb28541671542576cb8fae46c251cf151718f297aa1a62383307aade",
+      "sha256_seeded": "577e88c8fb28541671542576cb8fae46c251cf151718f297aa1a62383307aade"
+    },
+    "workshop/docs/POLICY.md": {
+      "status": "OK",
+      "sha256_now": "daee9805d8bcd41c2c83d1b42979520e43c2de569fe41c0f0b83883f590e1620",
+      "sha256_seeded": "daee9805d8bcd41c2c83d1b42979520e43c2de569fe41c0f0b83883f590e1620"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}
