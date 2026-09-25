@@ -226,6 +226,7 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
       assert.equal(stat.df, 1); // only the quiet new group counts
       assert.ok(stat.sigma >= BANK_QUANTUM - 1e-12); // thin history floor holds the prior
       assert.ok(bank.notices.some((n) => n.includes("bank-epoch 'scenario-9' since") && n.includes("1 group(s) quarantined") && n.includes("pin era voided")));
+      assert.ok(bank.notices.some((n) => n.includes("since 2026-09-24T00:00:00Z") && !n.includes("undefined")), "notice must print the ISO epoch, never undefined");
     });
   });
 
