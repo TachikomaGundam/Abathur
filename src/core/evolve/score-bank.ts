@@ -67,7 +67,7 @@ const bankEpochSchema = z.record(
     .strict(),
 );
 
-type BankEpoch = ReadonlyMap<string, { readonly sinceMs: number; readonly why: string }>;
+type BankEpoch = ReadonlyMap<string, { readonly sinceIso: string; readonly sinceMs: number; readonly why: string }>;
 
 function loadBankEpoch(dir: string, note: (line: string) => void): BankEpoch | null | undefined {
   let raw: string;
@@ -91,14 +91,14 @@ function loadBankEpoch(dir: string, note: (line: string) => void): BankEpoch | n
     note(`${BANK_EPOCH_FILE}: schema violation (${parsed.error.issues[0]?.message ?? "?"}) — bank disabled, legacy gate`);
     return null;
   }
-  const out = new Map<string, { sinceMs: number; why: string }>();
+  const out = new Map<string, { sinceIso: string; sinceMs: number; why: string }>();
   for (const [unitId, rule] of Object.entries(parsed.data)) {
     const sinceMs = Date.parse(rule.sinceIso);
     if (!Number.isFinite(sinceMs)) {
       note(`${BANK_EPOCH_FILE}: bad sinceIso for '${unitId}' — bank disabled, legacy gate`);
       return null;
     }
-    out.set(unitId, { sinceMs, why: rule.why ?? "" });
+    out.set(unitId, { sinceIso: rule.sinceIso, sinceMs, why: rule.why ?? "" });
   }
   return out;
 }
