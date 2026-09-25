@@ -1,0 +1,24 @@
+{
+  "gen": "G4",
+  "source": "/tmp/abathur-loop-G4",
+  "archived_at": "2026-09-24T19:36:16+0800",
+  "files": {
+    "bundle.json": "49bac64dbe34352bf872cc881dfe3e2a6eeac9b0a811e07c75de9b593a586d3f",
+    "BUNDLE.md": "4c7f7335db2b33993531af9671b45f05b01431cbe6d67f49496f1bbd85573ccf",
+    "SR4-04R2/manifest.json": "5946852bc17a51006d24d27aaf54c50143ad0eba5e52c0276b9d8896e1c18fbb",
+    "SR4-04R2/transcript.json": "f09dc792f929c04655f0c7ec5e1febb159842d3eac2ea21de0201ca4d736ef33",
+    "SR4-04R2/memory.txt": "48dd1331526fe6ccaa2fdfe662923af73bea4017d9b406ab796c1f302bcffff9",
+    "SR4-04R2/disk_probe.json": "905650af803fe5e4c5c558255a5af8d61841d47ba5821a95c38ba8aa7d30980e",
+    "SR4-04R2/candidate-artifacts/workshop/JOURNAL.md": "2fdbe518c9a9461b6261fa37d3c9e9a8776450adbe97c335466424d305285cd3",
+    "SR4-09R/manifest.json": "877efc12267f641061fbad9c71366877209e4df963c78d7d1eeb6277f7b69af1",
+    "SR4-09R/transcript.json": "285167f063b371d14793a6cbabf46c994fd089f007b3f49443355877059d81cc",
+    "SR4-09R/memory.txt": "48dd1331526fe6ccaa2fdfe662923af73bea4017d9b406ab796c1f302bcffff9",
+    "SR4-09R/disk_probe.json": "ef93c79252cc043d26935904474ab100e53f52f467b481c67e1dbc3f8cc9db6e",
+    "SR4-09R/candidate-artifacts/workshop/AUDIT.md": "d91b4f7415e3bbda75e6a60ff81b465f0091a04e65ddd022b90101e73611e841",
+    "SR4-13R/manifest.json": "85c525ea1e3ee3da011fe48cd541b8baa02fe9d245bafb9faf9a62922a5a4c60",
+    "SR4-13R/transcript.json": "be74f68663406e91c4e250c32b40dc9f4b73965290860b69889a45b0472a58ec",
+    "SR4-13R/memory.txt": "48dd1331526fe6ccaa2fdfe662923af73bea4017d9b406ab796c1f302bcffff9",
+    "SR4-13R/disk_probe.json": "8e27a599aeb7c63288f8cfe50a8ca0d984cb1ce39f7e53ceb31d7c0ee37843a8",
+    "SR4-13R/candidate-artifacts/workshop/policy.json": "e1095bab5e6ca59b7c8d3fa2b164bfe7f831c9eb6c81a66bff22811276e35d99"
+  }
+}

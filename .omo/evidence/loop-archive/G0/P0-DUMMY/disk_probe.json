@@ -1,0 +1,24 @@
+{
+  "item": "P0-DUMMY",
+  "probed_at": "2026-09-24T08:53:21Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "214bdbbad9f39cae55f44e4b2ccae6481f9f789b0310262d5f9f2c2a2d2d8200",
+      "sha256_seeded": "214bdbbad9f39cae55f44e4b2ccae6481f9f789b0310262d5f9f2c2a2d2d8200"
+    },
+    "workshop/PING.md": {
+      "status": "OK",
+      "sha256_now": "b5c36a86d2cb658df5ce7ed6428776a44c3627e3fb629977781a4a6b9caf7239",
+      "sha256_seeded": "b5c36a86d2cb658df5ce7ed6428776a44c3627e3fb629977781a4a6b9caf7239"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}
