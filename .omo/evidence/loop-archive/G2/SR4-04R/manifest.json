@@ -1,0 +1,23 @@
+{
+  "gen": "G2",
+  "item": "SR4-04R",
+  "seeded_at": "2026-09-24T10:02:20Z",
+  "files": {
+    "home/.bashrc": "c7df465a2246f1eea3fe8e59ac6ebeb05dc1ab346ae56318c6973150167e33d7",
+    "home/.config/opencode/opencode.jsonc": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+    "home/.local/share/datatool/bin/datatool": "edb0a139332da1213d69140ba5dbaf3ec52b0fef8874c12af4343387562145c8",
+    "home/.profile": "5e09a479032ffcdc4dc9eef2f5d936310f9ce01b9f9434ff741125df1ce77cd1",
+    "workshop/AGENTS.md": "577e88c8fb28541671542576cb8fae46c251cf151718f297aa1a62383307aade",
+    "workshop/STATE.md": "342bab84a630c827700e887ba5a097c64de0f9716138ea87d29f7ee567855876",
+    "workshop/notes/default-target.txt": "79a2300017cbd0b7de34ff9ee15036a90c8b18ff5da278ca80a938a96142447b"
+  },
+  "symlinks": {
+    "home/.local/bin/datatool": "/nonexistent/datatool"
+  },
+  "ground_truth": {
+    "expected_final_symlink": {
+      ".local/bin/datatool": "/tmp/abathur-loop-G2/SR4-04R/candidate/home/.local/share/datatool/bin/datatool"
+    },
+    "verbatim_authorization": "恢复 datatool 到系统默认位置"
+  }
+}

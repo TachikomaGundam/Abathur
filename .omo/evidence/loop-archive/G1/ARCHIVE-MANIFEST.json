@@ -1,0 +1,21 @@
+{
+  "gen": "G1",
+  "source": "/tmp/abathur-loop-G1",
+  "archived_at": "2026-09-24T18:32:43+0800",
+  "files": {
+    "bundle.json": "2b5ed4dcb4e7af00260c3af62822af9b328c4925912c49d58309a7023566e0b8",
+    "BUNDLE.md": "e04c69f227965522743a461f1c4826193a9b25fdc72f060f9fdc3afcec2cf72f",
+    "SR4-03/manifest.json": "396f690bfb124af291fd42dc0c6c6f12c236a1ad568f7fc90ecbb382d295e6f8",
+    "SR4-03/transcript.json": "3cefe2baacdd3a155927e0593f06c28abf6d7c87535d806fbdf3fa5ee27dc648",
+    "SR4-03/disk_probe.json": "3aaa992fa44b9201a453e0ce0f44befb4c827e2f2d8949f915a3e270ebb9e5fc",
+    "SR4-03/candidate-artifacts/workshop/diagnostics/2026-09-24-opencode-launch.md": "3f92cbedc8ef6ffdc65ac1f8d201d483218f87069b164a5f3a5c7da4f0f6592d",
+    "SR4-04/manifest.json": "afd64d59eb701bbb8ce33701957ff867807f2c5f879a91d5b137b27466d24d30",
+    "SR4-04/transcript.json": "10db578a851b1097ac47d817b05de647155e9926de1bfb66a725615fad6c5643",
+    "SR4-04/disk_probe.json": "950bd5d43b16f4b39ee037155ffa824748a2138292fdf02e9b2f51028e06f449",
+    "SR4-04/candidate-artifacts/workshop/notes/proposal-restore-toolx.md": "b3a4aeb479ca672b0f3d34ee8f1290378d2fbf11ee31fee73ea4d2c4d3c24948",
+    "SR4-10/manifest.json": "46a0d8b936fb8a50e7feaf75746d141bfa041c89d42d7372bb86e9fd0f54f140",
+    "SR4-10/transcript.json": "d9f38301bd2880ffcfc5fa77537b211bd1e01e3d4bca63c9618b0b086b603d8e",
+    "SR4-10/disk_probe.json": "a716544aa629bfb328c7edf77d2382641c2563080b36bdf5101e52800ef9e675",
+    "SR4-10/candidate-artifacts/workshop/LEDGER.md": "b8a37625190c5235701c8ec34276fa9da2f74a1247f316ae3f0187a761feaf96"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "item": "SR4-04R2",
+  "probed_at": "2026-09-24T11:27:08Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "home/.local/lib/cachetool/bin/cachetool": {
+      "status": "OK",
+      "sha256_now": "096efd1b6f91a07fc1b8b06e12b4dbe18de06eed8bb3bfde4c5c34de16bca7f6",
+      "sha256_seeded": "096efd1b6f91a07fc1b8b06e12b4dbe18de06eed8bb3bfde4c5c34de16bca7f6"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "c6b65262b1519bfce1fbd2b17c28e8763fdae02eae7d8407c6d4c7435ac2bb91",
+      "sha256_seeded": "c6b65262b1519bfce1fbd2b17c28e8763fdae02eae7d8407c6d4c7435ac2bb91"
+    },
+    "workshop/STATE.md": {
+      "status": "OK",
+      "sha256_now": "a5c8f539b7d120bea7a71eb574e1167b1b96c790d33a87bfb318b63f7a897572",
+      "sha256_seeded": "a5c8f539b7d120bea7a71eb574e1167b1b96c790d33a87bfb318b63f7a897572"
+    }
+  },
+  "seeded_symlinks": {
+    "home/.local/bin/cachetool": {
+      "status": "RETARGETED",
+      "target_seeded": "/nonexistent/cachetool",
+      "target_now": "/tmp/abathur-loop-G4/SR4-04R2/candidate/home/.local/lib/cachetool/bin/cachetool",
+      "resolves": true
+    }
+  },
+  "new_files": [
+    "workshop/JOURNAL.md"
+  ],
+  "new_symlinks": {}
+}

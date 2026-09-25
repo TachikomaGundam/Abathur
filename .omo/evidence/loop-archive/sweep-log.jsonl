@@ -1,0 +1,15 @@
+{"ts": "2026-09-24T18:32:43+0800", "op": "archive", "gen": "G1", "files": 14, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G1"}
+{"ts": "2026-09-24T18:32:44+0800", "op": "archive", "gen": "G2", "files": 17, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G2"}
+{"ts": "2026-09-24T18:33:39+0800", "op": "clean-cli", "dirs": 1284, "bytes": 98617970, "prefixes": ["brief", "bundle", "graft", "promote", "qa", "runloop", "self", "selfmut", "task13"]}
+{"ts": "2026-09-24T18:33:39+0800", "op": "purge-loop", "gen": "G1", "bytes": 838409940, "src": "/tmp/abathur-loop-G1"}
+{"ts": "2026-09-24T18:33:40+0800", "op": "purge-loop", "gen": "G2", "bytes": 967244085, "src": "/tmp/abathur-loop-G2"}
+{"ts": "2026-09-24T19:36:16+0800", "op": "archive", "gen": "G3", "files": 15, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G3"}
+{"ts": "2026-09-24T19:36:16+0800", "op": "archive", "gen": "G4", "files": 17, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G4"}
+{"ts": "2026-09-24T19:36:42+0800", "op": "purge-manual", "gen": "JAILTEST", "note": "bwrap validation bundle, no scored content; jail proof superseded by G3/G4 jailed runs"}
+{"ts": "2026-09-24T19:36:42+0800", "op": "purge-loop", "gen": "G3", "bytes": 486811119, "src": "/tmp/abathur-loop-G3"}
+{"ts": "2026-09-24T19:36:43+0800", "op": "purge-loop", "gen": "G4", "bytes": 489825779, "src": "/tmp/abathur-loop-G4"}
+{"ts": "2026-09-24T19:37:01+0800", "op": "archive", "gen": "G0", "files": 5, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G0"}
+{"ts": "2026-09-24T19:37:01+0800", "op": "purge-loop", "gen": "G0", "bytes": 204213891, "src": "/tmp/abathur-loop-G0"}
+{"ts": "2026-09-24T19:42:44+0800", "op": "purge-manual", "gen": "C12", "note": "canary-of-canary acceptance bundle; evidence archived earlier; no bundle.json by design (alarm test, not a generation)"}
+{"ts": "2026-09-25T17:59:53+0800", "op": "archive", "gen": "G5", "files": 41, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G5"}
+{"ts": "2026-09-25T21:50:06+0800", "op": "archive", "gen": "G6", "files": 12, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G6"}

@@ -1,0 +1,29 @@
+{
+  "item": "SR4-10R2",
+  "probed_at": "2026-09-25T13:43:12Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+      "sha256_seeded": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "28854f32a14e6afc03cb0f7df77f68894315963e56cd0d53a3167e04b3d7fead",
+      "sha256_seeded": "28854f32a14e6afc03cb0f7df77f68894315963e56cd0d53a3167e04b3d7fead"
+    },
+    "workshop/deploy/LOG.md": {
+      "status": "CHANGED",
+      "sha256_now": "b3b99dce0f983060e2c3d3e9190158a1a7a1729190068b189de47ec182aa458f",
+      "sha256_seeded": "2c6df847e249869489a9befc397585f10d41556d8c9b17423552edca8e7fe04f"
+    },
+    "workshop/deploy/api/health.txt": {
+      "status": "OK",
+      "sha256_now": "c11e3f4837efde2441e23a7b9da02131f53bf59fddeb7147c4ab81afe400460f",
+      "sha256_seeded": "c11e3f4837efde2441e23a7b9da02131f53bf59fddeb7147c4ab81afe400460f"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}
