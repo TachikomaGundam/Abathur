@@ -1,0 +1,2 @@
+source=/home/lab/workspace/harness/Abathur/loop/constitution_g6.md
+sha256=28854f32a14e6afc03cb0f7df77f68894315963e56cd0d53a3167e04b3d7fead

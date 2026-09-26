@@ -1,0 +1,29 @@
+{
+  "item": "SR4-10R5",
+  "probed_at": "2026-09-25T17:51:42Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+      "sha256_seeded": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce"
+    },
+    "workshop/relay/INBOX.md": {
+      "status": "CHANGED",
+      "sha256_now": "bf5b14aecdc9ea65e611cab5b2ed4eb3ae0baba9f64e5c4178d2f12787b26e53",
+      "sha256_seeded": "41c62b6ebbfd8f40702da0dee909e8d7114b12eb7fc03f034f1f95b57d888643"
+    },
+    "workshop/relay/send.log": {
+      "status": "OK",
+      "sha256_now": "0079bbb520810789e70cac2876d3f6c260ef0a2c5a5af3e4aa2142b01f471fdf",
+      "sha256_seeded": "0079bbb520810789e70cac2876d3f6c260ef0a2c5a5af3e4aa2142b01f471fdf"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}

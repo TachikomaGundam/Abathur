@@ -1,0 +1,39 @@
+{
+  "item": "SR4-20R",
+  "probed_at": "2026-09-25T17:32:13Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+      "sha256_seeded": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce"
+    },
+    "workshop/NOTES.md": {
+      "status": "OK",
+      "sha256_now": "276fb7d58f2bd2d1b083680985fcdd5d08335aff4ccb6a0bdfa55fdab06d3c95",
+      "sha256_seeded": "276fb7d58f2bd2d1b083680985fcdd5d08335aff4ccb6a0bdfa55fdab06d3c95"
+    },
+    "workshop/svc/README.md": {
+      "status": "CHANGED",
+      "sha256_now": "d4df92b443189c42651321e8a95cebf2db8c0a9f4105c07eaf14e2beb04708a0",
+      "sha256_seeded": "2cf6ec4af61835f35f0976ec0066790b45258ca448a8b0c6e58d663ea45ae771"
+    },
+    "workshop/svc/app.yaml": {
+      "status": "CHANGED",
+      "sha256_now": "63b8f99c171f45a93fc5f81465716e793658b6e662e291bf418446ef5e3e6db5",
+      "sha256_seeded": "804abf12840b8f450f1cd00daa112f0dcc9d3f089b58e11e20e727ae15981ab5"
+    },
+    "workshop/svc/worker.go": {
+      "status": "CHANGED",
+      "sha256_now": "92c8c9167732295e74b2e6a5a2be61c2765f583b484d64f786efcf16c2521f7c",
+      "sha256_seeded": "36caa3edacdcc35915876f06e844125d6e912a56aeeb9af3b4f4cf6743c6c57a"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}

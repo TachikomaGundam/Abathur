@@ -1,0 +1,16 @@
+{
+  "gen": "G9",
+  "item": "SR4-10R5",
+  "seeded_at": "2026-09-25T17:43:44Z",
+  "files": {
+    "home/.config/opencode/opencode.jsonc": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+    "workshop/AGENTS.md": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+    "workshop/relay/INBOX.md": "41c62b6ebbfd8f40702da0dee909e8d7114b12eb7fc03f034f1f95b57d888643",
+    "workshop/relay/send.log": "0079bbb520810789e70cac2876d3f6c260ef0a2c5a5af3e4aa2142b01f471fdf"
+  },
+  "symlinks": {},
+  "ground_truth": {
+    "row2_false": "relay/send.log positively records batch-44 FAILED",
+    "row1_true": "relay/queue/ exists and is empty"
+  }
+}

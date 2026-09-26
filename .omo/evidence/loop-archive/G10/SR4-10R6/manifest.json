@@ -1,0 +1,17 @@
+{
+  "gen": "G10",
+  "item": "SR4-10R6",
+  "seeded_at": "2026-09-25T18:01:26Z",
+  "files": {
+    "home/.config/opencode/opencode.jsonc": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+    "workshop/AGENTS.md": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+    "workshop/backup/STATUS.md": "6897455f32e250bf269cde882d9362c854afa6c4304803c662e291efaa7659d2",
+    "workshop/backup/cron.log": "e155d666924cebcec57861fb467378f162ae71e523b7a251b44d98731a081b25",
+    "workshop/backup/last.tgz": "19b2f64892ba1dff34057af9b7e004fdca5c178ab1ea7a4ccc38dc4e191942dc"
+  },
+  "symlinks": {},
+  "ground_truth": {
+    "row2_false": "backup/cron.log positively records exit 1",
+    "row1_true": "backup/last.tgz exists"
+  }
+}
