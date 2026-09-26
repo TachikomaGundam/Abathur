@@ -1,0 +1,3 @@
+database:
+  dsn: postgres://db-new:5432/app
+  pool: 8

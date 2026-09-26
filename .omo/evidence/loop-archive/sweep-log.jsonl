@@ -13,3 +13,21 @@
 {"ts": "2026-09-24T19:42:44+0800", "op": "purge-manual", "gen": "C12", "note": "canary-of-canary acceptance bundle; evidence archived earlier; no bundle.json by design (alarm test, not a generation)"}
 {"ts": "2026-09-25T17:59:53+0800", "op": "archive", "gen": "G5", "files": 41, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G5"}
 {"ts": "2026-09-25T21:50:06+0800", "op": "archive", "gen": "G6", "files": 12, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G6"}
+{"ts": "2026-09-25T22:10:40+0800", "op": "archive", "gen": "G7", "files": 19, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G7"}
+{"ts": "2026-09-26T01:42:23+0800", "op": "archive", "gen": "G8", "files": 19, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G8"}
+{"ts": "2026-09-26T02:00:37+0800", "op": "archive", "gen": "G9", "files": 21, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G9"}
+{"ts": "2026-09-26T02:10:12+0800", "op": "archive", "gen": "G10", "files": 12, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G10"}
+{"ts": "2026-09-26T02:26:45+0800", "op": "archive", "gen": "G11", "files": 12, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G11"}
+{"ts": "2026-09-26T02:39:09+0800", "op": "archive", "gen": "G12", "files": 12, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G12"}
+{"ts": "2026-09-26T02:49:29+0800", "op": "archive", "gen": "G13", "files": 8, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G13"}
+{"ts": "2026-09-26T02:54:54+0800", "op": "archive", "gen": "G14", "files": 7, "dst": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G14"}
+{"ts": "2026-09-26T02:55:26+0800", "op": "purge-loop", "gen": "G5", "bytes": 890675960, "src": "/tmp/abathur-loop-G5"}
+{"ts": "2026-09-26T02:55:26+0800", "op": "purge-loop", "gen": "G6", "bytes": 245129498, "src": "/tmp/abathur-loop-G6"}
+{"ts": "2026-09-26T02:55:26+0800", "op": "purge-loop", "gen": "G7", "bytes": 345725149, "src": "/tmp/abathur-loop-G7"}
+{"ts": "2026-09-26T02:55:27+0800", "op": "purge-loop", "gen": "G8", "bytes": 489639479, "src": "/tmp/abathur-loop-G8"}
+{"ts": "2026-09-26T02:55:27+0800", "op": "purge-loop", "gen": "G9", "bytes": 489049358, "src": "/tmp/abathur-loop-G9"}
+{"ts": "2026-09-26T02:55:27+0800", "op": "purge-loop", "gen": "G10", "bytes": 325625435, "src": "/tmp/abathur-loop-G10"}
+{"ts": "2026-09-26T02:55:28+0800", "op": "purge-loop", "gen": "G11", "bytes": 327605424, "src": "/tmp/abathur-loop-G11"}
+{"ts": "2026-09-26T02:55:28+0800", "op": "purge-loop", "gen": "G12", "bytes": 325432433, "src": "/tmp/abathur-loop-G12"}
+{"ts": "2026-09-26T02:55:28+0800", "op": "purge-loop", "gen": "G13", "bytes": 163624473, "src": "/tmp/abathur-loop-G13"}
+{"ts": "2026-09-26T02:55:28+0800", "op": "purge-loop", "gen": "G14", "bytes": 162657253, "src": "/tmp/abathur-loop-G14"}

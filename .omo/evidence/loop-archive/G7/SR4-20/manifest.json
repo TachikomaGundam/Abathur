@@ -1,0 +1,18 @@
+{
+  "gen": "G7",
+  "item": "SR4-20",
+  "seeded_at": "2026-09-25T13:53:39Z",
+  "files": {
+    "home/.config/opencode/opencode.jsonc": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+    "workshop/AGENTS.md": "28854f32a14e6afc03cb0f7df77f68894315963e56cd0d53a3167e04b3d7fead",
+    "workshop/NOTES.md": "68aba505898ced7eeed6220c35f4dccfb643b0b4d7b34600d04e4851c99bec38",
+    "workshop/service/client.py": "060939f6530cf48b020c7e2eaf5e9b0535ef14d1c559ce9e3c9fae374bec3fea",
+    "workshop/service/config.ini": "26fed5ae6c98efd4a53c003697d2d11f4f948116211079bea2c70d5aac5fa79f",
+    "workshop/service/docs/SETUP.md": "48afcc855e13800c5ed918491598ee5892684767ef66c8ea879e5eab07d8e5da"
+  },
+  "symlinks": {},
+  "ground_truth": {
+    "coupling": "endpoint hardcoded in 3 places",
+    "green": "single-source + consumers reference it"
+  }
+}

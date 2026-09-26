@@ -1,0 +1,42 @@
+{
+  "item": "SR4-20R2",
+  "probed_at": "2026-09-25T17:53:55Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+      "sha256_seeded": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce"
+    },
+    "workshop/NOTES.md": {
+      "status": "OK",
+      "sha256_now": "eaaedd044303d2ddd870aff6e2b91a488f7b2dced8c6543998caf539e97fd9af",
+      "sha256_seeded": "eaaedd044303d2ddd870aff6e2b91a488f7b2dced8c6543998caf539e97fd9af"
+    },
+    "workshop/mon/alert.md": {
+      "status": "CHANGED",
+      "sha256_now": "c94a3ec959bf2b7159e1ba645a0213eaf55864273b5156ab362c770416916cb8",
+      "sha256_seeded": "ba0f1b3777d32988b4ce2dfc7a45be75b26619f974347774dc1c3e18198b8b17"
+    },
+    "workshop/mon/probe.yml": {
+      "status": "CHANGED",
+      "sha256_now": "9a41a043020dcb2a304a3804ef2a0fba7a5a2cb6e09f9aac81fe2182b011917e",
+      "sha256_seeded": "75112e6b8b0f66e1a3fec106b24b10d92985e50c8ffb815867ba7d09de6ba642"
+    },
+    "workshop/mon/status.py": {
+      "status": "CHANGED",
+      "sha256_now": "dfc2dd00d3a9c51a63c5925e214237c38cbb5dce4dfb70086f5d7c4d889ecd59",
+      "sha256_seeded": "87ae5eedfb3be3af8f9e4df1296a63ef517f89fb3254c445f79cd3154d051176"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [
+    "workshop/mon/__pycache__/status.cpython-314.pyc",
+    "workshop/mon/mon.env"
+  ],
+  "new_symlinks": {}
+}

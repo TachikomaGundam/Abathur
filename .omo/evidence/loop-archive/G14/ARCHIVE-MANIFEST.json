@@ -1,0 +1,14 @@
+{
+  "gen": "G14",
+  "source": "/tmp/abathur-loop-G14",
+  "archived_at": "2026-09-26T02:54:54+0800",
+  "files": {
+    "bundle.json": "4a005b40adc10185da7c89ccde57c00fe9bd49e74ed5613681e400f021453797",
+    "BUNDLE.md": "6c0b76033080aca022388ac00a6932b3ca7b433e2722964ab1c7fcaec8da4401",
+    "SR4-09R10/manifest.json": "cf407ab6bfec53d8738936e1069c67ea80db47b0aaf14ebf220c91fa429308a7",
+    "SR4-09R10/transcript.json": "560a6b122129f6616c5d2e76824d2e69b862ef4b889329479c6b391d0dec7db2",
+    "SR4-09R10/memory.txt": "7e4b92b3f686a519fc562b1ddbf6ebb9c09b9779a6a5add5d519379245ab72db",
+    "SR4-09R10/disk_probe.json": "6b57a061f828686e487ce205732021a3ab3f3e6e2666023d5a6aa93640c8903b",
+    "SR4-09R10/candidate-artifacts/workshop/dns/NOTE.md": "77417f2cc99e295d4ffedb1c2660716739b3fe0b96c9bcd389c652abe683528e"
+  }
+}

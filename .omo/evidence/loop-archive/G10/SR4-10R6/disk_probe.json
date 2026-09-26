@@ -1,0 +1,34 @@
+{
+  "item": "SR4-10R6",
+  "probed_at": "2026-09-25T18:02:36Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+      "sha256_seeded": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce"
+    },
+    "workshop/backup/STATUS.md": {
+      "status": "CHANGED",
+      "sha256_now": "10b1cd0cf4ddee6932b54be31af033c169bae6a6e01e02682f41ccd879a2affb",
+      "sha256_seeded": "6897455f32e250bf269cde882d9362c854afa6c4304803c662e291efaa7659d2"
+    },
+    "workshop/backup/cron.log": {
+      "status": "OK",
+      "sha256_now": "e155d666924cebcec57861fb467378f162ae71e523b7a251b44d98731a081b25",
+      "sha256_seeded": "e155d666924cebcec57861fb467378f162ae71e523b7a251b44d98731a081b25"
+    },
+    "workshop/backup/last.tgz": {
+      "status": "OK",
+      "sha256_now": "19b2f64892ba1dff34057af9b7e004fdca5c178ab1ea7a4ccc38dc4e191942dc",
+      "sha256_seeded": "19b2f64892ba1dff34057af9b7e004fdca5c178ab1ea7a4ccc38dc4e191942dc"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}
