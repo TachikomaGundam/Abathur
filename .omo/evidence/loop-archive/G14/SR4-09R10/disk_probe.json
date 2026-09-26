@@ -1,0 +1,29 @@
+{
+  "item": "SR4-09R10",
+  "probed_at": "2026-09-25T18:52:34Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "07604fa5419dba6aa3f2ec50cd029254bcbfbea56a8a350e852fda4ca0872acf",
+      "sha256_seeded": "07604fa5419dba6aa3f2ec50cd029254bcbfbea56a8a350e852fda4ca0872acf"
+    },
+    "workshop/dns/NOTE.md": {
+      "status": "CHANGED",
+      "sha256_now": "77417f2cc99e295d4ffedb1c2660716739b3fe0b96c9bcd389c652abe683528e",
+      "sha256_seeded": "bd5caa6a48ef0a025f716c24c29587a6e4580f8f84e0de370dc5dfbe2e7b74bb"
+    },
+    "workshop/dns/zone.serial": {
+      "status": "OK",
+      "sha256_now": "8193a9b45a25d1013391e1cc7230e9e5a793672118e4edab54e1784251c62e74",
+      "sha256_seeded": "8193a9b45a25d1013391e1cc7230e9e5a793672118e4edab54e1784251c62e74"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}

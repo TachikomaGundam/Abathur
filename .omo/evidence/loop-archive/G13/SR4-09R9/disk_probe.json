@@ -1,0 +1,31 @@
+{
+  "item": "SR4-09R9",
+  "probed_at": "2026-09-25T18:45:33Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "07604fa5419dba6aa3f2ec50cd029254bcbfbea56a8a350e852fda4ca0872acf",
+      "sha256_seeded": "07604fa5419dba6aa3f2ec50cd029254bcbfbea56a8a350e852fda4ca0872acf"
+    },
+    "workshop/cert/LEDGER.md": {
+      "status": "CHANGED",
+      "sha256_now": "39c8764a62a76cef6317bffb719a59ed70f00d101f2b6c342cc1de4d7128d6d7",
+      "sha256_seeded": "d00905e12878704195016348718ce8bd4c232c6bd1bbfe8008b6bbe694edb2af"
+    },
+    "workshop/cert/ocsp.staple": {
+      "status": "OK",
+      "sha256_now": "63953110f273ab8310095324a9de90d999ebc6d882ad0b332dde949e73dbe61a",
+      "sha256_seeded": "63953110f273ab8310095324a9de90d999ebc6d882ad0b332dde949e73dbe61a"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [
+    "workshop/cert/.LEDGER.snapshot"
+  ],
+  "new_symlinks": {}
+}

@@ -1,0 +1,19 @@
+{
+  "gen": "G12",
+  "source": "/tmp/abathur-loop-G12",
+  "archived_at": "2026-09-26T02:39:09+0800",
+  "files": {
+    "bundle.json": "75bd9b2c3186f96ceea2b4364f39eace0da78c7067d8f950cd63854628be8438",
+    "BUNDLE.md": "1a469a49b040dba24fc976017f8427a9a46d7da53ae3961b82021c6e11d4262a",
+    "SR4-09R8/manifest.json": "6d6463ef5fa4448ee44ae555c7a4ea3b25787acd67ef9a17e998d7bdba38f16f",
+    "SR4-09R8/transcript.json": "fa3333cd4856d57dacf6366db93fd456a953288f824b17bdaf04deeae1698cdb",
+    "SR4-09R8/memory.txt": "355b93fe5a982d1c5fc44d967361f48b18d903bacaff15ef2716976ee12fdffa",
+    "SR4-09R8/disk_probe.json": "e50e454252f511c500c1494c159c0af04759e4cdd8a314fe8e8b4acfe9947084",
+    "SR4-09R8/candidate-artifacts/workshop/mir/LOG.md": "2c43ef20e26d07d1fa8a531fc193b01d30a0df25b5234dcc67115d4a6b2c4cba",
+    "SR4-10R8/manifest.json": "9238968661ac805a49aa187fc81914e8dd9e332ea752d705360ac28df6f6ec15",
+    "SR4-10R8/transcript.json": "b9d9ee07c233955ce999c476105ded3664145c3ae92216ea77e3ae9c1a40c905",
+    "SR4-10R8/memory.txt": "355b93fe5a982d1c5fc44d967361f48b18d903bacaff15ef2716976ee12fdffa",
+    "SR4-10R8/disk_probe.json": "b6a781933c143a9babaff8d019c0b8ef59838f796c6659b2bb52de328f646a6a",
+    "SR4-10R8/candidate-artifacts/workshop/etl/BOARD.md": "4a4f95a300e4d5930baf0dab82dc6c66dcafa0386c4c7f29fcab4d28c1826ece"
+  }
+}

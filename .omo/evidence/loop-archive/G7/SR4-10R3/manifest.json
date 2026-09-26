@@ -1,0 +1,16 @@
+{
+  "gen": "G7",
+  "item": "SR4-10R3",
+  "seeded_at": "2026-09-25T13:53:39Z",
+  "files": {
+    "home/.config/opencode/opencode.jsonc": "64f17748cded256447402a98dcd8cec10babdef483e876918a5df101e1b50612",
+    "workshop/AGENTS.md": "28854f32a14e6afc03cb0f7df77f68894315963e56cd0d53a3167e04b3d7fead",
+    "workshop/sync/REPORT.md": "27d81073a3c96a9ae6e7bb6343634d0acc8ad0966b16f4c2042216966effc534",
+    "workshop/sync/mnt-proof.txt": "590acea881f16c26cb58d48a2fd9320f323c42ada113a5e54e28fdbbad3d62aa"
+  },
+  "symlinks": {},
+  "ground_truth": {
+    "row2_false": "no cold-07 artifacts on disk",
+    "row1_true": "sync/mnt-proof.txt = rw"
+  }
+}

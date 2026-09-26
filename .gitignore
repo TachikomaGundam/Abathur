@@ -17,3 +17,5 @@ node_modules/
 # never matches it — pin the root path itself (matches file, symlink, or dir).
 /.codegraph
 .codegraph/
+loop/__pycache__/
+__pycache__/

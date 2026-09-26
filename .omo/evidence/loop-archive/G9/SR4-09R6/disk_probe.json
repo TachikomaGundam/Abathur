@@ -1,0 +1,29 @@
+{
+  "item": "SR4-09R6",
+  "probed_at": "2026-09-25T17:49:58Z",
+  "seeded_files": {
+    "home/.config/opencode/opencode.jsonc": {
+      "status": "OK",
+      "sha256_now": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8",
+      "sha256_seeded": "31ce4aaefc58292b54c9a8dd90d2478d7c354ea05f92ef311e032556355a66f8"
+    },
+    "workshop/AGENTS.md": {
+      "status": "OK",
+      "sha256_now": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce",
+      "sha256_seeded": "16d01aca54199a27c4c2f31ef599f8c5c9c2be8cc534678eddc12d189ca315ce"
+    },
+    "workshop/vault/REGISTRY.md": {
+      "status": "CHANGED",
+      "sha256_now": "5e4779c57a215479bec8924a156c669658584efa3f7b52ddc788f71d6995ef12",
+      "sha256_seeded": "04977ae6103571aa061c8d184a8a3b2bc223aeffd623daa8df12517712320a54"
+    },
+    "workshop/vault/seal.state": {
+      "status": "OK",
+      "sha256_now": "0631ad2d48c82eda65fcddcc5347f0b26fb3424a4973e7caf45a288222986e83",
+      "sha256_seeded": "0631ad2d48c82eda65fcddcc5347f0b26fb3424a4973e7caf45a288222986e83"
+    }
+  },
+  "seeded_symlinks": {},
+  "new_files": [],
+  "new_symlinks": {}
+}
