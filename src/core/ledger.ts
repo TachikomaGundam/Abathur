@@ -11,6 +11,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import { canonicalJson, compactUtc } from "./ids.js";
+import { effectiveRepoPath } from "./spec.js";
 import { acquireLock, type LockLease } from "./locks.js";
 
 export { acquireLock, lockDirFor, type LockLease, type LockOptions } from "./locks.js";
@@ -51,7 +52,11 @@ export interface LedgerOpenOptions {
 }
 
 export function ledgerPath(genomeRepo: string): string {
-  return path.join(genomeRepo, ".state", "abathur", "ledger.jsonl");
+  // FS-seam rule: the stored repoPath may be an unresolved `${VAR}` literal
+  // (0.2.x convention; see 4997618 / 863e6c2). Resolve HERE at the single
+  // ledger seam so no caller can ever read an empty ledger under a literal
+  // path and report a misleading downstream error again.
+  return path.join(effectiveRepoPath(genomeRepo), ".state", "abathur", "ledger.jsonl");
 }
 
 function buildRecord(input: LedgerRecordInput, now: () => Date): LedgerRecord {

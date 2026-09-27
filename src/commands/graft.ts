@@ -49,7 +49,7 @@ function entryForLabel(configDir: string, label: string): RegistryEntry | null {
   if (matches.length > 1) {
     cannotAnswer(
       `graft: label '${label}' is ambiguous — ${String(matches.length)} genomes share it: ${matches
-        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)
+        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)  // raw-repoPath: display string only; no FS access
         .join(", ")}`,
       "give the specs distinct labels; the fingerprint is the identity",
     );
