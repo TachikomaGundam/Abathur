@@ -89,7 +89,7 @@ export function resolveUniqueEntry(configDir: string, label: string, who = "run"
   if (scan.entries.length > 1) {
     cannotAnswer(
       `${who}: label '${label}' is ambiguous — ${String(scan.entries.length)} genomes share it: ${scan.entries
-        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)
+        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)  // raw-repoPath: display string only; no FS access
         .join(", ")}`,
       "give the specs distinct labels; the fingerprint is the identity",
     );
