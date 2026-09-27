@@ -2,6 +2,35 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.6 — 2026-09-27
+
+### Human gates now resolve env-literal repoPaths — fail-closed seams, not conventions
+
+- **Defect**: `promote`/`tombstone` opened the ledger under the STORED
+  UNRESOLVED `${VAR}` repoPath literal (every other command resolved it via
+  `effectiveRepoPath`; 4997618 had patched `status` only). With an
+  env-literal genome the gate read an empty ledger under a nonexistent
+  literal path and refused with a misleading "no generation_complete ledger
+  row" — the hint even printed the unresolved `${VAR}`. Found by dogfooding
+  the wave-2b module-genome promotes.
+- **Root cause**: env-literal resolution was a per-call-site convention, not
+  an enforced boundary; and the ledger seam was fail-open (empty ledger on a
+  nonexistent path), amplifying a path bug into a misleading state error.
+- **Fix (three layers)**:
+  1. `ledgerPath()` resolves via `effectiveRepoPath()` at the single ledger
+     FS seam — every ledger access in every command is safe by construction;
+     `promote`/`tombstone` resolve explicitly for their git/manifest seams.
+  2. New `seam-gates.test.ts`: promote/tombstone conformance with
+     env-literal genomes (exported => refusal names the RESOLVED path;
+     unset => clean exit 2 naming the var; never a literal leak or ENOENT).
+  3. New `repopath-seams.test.ts` tripwire: on the command/gate surface,
+     every `spec.repoPath` use must resolve on-line or carry a written
+     `raw-repoPath:` waiver — a new command that forgets fails CI now, not
+     a human gate later. Existing legit raw uses (display strings, self-mode
+     literal detection) are waived in writing.
+- 533/533 tests green (529 + 4 new).
+
+
 ## 0.2.3 — 2026-09-11
 
 ### `/abathur` self-registers — Route B now ships the slash command too
