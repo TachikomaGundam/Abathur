@@ -122,7 +122,7 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
   const configDir = resolveConfigDir();
   for (const warning of readRegistry(configDir).warnings) writeStdout(`warning: ${warning}`);
   const entry = resolveUniqueEntry(configDir, flags.label, "self-eval");
-  if (!isEnvRepoLiteral(entry.spec.repoPath)) {
+  if (!isEnvRepoLiteral(entry.spec.repoPath)) {  // raw-repoPath: self-mode detection must inspect the STORED literal, not the resolved path
     cannotAnswer(`self-eval: '${entry.spec.label}' is not a self genome — repoPath must be the \${ABATHUR_SELF_REPO} literal`, "self-eval grades the harness against its own sealed kernel; see genomes/abathur-self.jsonc");
   }
   const audit = auditKernel(entry, configDir);
