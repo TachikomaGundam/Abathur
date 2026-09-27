@@ -5,6 +5,7 @@
 // sealMessage so untrusted text cannot forge terminal output.
 
 import { Ledger } from "../core/ledger.js";
+import { effectiveRepoPath } from "../core/spec.js";
 import { resolveConfigDir } from "../config.js";
 import { EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
@@ -47,7 +48,7 @@ function runTombstone(args: readonly string[]): ExitCode {
   const { label, genId, reason } = parseArgs(args);
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "tombstone");
-  const ledger = Ledger.open(entry.spec.repoPath);
+  const ledger = Ledger.open(effectiveRepoPath(entry.spec.repoPath));
   const records = ledger.readAll();
   if (!records.some((r) => r.kind === "generation_complete" && r.genId === genId)) {
     blocked(`tombstone: no generation_complete ledger row for gen '${genId}' of '${label}' — nothing to bury`);
