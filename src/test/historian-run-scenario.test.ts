@@ -225,12 +225,12 @@ test("model pin: ABATHUR_AGENT_MODEL set ⇒ argv carries --model <value>, brief
   const argvFile = path.join(path.dirname(h.promptFile), "argv-pinned.txt");
   await runScenario(h, {
     argvFile,
-    env: { ABATHUR_AGENT_MODEL: "bailian-token-plan/qwen3.8-flash" },
+    env: { ABATHUR_AGENT_MODEL: "test-provider/test-model" },
   });
   const tokens = argvTokens(argvFile);
   const i = tokens.indexOf("--model");
   assert.notEqual(i, -1, `--model missing from argv: ${JSON.stringify(tokens)}`);
-  assert.equal(tokens[i + 1], "bailian-token-plan/qwen3.8-flash");
+  assert.equal(tokens[i + 1], "test-provider/test-model");
   assert.equal(tokens.at(-2), "--message", "pin must not disturb the brief channel");
   assert.equal(prompt(h), BRIEF_TEXT);
 });
