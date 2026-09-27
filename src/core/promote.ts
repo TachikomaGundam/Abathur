@@ -12,6 +12,7 @@ import { ExitSignal, blocked, cannotAnswer } from "../exit.js";
 import type { RegistryEntry } from "./genome.js";
 import { compileGlob } from "./glob.js";
 import { fastForwardIncumbent } from "./incumbent.js";
+import { effectiveRepoPath } from "./spec.js";
 import {
   buildManifest,
   kernelsDirOf,
@@ -107,7 +108,7 @@ async function sealedPathCheck(genId: string, nom: Nomination, matchers: readonl
 
 export async function promoteGeneration(req: PromoteRequest): Promise<PromoteOutcome> {
   const { entry, configDir } = req;
-  const repo = entry.spec.repoPath;
+  const repo = effectiveRepoPath(entry.spec.repoPath);
   const shown = display(req.genId);
   const opts: WorktreeOptions = req.env === undefined ? {} : { env: req.env };
 
