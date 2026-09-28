@@ -32,10 +32,14 @@ import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFile
 import os from "node:os";
 import path from "node:path";
 
+// D7 zero-literals: the bee-judge bench lives outside the repo (campaign
+// evidence dir); operators wire it via ABATHUR_JUDGE_BENCH. Unset => the
+// judge stage fails closed BEFORE spawn and the grader fail-closes the legs.
+const JUDGE_BENCH = process.env.ABATHUR_JUDGE_BENCH ?? null;
 const DEFAULTS = {
-  bench: "/home/lab/workspace/harness/historian/.omo/evidence/judge-bench/judge-bench.mjs",
-  rubrics: ["R1-semantic", "R4-duty-v2", "R5-flavor"].map(
-    (r) => `/home/lab/workspace/harness/historian/.omo/evidence/judge-bench/rubrics/${r}.md`,
+  bench: JUDGE_BENCH ?? "",
+  rubrics: JUDGE_BENCH === null ? [] : ["R1-semantic", "R4-duty-v2", "R5-flavor"].map(
+    (r) => path.join(path.dirname(JUDGE_BENCH), "rubrics", `${r}.md`),
   ),
   model: "local-qwen/qwen3.8-flash-next",
 };
@@ -111,6 +115,7 @@ function foldMajority(row) {
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 const opts = parseArgs(process.argv.slice(2));
+if (opts.bench === "") { console.error("judge-poststage: no bee-judge bench wired — set ABATHUR_JUDGE_BENCH (or pass --bench); grader fail-closes the judge legs without it."); process.exit(2); }
 (async () => {
 try {
 const work = mkdtempSync(path.join(os.tmpdir(), "s17-judge-"));
