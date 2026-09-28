@@ -59,7 +59,7 @@ test("self-sanity: stub mutators deterministic", () => {
 `;
 
 function git(cwd: string, ...args: string[]): string {
-  return execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "-C", cwd, ...args], {
+  return execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", cwd, ...args], {
     encoding: "utf8",
     env: { ...process.env, LC_ALL: "C" },
   }).trim();

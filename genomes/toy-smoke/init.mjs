@@ -47,7 +47,7 @@ if (!existsSync(path.join(dest, ".git"))) {
   git(["add", "-A"]);
   // identity pinned via -c BEFORE the subcommand (global gitconfig immune;
   // `git init` itself rejects -c after the subcommand — learnings todo 3).
-  git(["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "commit", "-m", "toy-smoke fixture seed"]);
+  git(["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-m", "toy-smoke fixture seed"]);
 }
 
 process.stdout.write(`${dest}\n`);

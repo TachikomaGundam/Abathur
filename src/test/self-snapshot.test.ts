@@ -314,8 +314,8 @@ function commitSurgery(fx: SelfFx, message: string, surgery: () => void): string
   exec("git", ["-C", fx.harness.repo, "reset", "--hard", fx.head]);
   surgery();
   const repo = fx.harness.repo;
-  exec("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "-C", repo, "add", "-A"]);
-  exec("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "-C", repo, "commit", "-m", message]);
+  exec("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "add", "-A"]);
+  exec("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "commit", "-m", message]);
   return headSha(repo);
 }
 

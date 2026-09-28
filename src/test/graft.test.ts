@@ -135,7 +135,7 @@ async function makeInstance(
       ...(opts.requires === undefined ? {} : { requires: opts.requires }),
     };
     writeFileSync(path.join(repo, "genome.jsonc"), `${JSON.stringify(edited, null, 2)}\n`, "utf8");
-    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "commit", "-am", "graft fixture: spec edit");
+    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-am", "graft fixture: spec edit");
   }
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   const entry = requireGenomesByLabel(configDir, "toy-smoke").entries[0];

@@ -175,7 +175,7 @@ async function fixtureLoop(t: TestContext): Promise<FixtureLoop> {
   git(repo, ["init", "-b", "main"]);
   git(repo, ["add", "-A"]);
   // identity pinned via -c BEFORE the subcommand (toy init.mjs convention)
-  git(repo, ["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "commit", "-m", "fixloop seed"]);
+  git(repo, ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-m", "fixloop seed"]);
 
   registerGenome(configDir, specPath);
   const entry = requireGenomesByLabel(configDir, "fixloop-germ").entries[0];

@@ -69,7 +69,7 @@ export interface CleanupReport {
 
 const DAY_MS = 86_400_000;
 /** Fixed committer identity for sealed generations (repo config is never trusted or touched). */
-const SEAL_IDENTITY = ["-c", "user.name=abathur", "-c", "user.email=abathur@harness.local"];
+const SEAL_IDENTITY = ["-c", "user.name=abathur", "-c", "user.email=agent@host.example"];
 
 // ------------------------------------------------------------------ openGenome
 

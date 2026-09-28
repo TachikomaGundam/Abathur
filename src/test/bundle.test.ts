@@ -104,7 +104,7 @@ async function bundleFixture(t: TestContext, opts: { readonly maskLiterals?: rea
     );
     // commit the edit: export self-describes from the gen COMMIT tree, so the
     // registry spec and the committed spec must agree by construction.
-    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=abathur@harness.local", "commit", "-am", "bundle: declare maskLiterals");
+    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-am", "bundle: declare maskLiterals");
   }
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   const entry = requireGenomesByLabel(configDir, "toy-smoke").entries[0];

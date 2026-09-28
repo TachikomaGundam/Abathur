@@ -17,7 +17,7 @@ export const GIT_ID = [
   "-c",
   "user.name=abathur-test",
   "-c",
-  "user.email=test@abathur.local",
+  "user.email=ci@host.example",
   "-c",
   "commit.gpgsign=false",
 ] as const;
