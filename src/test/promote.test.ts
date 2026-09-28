@@ -12,14 +12,14 @@
 
 import assert from "node:assert/strict";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
 
-import { Ledger } from "../core/ledger.js";
+import { acquireGenomeLock, acquireLock, Ledger } from "../core/ledger.js";
 import type { LedgerRecord } from "../core/ledger.js";
 import { fingerprint, genId } from "../core/ids.js";
 import { newGeneration, openGenome, sealGeneration } from "../core/worktree.js";
@@ -398,6 +398,223 @@ test("tombstone fail-closed + prompt_injection hygiene", async (t) => {
   assert.equal(tombPromoted.status, 1, "promoted gens cannot be tombstoned");
 });
 
+// -------------------------------------------------------------------- retract
+
+test("AC(r1): retract undoes a fresh promote — ref deleted, manifest cleared, ledger append-only", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-happy", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  assert.equal(incumbentSha(f), gen.commitSha);
+  const manifestFile = manifestPathFor(f.configDir, f.entry.fingerprint);
+  assert.ok(existsSync(manifestFile), "manifest exists after promote");
+  const before = readFileSync(path.join(f.repo, ".state", "abathur", "ledger.jsonl"), "utf8");
+
+  const run = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "zero-gain change, human-ordered rollback");
+  assert.equal(run.status, 0, `retract: ${run.stderr}`);
+  assert.equal(incumbentSha(f), null, "incumbent ref deleted");
+  assert.ok(!existsSync(manifestFile), "kernel manifest cleared");
+
+  const retractRows = rowsOfKind(f, "retract");
+  assert.equal(retractRows.length, 1);
+  const data = retractRows[0]?.data as { genId: string; reason: string; actor: string; retractedTo: string };
+  assert.equal(data.genId, gen.genId);
+  assert.equal(data.retractedTo, gen.commitSha);
+  assert.equal(data.reason, "zero-gain change, human-ordered rollback");
+  assert.equal(rowsOfKind(f, "promote").length, 1, "promote row remains (history never rewritten)");
+  const after = readFileSync(path.join(f.repo, ".state", "abathur", "ledger.jsonl"), "utf8");
+  assert.ok(after.startsWith(before), "ledger stays append-only");
+
+  const cat = spawnSync("git", ["-C", f.repo, "cat-file", "-e", `${gen.commitSha}^{commit}`], { encoding: "utf8" });
+  assert.equal(cat.status, 0, "candidate commit preserved (retract ≠ delete)");
+
+  const st = cli(f, "status", "toy-smoke");
+  assert.equal(st.status, 0);
+  assert.match(st.stdout, /incumbent: none/);
+  assert.match(st.stdout, /ref is missing/, "status honestly warns about the retracted target");
+});
+
+test("retract fail-closed: missing reason, unknown gen, never-promoted, double retract", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-guards", CLEAN_MUTATION, "nominated");
+
+  assert.equal(cli(f, "retract", "toy-smoke", gen.genId).status, 2, "--reason is required");
+  assert.equal(cli(f, "retract", "toy-smoke", "g-nope", "--reason", "x").status, 1);
+  const neverPromoted = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "not promoted yet");
+  assert.equal(neverPromoted.status, 1);
+  assert.match(neverPromoted.stderr + neverPromoted.stdout, /no promote ledger row/);
+
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  assert.equal(cli(f, "retract", "toy-smoke", gen.genId, "--reason", "undo").status, 0);
+  const twice = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "again");
+  assert.equal(twice.status, 1);
+  assert.match(twice.stderr + twice.stdout, /already retracted/);
+});
+
+test("retract LIFO + descendant guard: live descendant blocks, released descendant frees", async (t) => {
+  const f = await gateFixture(t);
+  const genA = await handSeal(f, "retract-A", { file: "units/mul.mjs", append: "\n// A\n" }, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", genA.genId).status, 0);
+  // handSeal forks from the repo HEAD, so fast-forward main onto the new
+  // incumbent first — the child must be a descendant of A or its own promote
+  // would hit the not-an-ancestor stale_state guard.
+  git(f, "merge", "--ff-only", "-q", genA.commitSha);
+
+  const genChild = await handSeal(f, "retract-child", { file: "units/add.mjs", append: "\n// child\n" }, "nominated");
+  const blockedByChild = cli(f, "retract", "toy-smoke", genA.genId, "--reason", "too late");
+  assert.equal(blockedByChild.status, 1);
+  assert.match(blockedByChild.stderr + blockedByChild.stdout, /orphan/);
+  assert.equal(incumbentSha(f), genA.commitSha, "refusal leaves the ref where it was");
+
+  assert.equal(cli(f, "promote", "toy-smoke", genChild.genId).status, 0);
+  const lifo = cli(f, "retract", "toy-smoke", genA.genId, "--reason", "out of order");
+  assert.equal(lifo.status, 1);
+  assert.match(lifo.stderr + lifo.stdout, /LIFO/);
+
+  assert.equal(cli(f, "retract", "toy-smoke", genChild.genId, "--reason", "child first").status, 0);
+  assert.equal(incumbentSha(f), null);
+  // child retracted ⇒ its lineage released ⇒ A retracts without a tombstone
+  assert.equal(cli(f, "retract", "toy-smoke", genA.genId, "--reason", "now clear").status, 0);
+  assert.equal(incumbentSha(f), null);
+});
+
+test("retract ref-absent: sole live promote records refState=absent; two live promotes refuse", async (t) => {
+  const f = await gateFixture(t);
+  const genA = await handSeal(f, "absent-A", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", genA.genId).status, 0);
+
+  // documented manual-rollback shape: ref deleted out-of-band, sole live promote
+  git(f, "update-ref", "-d", `refs/heads/${INCUMBENT_BRANCH}`);
+  const ok = cli(f, "retract", "toy-smoke", genA.genId, "--reason", "manual rollback already done");
+  assert.equal(ok.status, 0, `retract: ${ok.stderr}`);
+  const row = rowsOfKind(f, "retract")[0]?.data as { refState?: string };
+  assert.equal(row.refState, "absent", "row honestly marks the ref was already gone");
+});
+
+test("retract ref-absent with two live promotes refuses (no laundering of divergence)", async (t) => {
+  const f = await gateFixture(t);
+  const genA = await handSeal(f, "absent2-A", { file: "units/mul.mjs", append: "\n// A\n" }, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", genA.genId).status, 0);
+  git(f, "merge", "--ff-only", "-q", genA.commitSha);
+  const genB = await handSeal(f, "absent2-B", { file: "units/add.mjs", append: "\n// B\n" }, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", genB.genId).status, 0);
+
+  git(f, "update-ref", "-d", `refs/heads/${INCUMBENT_BRANCH}`); // out-of-band divergence
+  const run = cli(f, "retract", "toy-smoke", genB.genId, "--reason", "try to launder");
+  assert.equal(run.status, 1);
+  assert.match(run.stderr + run.stdout, /cannot verify what the retract undoes/);
+  assert.equal(rowsOfKind(f, "retract").length, 0, "no row written on refusal");
+});
+
+test("retract refuses while a LINKED worktree has the incumbent branch checked out", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-wt", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  const wt2 = path.join(f.root, "wt2");
+  git(f, "worktree", "add", "-q", wt2, INCUMBENT_BRANCH);
+  const run = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "x");
+  assert.equal(run.status, 1);
+  assert.match(run.stderr + run.stdout, /checked out/);
+  assert.equal(incumbentSha(f), gen.commitSha, "ref untouched while a linked worktree holds the branch");
+});
+
+test("retract echo hygiene: control bytes never reach stdout or the ledger file", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-evil", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  const evil = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "evil\n\u001b[31mred\u001b[0m reason");
+  assert.equal(evil.status, 0, `evil reason: ${evil.stderr}`);
+  assert.ok(!evil.stdout.includes("\u001b"), "raw ANSI never reaches stdout");
+  const raw = readFileSync(path.join(f.repo, ".state", "abathur", "ledger.jsonl"), "utf8");
+  assert.ok(!raw.includes("\u001b"), "no raw ESC byte in ledger text");
+  const stored = rowsOfKind(f, "retract")[0]?.data as { reason: string };
+  assert.equal(stored.reason, "evil\n\u001b[31mred\u001b[0m reason", "ledger stores verbatim (JSON-escaped on disk)");
+});
+
+test("gate locks: a live genome-lock holder blocks promote with a named pid (exit 2)", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "lock-holder", CLEAN_MUTATION, "nominated");
+  const lease = acquireGenomeLock({ ledger: Ledger.open(f.repo), configDir: f.configDir, genomeFp: f.entry.fingerprint });
+  t.after(() => lease.release());
+  const run = cli(f, "promote", "toy-smoke", gen.genId);
+  assert.equal(run.status, 2, `promote while locked: ${run.stderr}`);
+  assert.match(run.stderr + run.stdout, /held by live pid/);
+  assert.equal(incumbentSha(f), null, "no ref movement while locked out");
+});
+
+test("gate locks: the repo-scoped gate lock contends across config homes", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "repo-lock", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+
+  // a second config home registering the SAME repo (different genome lock, same gate lock)
+  const configDir2 = path.join(f.root, "config2");
+  mkdirSync(configDir2, { recursive: true });
+  writeFileSync(path.join(configDir2, "config.jsonc"), '{ "opencodeBin": null }\n', "utf8");
+  const doc = JSON.parse(readFileSync(path.join(f.repo, "genome.jsonc"), "utf8")) as Record<string, unknown>;
+  doc["label"] = "toy-smoke";
+  const spec2 = path.join(f.root, "private2.jsonc");
+  writeFileSync(spec2, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  registerGenome(configDir2, spec2);
+
+  const repoLease = acquireLock({ configDir: path.join(f.repo, ".state", "abathur"), key: "gate", label: "gate lock" });
+  t.after(() => repoLease.release());
+  const run = spawnSync(process.execPath, [CLI, "retract", "toy-smoke", gen.genId, "--reason", "x"], {
+    env: { ...process.env, ABATHUR_CONFIG: path.join(configDir2, "config.jsonc"), HOME: path.join(f.root, "home") },
+    encoding: "utf8",
+    cwd: f.root,
+  });
+  assert.equal(run.status, 2, `retract via second config while gate-locked: ${run.stderr}`);
+  assert.match(run.stderr + run.stdout, /gate lock 'gate' is held by live pid/);
+  assert.equal(incumbentSha(f), gen.commitSha, "ref untouched while gate-locked");
+  assert.equal(rowsOfKind(f, "retract").length, 0, "no row appended by the locked-out process");
+});
+
+test("retract refuses when the incumbent ref moved out-of-band after the promote", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "diverge", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  git(f, "update-ref", `refs/heads/${INCUMBENT_BRANCH}`, gen.parent); // rewind out-of-band
+  const run = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "x");
+  assert.equal(run.status, 1);
+  assert.match(run.stderr + run.stdout, /state diverged/);
+  assert.equal(incumbentSha(f), gen.parent, "the moved ref is NOT deleted");
+});
+
+test("promote after retract refuses — a retracted gen stays dead (no re-promote lockup)", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "re-promote", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  assert.equal(cli(f, "retract", "toy-smoke", gen.genId, "--reason", "undo").status, 0);
+  const again = cli(f, "promote", "toy-smoke", gen.genId);
+  assert.equal(again.status, 1);
+  assert.match(again.stderr + again.stdout, /already promoted/);
+});
+
+test("retract: a PRUNABLE worktree (deleted directory) does not block the rollback valve", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-prunable", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  const wt2 = path.join(f.root, "wt-stale");
+  git(f, "worktree", "add", "-q", wt2, INCUMBENT_BRANCH);
+  rmSync(wt2, { recursive: true, force: true }); // directory gone, metadata stale ⇒ porcelain marks it prunable
+  const list = spawnSync("git", ["-C", f.repo, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+  assert.match(list.stdout, /prunable/, "fixture sanity: git itself marks the stale worktree prunable");
+  const run = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "stale worktree must not block");
+  assert.equal(run.status, 0, `retract: ${run.stderr}`);
+  assert.equal(incumbentSha(f), null);
+});
+
+test("retract refuses while the incumbent branch is checked out", async (t) => {
+  const f = await gateFixture(t);
+  const gen = await handSeal(f, "retract-checkout", CLEAN_MUTATION, "nominated");
+  assert.equal(cli(f, "promote", "toy-smoke", gen.genId).status, 0);
+  git(f, "checkout", "-q", INCUMBENT_BRANCH);
+  const run = cli(f, "retract", "toy-smoke", gen.genId, "--reason", "x");
+  assert.equal(run.status, 1);
+  assert.match(run.stderr + run.stdout, /checked out/i);
+  assert.equal(incumbentSha(f), gen.commitSha, "ref untouched while checked out");
+});
+
 // -------------------------------------------------------------------- status
 
 test("AC(d): status renders incumbent, generations, quarantine depth, budget; never fabricates", async (t) => {
@@ -461,7 +678,7 @@ test("genome rm: ledgerless genomes unregister (manifest stays), ledger history 
 
 // -------------------------------------------------------------- structural
 
-test("structural: promote core is CLI-only; no auto-promote import path; no --force anywhere", () => {
+test("structural: promote/retract cores are CLI-only; no auto-gate import path; no --force anywhere", () => {
   const importers: string[] = [];
   const scan = (dir: string): void => {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -476,9 +693,33 @@ test("structural: promote core is CLI-only; no auto-promote import path; no --fo
   scan(path.join(REPO_ROOT, "src"));
   const relative = importers.map((p) => path.relative(REPO_ROOT, p).split(path.sep).join("/")).sort();
   assert.deepEqual(relative, ["src/commands/promote.ts"], "core/promote imported ONLY by commands/promote");
+  const retractImporters: string[] = [];
+  const scanRetract = (dir: string): void => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        if (ent.name !== "node_modules") scanRetract(p);
+      } else if (ent.name.endsWith(".ts")) {
+        const src = readFileSync(p, "utf8");
+        if (/(?:from\s+|import\(\s*)["'](?:[^"']*\/)?core\/retract\.js["']|from\s+["']\.\/retract\.js["']/.test(src)) retractImporters.push(p);
+      }
+    }
+  };
+  scanRetract(path.join(REPO_ROOT, "src"));
+  const relRetract = retractImporters.map((p) => path.relative(REPO_ROOT, p).split(path.sep).join("/")).sort();
+  assert.deepEqual(relRetract, ["src/commands/retract.ts"], "core/retract imported ONLY by commands/retract");
   for (const rel of ["src/core/evolve/run-loop.ts", "src/core/evolve/reflect.ts", "src/core/evolve/candidate.ts"]) {
     assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, rel), "utf8"), /from\s+"[^"]*promote\.js"/, `${rel} must not import promote`);
+    assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, rel), "utf8"), /from\s+"[^"]*retract\.js"/, `${rel} must not import retract`);
   }
-  const gate = readFileSync(path.join(REPO_ROOT, "src/core/promote.ts"), "utf8");
-  assert.doesNotMatch(gate, /--force/, "no force flag in the gate");
+  for (const gateFile of ["src/core/promote.ts", "src/core/retract.ts"]) {
+    assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, gateFile), "utf8"), /--force/, `no force flag in ${gateFile}`);
+  }
+  // the plugin tool allowlist must never grow a human gate (terminal-only class)
+  const pluginSrc = readFileSync(path.join(REPO_ROOT, "plugin", "abathur.ts"), "utf8");
+  const allowBlock = pluginSrc.match(/const ALLOWED_COMMANDS[\s\S]*?;/)?.[0] ?? "";
+  assert.ok(allowBlock.length > 0, "ALLOWED_COMMANDS block must be found — a vacuous match tests nothing");
+  for (const gate of ['"promote"', '"tombstone"', '"retract"']) {
+    assert.ok(!allowBlock.includes(gate), `${gate} must NOT be plugin-reachable`);
+  }
 });

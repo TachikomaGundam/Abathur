@@ -30,6 +30,7 @@ const GUARDED_FILES: readonly string[] = [
     .map((f) => path.join(SRC, "commands", f)),
   path.join(SRC, "core", "promote.ts"),
   path.join(SRC, "core", "tombstone.ts"),
+  path.join(SRC, "core", "retract.ts"),
 ];
 
 function collectHits(file: string): string[] {

@@ -9,7 +9,7 @@ top-level command (`genome`, `run`, `status`, `bundle`, `graft`, `self-eval`,
 with `command` set to the first word and `extra` set to the remaining tokens,
 then report the CLI exit code (0 ok / 1 blocked decision / 2 cannot-answer)
 and the relevant lines of its output. If no request was given, call the tool
-with `command: "--help"` and summarize the command list. `promote` and
-`tombstone` cannot be called through the tool at all — the tool refuses them.
+with `command: "--help"` and summarize the command list. `promote`,
+`tombstone` and `retract` cannot be called through the tool at all — the tool refuses them.
 They are human gates that belong to a terminal: if the user asks for one,
-tell them to run `abathur promote …` / `abathur tombstone …` there.
+tell them to run `abathur promote …` / `abathur tombstone …` / `abathur retract …` there.
