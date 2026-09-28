@@ -1,3 +1,0 @@
-resume: incumbent baseline @ 8042bceb already benched — reusing 9 unit rows
-budget: candidate cap 1 already spent — resume reports stored verdicts, no new candidates
-budget spent: candidates=1 tokens=20151567 wallS=9847.608 (caps candidates=1 tokens=80000000 wallS=28800)

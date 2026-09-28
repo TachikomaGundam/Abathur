@@ -1,8 +1,0 @@
-== gen1 (two benches, 18 files) ==
-digest=e82cb18d2881ce82 total_rows=263 count=18
-  g-20260909T230214Z-0f7305e7/scenario-01-0/.bench/wiki-pre.json
-  g-20260909T230214Z-0f7305e7/scenario-02-0/.bench/wiki-pre.json
-== gen2 (candidate bench, 9 files) ==
-digest=e82cb18d2881ce82 total_rows=263 count=9
-  g-20260910T003922Z-6f8e20e0/scenario-01-0/.bench/wiki-pre.json
-  g-20260910T003922Z-6f8e20e0/scenario-02-0/.bench/wiki-pre.json

@@ -1,8 +1,0 @@
-start 2026-09-10T03:03:24Z
-abathur: fixture: cannot mirror sandbox home entry '/home/lab/.opencode/node_modules': ENOSPC, No space left on device '/tmp/opencode/task14-home2/bench-sandboxes/a-20260910T030324Z-2b2456be/g-20260910T030741Z-ca7a0020/scenario-07-0/.sandbox-home/.opencode/node_modules/effect/src/internal'
-
-real	49m23.625s
-user	45m26.211s
-sys	6m0.191s
-RUN_EXIT=2
-end 2026-09-10T03:52:48Z

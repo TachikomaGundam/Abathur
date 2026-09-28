@@ -1,8 +1,0 @@
-start 2026-09-10T02:42:23Z
-abathur: fixture resetCommand failed (exit code 1): /home/lab/workspace/harness/Abathur/graders/historian/reset-sandbox.sh: line 9: ABATHUR_WIKI_BASE: reset-sandbox.sh requires ABATHUR_WIKI_BASE in env
-
-real	8m3.758s
-user	4m18.663s
-sys	0m36.689s
-RUN_EXIT=2
-end 2026-09-10T02:50:26Z
