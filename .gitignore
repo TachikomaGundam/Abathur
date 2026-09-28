@@ -19,3 +19,4 @@ node_modules/
 .codegraph/
 loop/__pycache__/
 __pycache__/
+.omo/
