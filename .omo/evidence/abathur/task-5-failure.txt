@@ -1,8 +1,0 @@
---- AC(d) grader exit-1 unit (units/explode.mjs exits(1) at grader import) ---
-score(explode) => {"kind":"inconclusive","unitId":"explode","reason":"grader exited 1: no output"}
-score(mul)     => {"kind":"scored","result":{"unitId":"mul","score":1,"pass":true,"metrics":{"tokensEst":113,"turns":3}}}   <= bench never died with the grader
-
---- AC(e) timeout: hang unit runs `exec sleep 31.7`, adapter timeoutS=1 ---
-run(hang, 1s) => {"unitId":"hang","status":"timeout","metrics":{"tokensEst":0,"turns":0},"benchProvenance":{"benchType":"toy","versions":[{"bin":"node","version":"v22.22.1"}]},"exitCode":null,"note":"killed after 1s: process group SIGKILL"}
-wall: 1015ms (bounded by timeoutS, not by sleep 31.7)
-orphaned 'sleep 31.7' survivors after group kill: 0
