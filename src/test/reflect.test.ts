@@ -160,7 +160,7 @@ async function sessionFixture(t: TestContext): Promise<Session> {
   // plant the canary in the VAL unit and commit it, so it rides into worktrees
   const sub = path.join(repo, "units", "sub.mjs");
   writeFileSync(sub, `${readFileSync(sub, "utf8")}\n// ${CANARY}\n`, "utf8");
-  await gitIn(repo, "-c", "user.name=abathur", "-c", "user.email=abathur@host.example", "commit", "-aqm", "plant val canary");
+  await gitIn(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-aqm", "plant val canary");
   const spec = loadGenomeSpecFile(path.join(repo, "genome.jsonc"));
   const env: WorktreeEnv = {
     XDG_CACHE_HOME: path.join(root, "xdg-cache"),
