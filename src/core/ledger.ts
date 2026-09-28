@@ -18,6 +18,8 @@ export { acquireLock, lockDirFor, type LockLease, type LockOptions } from "./loc
 
 export const LEDGER_KIND_LOCK_TAKEOVER = "lock_takeover";
 export const LEDGER_KIND_GENERATION_COMPLETE = "generation_complete";
+export const LEDGER_KIND_PROMOTE = "promote";
+export const LEDGER_KIND_TOMBSTONE = "tombstone";
 
 export const ledgerRecordSchema = z.strictObject({
   v: z.literal(1),

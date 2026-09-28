@@ -18,6 +18,7 @@ import { runCommand } from "./commands/run.js";
 import { selfEvalCommand } from "./commands/self-eval.js";
 import { statusCommand } from "./commands/status.js";
 import { tombstoneCommand } from "./commands/tombstone.js";
+import { retractCommand } from "./commands/retract.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
 import {
   EXIT_CANNOT_ANSWER,
@@ -46,6 +47,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   statusCommand,
   promoteCommand,
   tombstoneCommand,
+  retractCommand,
   bundleCommand,
   graftCommand,
   selfEvalCommand,
