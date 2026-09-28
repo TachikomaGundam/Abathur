@@ -287,7 +287,7 @@ test("AC-2: canary planted in the val unit NEVER appears in the friction queue",
 });
 
 function gitIn(repo: string, ...args: string[]): void {
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@host.example", "-C", repo, ...args], { stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, ...args], { stdio: "pipe" });
 }
 
 test("friction: run CLI on drifted kernel records cause cli-error (spawned exit 1)", (t) => {
@@ -302,8 +302,8 @@ test("friction: run CLI on drifted kernel records cause cli-error (spawned exit 
   touchSeal(repo, ["units/add.mjs", "units/mul.mjs", "units/explode.mjs", "units/sub.mjs", "grader.mjs"]);
   writeFileSync(path.join(repo, "genome.jsonc"), toySpec(repo), "utf8");
   execFileSync("git", ["init", "-b", "main", repo], { stdio: "pipe" });
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@host.example", "-C", repo, "add", "-A"], { stdio: "pipe" });
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=abathur@host.example", "-C", repo, "commit", "-m", "genome"], { stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "add", "-A"], { stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "commit", "-m", "genome"], { stdio: "pipe" });
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   // drift the sealed grader AFTER registration:
   writeFileSync(path.join(repo, "grader.mjs"), "// tampered\n", "utf8");
