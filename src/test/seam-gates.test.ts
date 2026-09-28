@@ -89,6 +89,13 @@ test("tombstone with env-literal repoPath: exported ⇒ blocked, no literal leak
   assertNoLiteralOrEnoent(r);
 });
 
+test("retract with env-literal repoPath: exported ⇒ blocked naming the RESOLVED repo path", async (t) => {
+  const f = await fixture(t, "seam-gate-retract");
+  const r = cli(f, ["retract", f.label, "g-nonexistent", "--reason", "seam test"], { [LIT_VAR]: f.repo });
+  assert.equal(r.status, 1, `stdout: ${r.stdout}\nstderr: ${r.stderr}`);
+  assertNoLiteralOrEnoent(r);
+});
+
 test("promote with env-literal repoPath: unset ⇒ clean exit 2 naming the variable", async (t) => {
   const f = await fixture(t, "seam-gate-promote-unset");
   const env: Record<string, string | undefined> = {};

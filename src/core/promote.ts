@@ -20,14 +20,14 @@ import {
   readManifestFile,
   serializeManifest,
 } from "./kernel.js";
-import { Ledger, ledgerPath } from "./ledger.js";
+import { acquireGenomeLock, acquireLock, LEDGER_KIND_PROMOTE, Ledger, ledgerPath } from "./ledger.js";
 import { gitOpts, requireSha } from "./genome-paths.js";
 import type { WorktreeEnv, WorktreeOptions } from "./genome-paths.js";
 import { snapshotCommit } from "./snapshot.js";
 import { tryGit } from "../util/git.js";
 import { decodeGenerationRecord } from "./evolve/run-bench.js";
 
-export const LEDGER_KIND_PROMOTE = "promote";
+export { LEDGER_KIND_PROMOTE };
 
 export interface PromoteRequest {
   readonly entry: RegistryEntry;
@@ -113,6 +113,13 @@ export async function promoteGeneration(req: PromoteRequest): Promise<PromoteOut
   const opts: WorktreeOptions = req.env === undefined ? {} : { env: req.env };
 
   const ledger = Ledger.open(repo);
+  // the human gate is a state mutation: single-flight it against the run loop
+  // and any concurrent gate, same class as graft (postmortem 2026-09-28 retract
+  // review — the gate read→check→mutate→append sequence must not interleave).
+  const lease = acquireGenomeLock({ ledger, configDir, genomeFp: entry.fingerprint });
+  try {
+    const repoLease = acquireLock({ configDir: path.join(repo, ".state", "abathur"), key: "gate", label: "gate lock" });
+    try {
   const records = ledger.readAll();
   const genRows = records.filter((r) => r.kind === "generation_complete" && r.genId === req.genId);
   const lastRow = genRows.at(-1);
@@ -165,5 +172,10 @@ export async function promoteGeneration(req: PromoteRequest): Promise<PromoteOut
       `manifest: rewrote ${path.relative(process.cwd(), manifestFile) || manifestFile} from tree ${short(nom.commitSha)} (${String(fresh.length)} sealed ${fresh.length === 1 ? "entry" : "entries"})`,
       `ledger: appended '${LEDGER_KIND_PROMOTE}' row (actor: cli) to ${ledgerPath(repo)}`,
     ],
-  };
+  };    } finally {
+      repoLease.release();
+    }
+  } finally {
+    lease.release();
+  }
 }

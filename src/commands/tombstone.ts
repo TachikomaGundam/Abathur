@@ -4,7 +4,8 @@
 // bytes) but NEVER echoed raw — the confirmation line is sanitized like todo-8's
 // sealMessage so untrusted text cannot forge terminal output.
 
-import { Ledger } from "../core/ledger.js";
+import path from "node:path";
+import { acquireGenomeLock, acquireLock, LEDGER_KIND_TOMBSTONE, Ledger } from "../core/ledger.js";
 import { effectiveRepoPath } from "../core/spec.js";
 import { resolveConfigDir } from "../config.js";
 import { EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../exit.js";
@@ -12,7 +13,7 @@ import { writeStdout } from "../out.js";
 import type { CommandSpec } from "../cli.js";
 import { resolveUniqueEntry } from "./run.js";
 
-const LEDGER_KIND_TOMBSTONE = "tombstone";
+
 const MAX_REASON_CHARS = 4000;
 const USAGE = "usage: abathur tombstone <label> <genId> --reason <text>";
 
@@ -49,6 +50,11 @@ function runTombstone(args: readonly string[]): ExitCode {
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "tombstone");
   const ledger = Ledger.open(effectiveRepoPath(entry.spec.repoPath));
+  // single-flight with the run loop and sibling gates (same postmortem as promote)
+  const lease = acquireGenomeLock({ ledger, configDir, genomeFp: entry.fingerprint });
+  try {
+    const repoLease = acquireLock({ configDir: path.join(effectiveRepoPath(entry.spec.repoPath), ".state", "abathur"), key: "gate", label: "gate lock" });
+    try {
   const records = ledger.readAll();
   if (!records.some((r) => r.kind === "generation_complete" && r.genId === genId)) {
     blocked(`tombstone: no generation_complete ledger row for gen '${genId}' of '${label}' — nothing to bury`);
@@ -64,6 +70,12 @@ function runTombstone(args: readonly string[]): ExitCode {
   ledger.append({ kind: LEDGER_KIND_TOMBSTONE, genId, data: { genId, reason, actor: "cli" } });
   writeStdout(`tombstone recorded: '${genId}' (reason: ${echoed(reason)}) — commits and lineage preserved (cull ≠ delete)`);
   return EXIT_OK;
+    } finally {
+      repoLease.release();
+    }
+  } finally {
+    lease.release();
+  }
 }
 
 export const tombstoneCommand: CommandSpec = {

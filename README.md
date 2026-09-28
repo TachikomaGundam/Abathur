@@ -30,7 +30,7 @@ instance learn from another's evidence; nothing in v1 talks to a network.
   `peerClaim` metadata and never feed nomination math.
 - **run loop** — incumbent → brief (failure observations) → mutator session →
   candidate diffs → seal → re-bench → verdicts. Nominated generations sit in
-  the quarantine queue until a human runs `promote`; `tombstone` buries them.
+  the quarantine queue until a human runs `promote`; `tombstone` buries them; `retract` undoes a promote (LIFO, descendant-guarded).
   Both are append-only ledger decisions; nothing is ever deleted.
 
 ### Install
@@ -289,7 +289,7 @@ table are [docs/federation.md](docs/federation.md).
   same historian genome against one wiki will clobber each other mid-run.
   Cross-machine serialization of historian benches is the operator's
   responsibility (schedule, lockbox, one-wiki-one-bench rule — your call).
-- Promotion and burial are yours alone: `promote`/`tombstone` carry no
+- Promotion, burial and retraction are yours alone: `promote`/`tombstone`/`retract` carry no
   `--confirm` because the CLI invocation **is** the gate; there is no
   `--force` anywhere in the binary. Review `abathur status` quarantine depth
   and the `graft decisions` rows before promoting.
@@ -476,7 +476,7 @@ opencode 会在启动时自行从 npm 把包下载到它自己的缓存
   `self-eval`、`kernel`、`--help`），120 秒超时、64 KB 输出封顶。二进制从
   `PATH` 解析，除非用 `ABATHUR_BIN` 覆盖。诚实的权限说明：该工具具备与
   bash 等同的权限——`run` 与 `genome` 按设计就会 spawn 变异器/引擎二进制——
-  所以允许清单限制的是笔误与体验，而非能力。`promote` 与 `tombstone` 刻意
+  所以允许清单限制的是笔误与体验，而非能力。`promote`、`tombstone` 与 `retract` 刻意
   不可经由工具触达：它们是人类闸门，必须在终端里运行。
 - 用户命令 **`/abathur <参数…>`**——斜杠命令，指示智能体把参数
   翻译成工具调用并回报退出码。路线 A 由复制的 `commands/abathur.md`
