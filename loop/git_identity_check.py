@@ -1,43 +1,55 @@
 #!/usr/bin/env python3
-"""git_identity_check.py — pre-commit identity gate (mechanizes magi E1).
+"""git_identity_check.py — pre-commit identity gate (mechanizes magi E1 + the 2026-09-28
+fail-open incident, where the gate itself PASSED a wrong identity twice).
 
-Principle: before any commit batch, the identity about to be used MUST be checked
-against the repo's public-history identity set. Mismatch => stop and ask the owner;
-never commit-then-explain, never package pollution as an options menu.
+Usage: python3 loop/git_identity_check.py <repo>
+Exit 0 = identity correct. Exit 1 = MISMATCH, do not commit. Exit 2 = cannot answer
+(repo missing, git broken, or no seat-identity policy configured) — fail-closed.
 
-Usage: python3 loop/git_identity_check.py <repo> [--base origin/HEAD]
-Exit 0 = identity consistent (or repo has no history yet). Exit 1 = MISMATCH, do not commit.
+Policy source (single source of truth): repo config key `abathur.seatIdentity`.
+Rationale: a history-membership test is hollow once a wrong identity has entered the
+history (88 Wiki.js commits made "Wiki.js" pass the old check). The gate must know the
+EXPECTED identity, not merely the OBSERVED ones.
 """
-import sys, subprocess
+import subprocess
+import sys
+
 
 def git(repo, *args) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
 
+
+def die(code: int, msg: str) -> None:
+    print(msg)
+    sys.exit(code)
+
+
 def main() -> None:
-    if len(sys.argv) < 2:
-        raise SystemExit(__doc__)
+    if len(sys.argv) != 2 or sys.argv[1].startswith("-"):
+        die(2, __doc__)
     repo = sys.argv[1]
-    base = sys.argv[sys.argv.index("--base") + 1] if "--base" in sys.argv else None
-    name = git(repo, "config", "user.name").stdout.strip()
-    email = git(repo, "config", "user.email").stdout.strip()
-    if not name or not email:
-        # fall back to effective identity
-        name = git(repo, "var", "GIT_AUTHOR_NAME").stdout.strip()
-        email = git(repo, "var", "GIT_AUTHOR_EMAIL").stdout.strip()
+    # fail-closed: confirm we are really talking to a git repo before trusting any output
+    probe = git(repo, "rev-parse", "--git-dir")
+    if probe.returncode != 0:
+        die(2, f"CANNOT-ANSWER: '{repo}' is not a git repo (git said: {probe.stderr.strip()}); refusing to guess")
+    expected = git(repo, "config", "abathur.seatIdentity").stdout.strip()
+    if not expected:
+        die(2, "CANNOT-ANSWER: repo has no `abathur.seatIdentity` config — set the expected "
+               "seat identity first (git config abathur.seatIdentity 'name <email>'); "
+               "inferring it from history is hollow once a wrong identity is in history")
+    # effective identity = env override else repo/global config (git var is
+    # version-flaky here; read the two sources git itself consults)
+    import os
+    name = os.environ.get("GIT_AUTHOR_NAME") or git(repo, "config", "user.name").stdout.strip()
+    email = os.environ.get("GIT_AUTHOR_EMAIL") or git(repo, "config", "user.email").stdout.strip()
     effective = f"{name} <{email}>"
-    rev = base or "HEAD"
-    log = git(repo, "log", "--format=%an <%ae>", rev)
-    authors = set(log.stdout.split()) if log.returncode == 0 else set()
-    authors = {a for a in (l.strip() for l in log.stdout.splitlines()) if a}
-    if not authors:
-        print(f"OK: no history at {rev} — first-commit repo, identity {effective} unconstrained")
+    if effective == expected:
+        print(f"OK: effective identity {effective} == seat policy")
         return
-    if effective in authors:
-        print(f"OK: {effective} ∈ history identity set {sorted(authors)}")
-        return
-    print(f"MISMATCH: effective identity {effective} NOT in history identity set {sorted(authors)}")
-    print("STOP. Ask the owner which identity to use. Do not commit-then-explain.")
-    sys.exit(1)
+    die(1, f"MISMATCH: effective identity {effective} != seat policy {expected}\n"
+           "STOP. Fix `git config user.name/user.email` (repo-local) and re-run. "
+           "Do not commit-then-explain.")
+
 
 if __name__ == "__main__":
     main()
