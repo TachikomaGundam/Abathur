@@ -14,6 +14,7 @@ import { graftCommand } from "./commands/graft.js";
 import { kernelCommand } from "./commands/kernel.js";
 import { opencodeCommand } from "./commands/opencode.js";
 import { promoteCommand } from "./commands/promote.js";
+import { readjudicateCommand } from "./commands/readjudicate.js";
 import { runCommand } from "./commands/run.js";
 import { selfEvalCommand } from "./commands/self-eval.js";
 import { statusCommand } from "./commands/status.js";
@@ -46,6 +47,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   runCommand,
   statusCommand,
   promoteCommand,
+  readjudicateCommand,
   tombstoneCommand,
   retractCommand,
   bundleCommand,
