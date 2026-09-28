@@ -58,6 +58,20 @@ export const generationRowDataSchema = z
     gateFailures: z.array(z.string()).optional(),
     /** Unrelated worktree dirtiness notices (todo 3 contract: todo 9 books them). */
     dirtyWorktree: z.array(z.strictObject({ xy: z.string(), file: z.string() })).optional(),
+    /** Present only on rows appended by `abathur re-adjudicate`: the corrected verdict with
+     *  full replay provenance (source rows, bank state, replaced verdict). The original row
+     *  stays in the files untouched — this field documents the amendment, never hides it. */
+    readjudication: z.strictObject({
+      at: z.string().min(1),
+      specFingerprint: z.string().min(1),
+      gate: z.enum(["legacy", "acceptance"]),
+      bank: z.strictObject({ units: z.number().int().nonnegative(), priorSigma: z.number(), pooledDf: z.number() }).nullable(),
+      sourceRows: z.strictObject({
+        candidate: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
+        incumbent: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
+      }),
+      replacedVerdict: z.string().min(1),
+    }).optional(),
     benchProvenance: z.strictObject({
       benchType: z.enum(["toy", "opencode-fixture-scenarios"]),
       versions: z.array(z.strictObject({ bin: z.string().min(1), version: z.string() })),
