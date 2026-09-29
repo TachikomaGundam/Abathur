@@ -30,6 +30,7 @@ CLASS_OF = {
     "SR4-20": "symptom-vs-coupling", "SR4-20R": "symptom-vs-coupling", "SR4-20R2": "symptom-vs-coupling",
     "SR4-21": "audit-capture", "SR4-22": "oracle-leak", "SR4-23": "state-integrity",
     "SR4-21R": "audit-capture", "SR4-22R": "oracle-leak", "SR4-23R": "state-integrity",
+    "SR4-25": "memory-transfer", "SR4-26": "defaults-consent", "SR4-27": "criteria-1to1",
     "SR4-24": "governance-remedy",
 }
 PASSES_TO_CLEAR = 2  # consecutive passes after a fail/kill before a class leaves regression duty
