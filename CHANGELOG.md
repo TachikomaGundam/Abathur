@@ -1,0 +1,220 @@
+# Changelog
+
+All notable changes to Abathur are documented here.
+
+## 0.2.7 — 2026-09-29
+
+- feat(gate): `re-adjudicate <label> <genId>` — replay the current acceptance gate over
+  archived rows and append a corrected verdict with full provenance; ledger files stay
+  immutable, `promote` consumes the corrected last row. Born of the c17 silent-downgrade
+  incident; the anchor test replays the real c17 archives to NOMINATED gain 0.2917.
+- fix(fixtures): RFC2606 scrub of ssh-fixture literals in src+genomes (rebuilt dist is
+  clean by construction rather than by waiver).
+- release collision note: npm 0.2.6 was published from a parallel release vehicle that
+  predates these two commits; 0.2.7 is the canonical continuation of main.
+
+## 0.2.6 — 2026-09-27
+
+### Human gates now resolve env-literal repoPaths — fail-closed seams, not conventions
+
+- **Defect**: `promote`/`tombstone` opened the ledger under the STORED
+  UNRESOLVED `${VAR}` repoPath literal (every other command resolved it via
+  `effectiveRepoPath`; 4997618 had patched `status` only). With an
+  env-literal genome the gate read an empty ledger under a nonexistent
+  literal path and refused with a misleading "no generation_complete ledger
+  row" — the hint even printed the unresolved `${VAR}`. Found by dogfooding
+  the wave-2b module-genome promotes.
+- **Root cause**: env-literal resolution was a per-call-site convention, not
+  an enforced boundary; and the ledger seam was fail-open (empty ledger on a
+  nonexistent path), amplifying a path bug into a misleading state error.
+- **Fix (three layers)**:
+  1. `ledgerPath()` resolves via `effectiveRepoPath()` at the single ledger
+     FS seam — every ledger access in every command is safe by construction;
+     `promote`/`tombstone` resolve explicitly for their git/manifest seams.
+  2. New `seam-gates.test.ts`: promote/tombstone conformance with
+     env-literal genomes (exported => refusal names the RESOLVED path;
+     unset => clean exit 2 naming the var; never a literal leak or ENOENT).
+  3. New `repopath-seams.test.ts` tripwire: on the command/gate surface,
+     every `spec.repoPath` use must resolve on-line or carry a written
+     `raw-repoPath:` waiver — a new command that forgets fails CI now, not
+     a human gate later. Existing legit raw uses (display strings, self-mode
+     literal detection) are waived in writing.
+- 533/533 tests green (529 + 4 new).
+
+
+## 0.2.3 — 2026-09-11
+
+### `/abathur` self-registers — Route B now ships the slash command too
+
+- Correction, honest footing: 0.2.0–0.2.2 documented that "slash commands
+  cannot be registered by plugins upstream". That was **wrong**. It is true
+  that the `Hooks` interface has no dedicated command hook — but every
+  plugin's optional `config(cfg)` hook receives the fully-merged live config
+  object *after* all sources (including file-based
+  `{command,commands}/**/*.md`) have been merged into it, so a plugin can
+  register a slash command by adding an entry to `cfg.command`. The
+  first-party-ecosystem `opencode-acp` plugin registers its `/acp` command
+  exactly this way; we verified the mechanism against opencode v1.18.30
+  sources and live servers before shipping it.
+- `plugin/abathur.ts` gained the `config` hook: it injects
+  `cfg.command.abathur` (description + the `/abathur` prompt template, a
+  byte-mirror of `plugin/abathur-command.md` minus its marker line, pinned
+  by tests) using `??=` — so a Route A `commands/abathur.md` on disk stays
+  authoritative (byte-identical behaviour to 0.2.2) and the injection only
+  fills the gap where no such file exists. The upstream command map is keyed
+  by name, so file + injection never produce a duplicate `/abathur` entry.
+- Net effect: both routes now deliver the tool **and** the slash command —
+  Route B (`"plugin": ["@tachikomagundam/abathur"]`) needs no file copying
+  at all; Route A's installer is unchanged and remains the offline-capable,
+  zero-config-edit option.
+- README (en+zh) "Inside opencode" rewritten around the corrected
+  two-route story.
+
+## 0.2.2 — 2026-09-11
+
+### npm name-route plugin install (route B)
+
+- `package.json` gained an `exports` map (`"."` → `dist/cli.js`,
+  `"./server"` → `plugin/abathur.ts`, `"./package.json"`) so listing
+  `"@tachikomagundam/abathur"` in opencode's `plugin` config field lets the
+  loader resolve the plugin entry from the npm cache install — the shape is
+  pinned by tests against opencode v1.18.30's `resolvePackageEntrypoint`
+  (first `exports["./server"]`, plain-string form).
+- `@opencode-ai/plugin` (1.17.x line) declared as a runtime dependency so
+  arborist provisions the import beside the package inside opencode's cache
+  tree — the mechanism the installed OMO plugin uses.
+- `plugin/abathur.ts` header documents both delivery routes; marker stays in
+  version parity with `package.json` (pinned by tests).
+- README (en+zh) "Inside opencode" now presents the two routes: A) one
+  command file-copy install (tool + `/abathur`; slash commands cannot be
+  registered by plugins upstream), B) config-only name entry with automatic
+  npm download at startup (tool only; CLI still required on `PATH`).
+- The route A file-copy installer and its refusal semantics are unchanged.
+
+## 0.2.1 — 2026-09-11
+
+### Plugin adapter remediation (outcome of the F1 adversarial review)
+
+- Human gates are now terminal-only: the opencode tool allowlist drops
+  `promote` and `tombstone`. Reachable set is eight commands — `genome`,
+  `run`, `status`, `bundle`, `graft`, `self-eval`, `kernel`, `--help` — and
+  the slash-command template states that the tool itself refuses the gates
+  and points the user to a terminal.
+- Honest privilege documentation: the tool description now says plainly that
+  the tool carries bash-equivalent privilege (`run`/`genome` legitimately
+  spawn mutator/engine binaries by design) — the allowlist limits typos and
+  UX, not capability. Mirrored in both README languages.
+- `run` timeout note: when a killed `abathur run` times out, the result note
+  explains that detached children (mutator/bench sessions) may still be
+  running and that the next `abathur run` reaps them.
+- Installer hardening: both packaged assets are read before any destination
+  is validated (a missing second asset no longer leaves a partial install);
+  the write loop re-checks marker ownership, so a foreign file planted
+  between validation and write is refused instead of overwritten (TOCTOU);
+  install and uninstall share an lstat destination guard — directories and
+  symlinks are refused with exit 2 and named, never followed, entered, or
+  destroyed.
+
+## 0.2.0 — 2026-09-11
+
+### Official opencode plugin adapter
+
+- New `abathur opencode install|status|uninstall`: copies the packaged V1
+  plugin (`plugin/abathur.ts`) and slash-command template
+  (`plugin/abathur-command.md`) into `~/.config/opencode/{plugins,commands}/`.
+  After an opencode restart the session gets the agent tool `abathur` (the
+  CLI spawned argv-only — never a shell — behind a nine-command top-level
+  allowlist plus `--help`, 120 s timeout, 64 KB output cap, binary from
+  `ABATHUR_BIN` or `PATH`) and the user command `/abathur <args…>`.
+- Identity discipline mirrors the harness: targets are recognized by a
+  first-line marker; a foreign file at a target path is refused with exit 2
+  and named, never overwritten or deleted. No `--force` was added. Re-install
+  is idempotent (byte-equality check → "up to date"). `status` reports
+  per-target installed/packaged sha256 and state
+  (up-to-date / outdated / foreign / absent).
+- Shipped as top-level `plugin/` via package.json `files` (tsc never compiles
+  it; `@opencode-ai/plugin` resolves inside opencode's own config-directory
+  install). The plugin's marker version (`// abathur-opencode-plugin v…`) is
+  hardcoded and pinned by test to the package version — bump both together.
+- Caveat: fixture benches mirror the real `~/.config/opencode` (plugins
+  included) into sandbox HOMEs, so the installed plugin also loads inside
+  bench sessions; uninstall first for a clean plugin environment.
+
+## 0.1.1 — 2026-09-11
+
+### Docs
+
+- Quick-start follow-up to the scoped rename: `ABATHUR_PKG` now points at
+  `$(npm root -g)/@tachikomagundam/abathur` and the tarball install line at
+  `tachikomagundam-abathur-<version>.tgz` (mirrored zh/en).
+
+## 0.1.0 — 2026-09-10
+
+First release. An evolution harness for OpenCode agents:
+mutation → fitness-eval → selection, with promotion held by a human gate.
+
+### Core loop
+
+- Genome specs (JSONC): bench units with train/val split, adapter commands,
+  statistics config, evolution budget, kernel-immutable globs. Identity is the
+  sha256 content fingerprint; labels are free. Registry, kernel manifests,
+  friction queue, and graft queue live out-of-tree under the config dir
+  (`~/.config/abathur`, or the dirname of `$ABATHUR_CONFIG`).
+- `run`: incumbent → brief → mutator session (command template, argv-spawned,
+  never a shell) → candidate diffs → seal → re-bench → stats verdicts, with
+  worktree isolation and hard budget caps (truncation is `inconclusive`,
+  never a fake pass). `--dry-run` proves `requires[]` probes with zero spawns.
+- Selection stats (todo-7 gates): repeated-unit gains with confidence
+  half-width, min-effect, val-regression guard; verdicts
+  nominated/culled/indeterminate/inconclusive map to exit 0/1/1/2.
+- Append-only per-genome ledger at `<repoPath>/.state/abathur/ledger.jsonl`;
+  `status` (read-only), `promote` (the only path to a new incumbent; reseals
+  the kernel from the promoted tree), `tombstone`. No `--confirm`, no `--force`
+  anywhere: the CLI invocation is the human gate.
+
+### Bench adapters
+
+- `toy`: pure-node fixture genomes, zero model calls (ships as `toy-smoke` in
+  `dist/genomes/`, plus `dist/core/evolve/stub-mutators.mjs` for scripted
+  mutation loops).
+- `opencode-fixture-scenarios`: sandboxed live-agent benches — mirrored
+  sandbox HOME, per-unit reset/seed hooks, machine-local single-flight genome
+  lock, script-first graders with optional judge model.
+
+### Kernel seal and self-evolution
+
+- `kernel.immutableGlobs` sealed at registration (`<configDir>/kernels/`);
+  drifted trees refuse benches, sealed-path candidates are rejected at the path
+  stage, `kernel audit <label>` verifies. The `abathur-self` seed
+  (`genomes/abathur-self.jsonc`, machine-independent fingerprint via
+  `${ABATHUR_SELF_REPO}`) benches candidates as a snapshot overlay: trusted
+  test suite and golden-replay goalposts from the incumbent commit, candidate
+  sources only from the overlay, harness-pinned toolchain. v1 self-evolution
+  cannot change dependencies or build configuration — by design.
+- `self-eval` reports fitness and never promotes. Friction digests from every
+  run queue to `<configDir>/friction.jsonl` (val scrubbing is structural).
+
+### Federation (offline)
+
+- `bundle export`: deterministic, byte-identical re-exports; manifest schema v1
+  with scoring provenance, budget counters, and train-only mask-scanned
+  evidence (`<HOME>`/`<GENOME>`/`<MASKED-n>` placeholders; fail-closed leak
+  gate). `bundle inspect` re-verifies every pinned member from contained bytes.
+- `graft`: four byte-exact gates (genome fingerprint, benchDigest, scoring
+  provenance three-way, `requires[]` probes) then a local re-bench at local
+  reps/thresholds; peer scores are `peerClaim` metadata only. Decisions:
+  nominated / culled / indeterminate / inconclusive / quarantined /
+  pending-bench, all booked to the ledger; duplicate terminal grafts refuse.
+- No transport, discovery, signatures, auto-merge, or auto-promotion in v1.
+
+### First real genome
+
+- `historian` template (`config/genomes/historian.example.jsonc`): Wiki.js
+  scenario bench with A–J grader dimensions and a hard G gate. Machine values
+  are `${VAR}` placeholders the operator resolves into a gitignored
+  `*.local.jsonc`; only `repoPath` has built-in env resolution.
+
+### Docs
+
+- Bilingual README (mirrored zh/en), `docs/immutable-kernel.md`,
+  `docs/federation.md`.
