@@ -2,6 +2,17 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.7 — 2026-09-29
+
+- feat(gate): `re-adjudicate <label> <genId>` — replay the current acceptance gate over
+  archived rows and append a corrected verdict with full provenance; ledger files stay
+  immutable, `promote` consumes the corrected last row. Born of the c17 silent-downgrade
+  incident; the anchor test replays the real c17 archives to NOMINATED gain 0.2917.
+- fix(fixtures): RFC2606 scrub of ssh-fixture literals in src+genomes (rebuilt dist is
+  clean by construction rather than by waiver).
+- release collision note: npm 0.2.6 was published from a parallel release vehicle that
+  predates these two commits; 0.2.7 is the canonical continuation of main.
+
 ## 0.2.6 — 2026-09-27
 
 ### Human gates now resolve env-literal repoPaths — fail-closed seams, not conventions
