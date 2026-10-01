@@ -27,15 +27,20 @@ cp -f "$brief_file" "${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}.brief
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
 bin="${ABATHUR_OPENCODE_BIN:-opencode}"
 
-prompt="You are the genome mutator of the Abathur evolution harness, PCB-agent lane. Read the reflection brief below (evidence from the incumbent bench of the pcb-agent genome: the PCB team run log, FINDINGS.md, and the grader OUTCOME/EYES metrics). Propose exactly ONE improvement: create a NEW RUN CARD under abathur-notes/ (slug .md). The run card is appended VERBATIM to the team task brief at bench time — write direct, actionable engineering guidance the PCB orchestrator team can follow. TARGET THE EYES GAP: if the grader shows traps the team hit but never NAMED (trap_coverage low while outcome partial), the card must teach the DISCOVERY PROCEDURE (how to notice this class of defect yourself), not the pasted answer — an answer scores once and dies; a discovery method evolves the team. Prefer converting one observed failure into a check the team can run itself. Output ONLY a single JSON object, no prose, shape:
+ptfile="$(mktemp /tmp/abathur-mutate-prompt.XXXXXX)"
+cat > "$ptfile" <<'PROMPT_EOF'
+You are the genome mutator of the Abathur evolution harness, PCB-agent lane. Read the reflection brief below (evidence from the incumbent bench of the pcb-agent genome: the PCB team run log, FINDINGS.md, and the grader OUTCOME/EYES metrics). Propose exactly ONE improvement: create a NEW RUN CARD under abathur-notes/ (slug .md). The run card is appended VERBATIM to the team task brief at bench time — write direct, actionable engineering guidance the PCB orchestrator team can follow. TARGET THE EYES GAP: if the grader shows traps the team hit but never NAMED (trap_coverage low while outcome partial), the card must teach the DISCOVERY PROCEDURE (how to notice this class of defect yourself), not the pasted answer — an answer scores once and dies; a discovery method evolves the team. Prefer converting one observed failure into a check the team can run itself. Output ONLY a single JSON object, no prose, shape:
 {"rationale": "<one sentence, <=400 chars>", "path": "abathur-notes/<slug>.md", "content": "<full markdown file contents>"}
 Do not modify any other path. Scenarios/, README.md and genome.jsonc are immutable; board tooling lives in the arena, not the genome tree.
 
 BRIEF:
-$(cat "$brief_file")"
+PROMPT_EOF
+cat "$brief_file" >> "$ptfile"
+prompt="$(cat "$ptfile")"
+rm -f "$ptfile"
 
 raw="${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}"
-"$bin" run --model "$model" --format json --message "$prompt" >"$raw" 2>/dev/null
+"$bin" run --model "$model" --format json -- "$prompt" >"$raw" 2>/dev/null
 rc=$?
 echo "mutate: opencode rc=$rc raw=$raw" >&2
 
