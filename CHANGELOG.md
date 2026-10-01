@@ -2,6 +2,11 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.2.8
+- engine fail-open repair (r21 injury ticket): non-finite grader scores are ruler failures, never replicates; a fully-excluded comparison pool returns inconclusive("vacuous evidence") instead of minting NaN nominations; regression test (stats 32/32, suite 552/0-fail)
+- pcb-agent r20/r21 bench lane: production-topology runner (bwrap arena at the control literal, five gates), bench-approver reactive arm, seed/mount scripts
+- NOTE: this commit is a byte-exact re-application after the 2026-09-30 .git accident (rsync --delete on the worktree); content lineage preserved from the session log, tests green before the loss
+
 ## 0.2.7 — 2026-09-29
 
 - feat(gate): `re-adjudicate <label> <genId>` — replay the current acceptance gate over

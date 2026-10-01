@@ -507,3 +507,20 @@ describe("seeded synthetic replay (plan AC: deterministic verdict table)", () =>
     }
   });
 });
+// r21 injury ticket: vacuous evidence — every unit excluded (both arms n<2,
+// e.g. infra-dead candidate reps vs a single legacy incumbent row) must NEVER
+// mint a nomination from NaN aggregates.
+describe("evaluate: vacuous pool is inconclusive, never nominated", () => {
+  it("single-replicate arms on both sides ⇒ inconclusive with the vacuous failure line", () => {
+    const v = evaluate({
+      candidate: { runId: "g-vacuous", units: [{ unitId: "u1", split: "val", scores: [] }], counters: CAPS, caps: CAPS, minEffect: 0.1, effectiveAlpha: 0.05, nPairs: 1 },
+      incumbent: { units: [{ unitId: "u1", split: "val", scores: [0.8] }] },
+      stats: STATS,
+      budgetCaps: CAPS,
+      nPairs: 1,
+    } as never);
+    assert.equal(v.verdict, "inconclusive");
+    assert.ok(v.failures.some((f) => f.startsWith("no unit comparable on both arms")));
+    assert.equal(v.gain, null);
+  });
+});

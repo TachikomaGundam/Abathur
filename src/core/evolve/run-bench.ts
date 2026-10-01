@@ -228,7 +228,12 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
           continue;
         }
         const score = await bundle.adapter.score(unit);
-        if (score.kind === "scored") {
+        if (score.kind === "scored" && !Number.isFinite(score.result.score)) {
+          // r21 injury ticket: a NaN/Inf score is a BROKEN RULER, not a number —
+          // it must never become a replicate (vacuous aggregates minted bogus
+          // nominations: stats saw finite-looking rows and judged on nothing).
+          row.failures.push(`${unit.id} rep ${String(rep)}: grader score not finite (${String(score.result.score)}) — ruler failure, never counts as evidence`);
+        } else if (score.kind === "scored") {
           row.scores.push(score.result.score);
           row.runIds.push(runId(o.genId, unit.id, rep));
           if (!score.result.pass) {

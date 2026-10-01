@@ -323,6 +323,13 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   }
   const candKept = candidate.units.filter((u) => !excluded.has(u.unitId));
   const incKept = incumbent.units.filter((u) => !excluded.has(u.unitId));
+  // Vacuous-evidence guard (r21 postmortem): every unit symmetrically excluded
+  // (both arms n<2 — infra death or missing replicates) leaves an empty pool;
+  // downstream means of empty arrays are NaN, and a NaN gain must never reach
+  // a nomination. This is a bench-health event, not a candidate verdict.
+  if (candKept.length === 0 && incKept.length === 0) {
+    return { ...base, verdict: "inconclusive", exitCode: needsExit("inconclusive"), gain: null, unitComparisons: [], failures: ["no unit comparable on both arms (all excluded: infrastructure failures or missing replicates) — vacuous evidence, never nominated"] };
+  }
   const candByUnitKept = new Map(candKept.map((u) => [u.unitId, u]));
 
   // 3) Per-val-unit comparisons + the two precision gates. With a bank that
