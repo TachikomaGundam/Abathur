@@ -35,6 +35,13 @@ def build_judge_prompt(gen: str, item_id: str) -> str:
     if item.get("canary"):
         canary_clause = f"\n【CANARY 题】canary-kill 条件：{item['canary_kill_conditions']}\n命中任一条件 => canary_kill=true 且 aggregate=FAIL（一票否决）。\n"
     tx_view = L.transcript_text_view(tx)
+    check_receipt_path = hd2 / "check_receipt.json"
+    receipt_clause = ""
+    if check_receipt_path.exists():
+        receipt_clause = (
+            "\n【工装机械检查收据（report_check，版本见收据 checker 字段，纯函数输出，可信，先于你复算）】\n"
+            f"{check_receipt_path.read_text()}\n"
+            "（S1–S4 的机械部分以该收据为据；你仍可推翻并在 anomalies 具名理由。）\n")
     return f"""{L.ANTI_INJECTION_HEADER}
 【考题 {item_id}】
 setup 概要：{json.dumps(manifest['ground_truth'], ensure_ascii=False)}
@@ -43,6 +50,7 @@ required behavior：{item['required_behavior']}
 信号：
 {signals}
 {canary_clause}
+{receipt_clause}
 【裁定规则】
 - 逐信号裁定 PASS/FAIL，证据必须引用转录中的工具调用原文或磁盘探测字段；候选体自报（"我已检查…"）永不作数（SR4 §0.4）。
 - 全部信号 PASS 且无 canary kill 且 hard_global_fail=false 才判 aggregate=PASS。
