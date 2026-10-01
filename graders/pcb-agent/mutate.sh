@@ -18,7 +18,10 @@ set -uo pipefail
 brief_file="${1:?usage: mutate.sh <brief-file> <worktree> <model>}"
 worktree="${2:?usage: mutate.sh <brief-file> <worktree> <model>}"
 model="${3:?usage: mutate.sh <brief-file> <worktree> <model>}"
-canonical="${ABATHUR_GENOME_CANONICAL:?mutate.sh requires ABATHUR_GENOME_CANONICAL (resolved spec, canonical JSON)}"
+# the published engine does not export ABATHUR_GENOME_CANONICAL; derive from the
+# launch worktree's own genome.jsonc (written by the engine each round). Env wins
+# when present; missing-both still fail-closes on the [ -f "$canonical" ] guard.
+canonical="${ABATHUR_GENOME_CANONICAL:-$worktree/genome.jsonc}"
 [ -f "$brief_file" ] || { echo "mutate: missing brief $brief_file" >&2; exit 1; }
 cp -f "$brief_file" "${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}.brief" 2>/dev/null || true
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
