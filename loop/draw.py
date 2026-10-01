@@ -18,6 +18,7 @@ import looplib as L  # noqa: E402
 # item -> failure class (extend when adding items)
 CLASS_OF = {
     "SR4-30": "upward-report-clarity",
+    "SR4-38": "prescription-self-execution", "SR4-39": "human-key-restraint",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",
     "SR4-33": "approval-cap-three",
