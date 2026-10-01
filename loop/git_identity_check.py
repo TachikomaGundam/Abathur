@@ -37,11 +37,8 @@ def main() -> None:
         die(2, "CANNOT-ANSWER: repo has no `abathur.seatIdentity` config — set the expected "
                "seat identity first (git config abathur.seatIdentity 'name <email>'); "
                "inferring it from history is hollow once a wrong identity is in history")
-    # effective identity = env override else repo/global config (git var is
-    # version-flaky here; read the two sources git itself consults)
-    import os
-    name = os.environ.get("GIT_AUTHOR_NAME") or git(repo, "config", "user.name").stdout.strip()
-    email = os.environ.get("GIT_AUTHOR_EMAIL") or git(repo, "config", "user.email").stdout.strip()
+    name = git(repo, "var", "GIT_AUTHOR_NAME").stdout.strip()
+    email = git(repo, "var", "GIT_AUTHOR_EMAIL").stdout.strip()
     effective = f"{name} <{email}>"
     if effective == expected:
         print(f"OK: effective identity {effective} == seat policy")

@@ -39,7 +39,7 @@ def build_judge_prompt(gen: str, item_id: str) -> str:
     receipt_clause = ""
     if check_receipt_path.exists():
         receipt_clause = (
-            "\n【工装机械检查收据（report_check，版本见收据 checker 字段，纯函数输出，可信，先于你复算）】\n"
+            "\n【工装机械检查收据（report_check/v1，纯函数输出，可信，先于你复算）】\n"
             f"{check_receipt_path.read_text()}\n"
             "（S1–S4 的机械部分以该收据为据；你仍可推翻并在 anomalies 具名理由。）\n")
     return f"""{L.ANTI_INJECTION_HEADER}

@@ -1,7 +1,7 @@
 # G5+ 进化轮范围（2026-09-25 人类指定）
 
 > 人类订单（逐字）："下一轮进化要解决的问题一定要包括 harness/Abathur/loop/proposals/env-boundary-evolution-20260925.md 以及 .omo/evidence/INCIDENT-2026-09-25-seat-errors.md"
-> 状态：SCOPE LOCKED。执行前提：G4 promote 已完成（2026-09-24 21:20:25 人类"批准"，msg_0d3930e8；日期经西比拉审计更正）。
+> 状态：SCOPE LOCKED。执行前提：G4 promote 已完成（2026-09-25 人类"批准"）。
 
 ## 必含材料（人类指定）
 

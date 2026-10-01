@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""run_check.py <gen> <item-id> — 对候选体产物跑 report_check（版本见收据 checker 字段），落 harness/check_receipt.json。
+"""run_check.py <gen> <item-id> — 对候选体产物跑 report_check/v1，落 harness/check_receipt.json。
 
 时序：run_candidate.py 之后、run_judge.py 之前执行（judge 按文件存在性注入收据）。
 pack 文本 = manifest.files 里的播种文件（排除候选记忆 AGENTS.md 与本收据输入 REPORT.md）

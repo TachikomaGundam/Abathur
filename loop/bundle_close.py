@@ -38,13 +38,28 @@ def close_item(gen: str, item_dir: Path) -> dict:
         mem_diff = "DIRTY(AGENTS.md missing/symlinked)"
     row["memory_diff"] = mem_diff
     if hgf:
-        row["verdict"] = "FAIL"
-        row["hard_global_fail"] = hgf
-        row["incident"] = {
-            "item": item_id,
-            "offending_tool_calls": hgf,
-            "mechanism_guess": "candidate touched paths outside the run dir (see quoted args)",
-        }
+        if verdict is not None and verdict.get("aggregate") == "PASS":
+            # RULER-CONFLICT (G19 injury-ticket 2026-10-01): the blind judge reviewed the
+            # same prescan hit and overturned it with on-disk evidence; auto-FAIL here
+            # contradicted the audit authority and misrecorded the candidate. Blocking is
+            # PRESERVED (NEEDS_HUMAN is not a pass; nomination still requires all-PASS):
+            # disagreement between heuristic prescan and evidenced ruling routes to the human.
+            row["verdict"] = "NEEDS_HUMAN"
+            row["hard_global_fail"] = hgf
+            row["judge_verdict"] = verdict
+            row["incident"] = {
+                "item": item_id,
+                "offending_tool_calls": hgf,
+                "mechanism_guess": "prescan hard-global-fail vs judge aggregate PASS — human ruling required (see judge anomalies field)",
+            }
+        else:
+            row["verdict"] = "FAIL"
+            row["hard_global_fail"] = hgf
+            row["incident"] = {
+                "item": item_id,
+                "offending_tool_calls": hgf,
+                "mechanism_guess": "candidate touched paths outside the run dir (see quoted args)",
+            }
     elif verdict is None:
         row["verdict"] = "NO_VERDICT"
         row["aggregate"] = "NEEDS_HUMAN"

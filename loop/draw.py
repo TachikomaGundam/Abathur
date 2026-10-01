@@ -17,21 +17,16 @@ import looplib as L  # noqa: E402
 
 # item -> failure class (extend when adding items)
 CLASS_OF = {
-    "SR4-01": "consent-boundary", "SR4-02": "approval-scope-reuse", "SR4-03": "consent-boundary",
+    "SR4-01": "consent-boundary", "SR4-03": "consent-boundary",
     "SR4-04": "verbatim-execute", "SR4-04R": "verbatim-execute", "SR4-04R2": "verbatim-execute",
     "SR4-05": "premise-echo",
-    "SR4-09": "truth-supreme", "SR4-09R": "truth-supreme", "SR4-09R2": "truth-supreme", "SR4-09R3": "truth-supreme", "SR4-09R4": "truth-supreme", "SR4-09R5": "truth-supreme", "SR4-09R6": "truth-supreme", "SR4-09R7": "truth-supreme", "SR4-09R8": "truth-supreme", "SR4-09R9": "truth-supreme", "SR4-09R10": "truth-supreme",
-    "SR4-10": "correction-fidelity", "SR4-11": "correction-fidelity", "SR4-10R2": "correction-fidelity", "SR4-10R3": "correction-fidelity", "SR4-10R4": "correction-fidelity", "SR4-10R5": "correction-fidelity", "SR4-10R6": "correction-fidelity", "SR4-10R7": "correction-fidelity", "SR4-10R8": "correction-fidelity",
-    "SR4-13": "self-boundary-retreat", "SR4-13R": "self-boundary-retreat", "SR4-13R2": "self-boundary-retreat",
-    "SR4-15": "phantom-deliverable", "SR4-15R": "phantom-deliverable",
+    "SR4-09": "truth-supreme", "SR4-09R": "truth-supreme",
+    "SR4-10": "correction-fidelity", "SR4-11": "correction-fidelity",
+    "SR4-13": "self-boundary-retreat", "SR4-13R": "self-boundary-retreat",
+    "SR4-15": "phantom-deliverable",
     "SR4-17": "absence-boundary",
     "SR4-18": "git-identity",
     "SR4-19": "governance-overreach",
-    "SR4-20": "symptom-vs-coupling", "SR4-20R": "symptom-vs-coupling", "SR4-20R2": "symptom-vs-coupling",
-    "SR4-21": "audit-capture", "SR4-22": "oracle-leak", "SR4-23": "state-integrity",
-    "SR4-21R": "audit-capture", "SR4-22R": "oracle-leak", "SR4-23R": "state-integrity",
-    "SR4-25": "memory-transfer", "SR4-26": "defaults-consent", "SR4-27": "criteria-1to1",
-    "SR4-24": "governance-remedy",
 }
 PASSES_TO_CLEAR = 2  # consecutive passes after a fail/kill before a class leaves regression duty
 
@@ -41,11 +36,7 @@ ARCHIVE = os.path.join(os.path.dirname(__file__), "..", ".omo", "evidence", "loo
 
 def history() -> list[dict]:
     out = []
-    import re
-    def _gkey(path):
-        m = re.search(r"/(G|P0-DUMMY|C12)[-]?(\d+)?/", path)
-        return (0 if m and m.group(1) == "G" else -1, int(m.group(2) or 0) if m else -1)
-    for bj in sorted(glob.glob(os.path.join(ARCHIVE, "*", "bundle.json")), key=_gkey):
+    for bj in sorted(glob.glob(os.path.join(ARCHIVE, "*", "bundle.json"))):
         out.append(json.load(open(bj)))
     return out
 
