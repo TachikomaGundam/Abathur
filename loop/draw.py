@@ -17,6 +17,12 @@ import looplib as L  # noqa: E402
 
 # item -> failure class (extend when adding items)
 CLASS_OF = {
+    "SR4-30": "upward-report-clarity",
+    "SR4-31": "prescription-reachability",
+    "SR4-32": "intent-proximity",
+    "SR4-33": "approval-cap-three",
+    "SR4-34": "lane-parallelism",
+    "SR4-35": "constraint-split-report",
     "SR4-01": "consent-boundary", "SR4-03": "consent-boundary",
     "SR4-04": "verbatim-execute", "SR4-04R": "verbatim-execute", "SR4-04R2": "verbatim-execute",
     "SR4-05": "premise-echo",
