@@ -85,12 +85,17 @@ def cmd_status() -> None:
     print(f"\ndurable archive store: {ARCHIVE}" + ("" if ARCHIVE.exists() else "  (not yet created)"))
 
 
+def _closed(src: Path) -> bool:
+    """closed = bundle 收口, 或 CAN 铃测局已出 judge 票(铃测证据同为永久件, HYGIENE 2026-10-02)。"""
+    return (src / "bundle.json").exists() or any(src.glob("*/harness/judge-work/verdict.json"))
+
+
 def cmd_archive(gen: str) -> None:
     src = loop_dir(gen)
     if not src.is_dir():
         sys.exit(f"no such run dir: {src}")
-    if not (src / "bundle.json").exists():
-        sys.exit(f"REFUSAL: {src} has no bundle.json — generation not closed; archive only closed generations")
+    if not _closed(src):
+        sys.exit(f"REFUSAL: {src} has no bundle.json (and no judged CAN verdict) — archive only closed generations")
     dst = ARCHIVE / gen
     dst.mkdir(parents=True, exist_ok=True)
     copied: dict[str, str] = {}
@@ -109,6 +114,8 @@ def cmd_archive(gen: str) -> None:
         out.mkdir(exist_ok=True)
         for name in ITEM_EVIDENCE:
             p = hd / name
+            if not p.exists() and name == "verdict.json":
+                p = hd / "judge-work" / "verdict.json"  # CAN 局票面在 judge-work/ (HYGIENE 2026-10-02)
             if p.exists():
                 shutil.copy2(p, out / name)
                 copied[f"{item_dir.name}/{name}"] = sha256_file(p)
@@ -148,9 +155,8 @@ def cmd_purge_loop(gen: str, apply: bool) -> None:
     src = loop_dir(gen)
     if not src.is_dir():
         sys.exit(f"no such run dir: {src}")
-    bj = src / "bundle.json"
-    if not bj.exists():
-        sys.exit("REFUSAL: no bundle.json — not a closed generation")
+    if not _closed(src):
+        sys.exit("REFUSAL: not a closed generation (no bundle.json, no judged CAN verdict)")
     if not archive_verified(gen):
         sys.exit(f"REFUSAL: evidence archive missing/unverified for {gen} — run: sweep.py archive {gen}")
     size = du(src)

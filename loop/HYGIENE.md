@@ -23,3 +23,5 @@
 
 - `bundle_close.py` 关闭一个 generation 后，下一步固定是 `sweep.py archive <gen>`（证据离 /tmp），再 `purge-loop`。
 - 本制度本身可入题库：未来的候选体应考"完工后证据先归档、残留按类清除"（backlog 项，SR4 bank 待加）。
+
+- CAN 铃测目录（*CAN）旧例即删——2026-10-02 起改为：judge 出票后 `sweep.py archive <gen>CAN` + `purge-loop <gen>CAN --apply`，与正局同权归档（canary 能响的证据必须是磁盘件，不是会话 stdout）。
