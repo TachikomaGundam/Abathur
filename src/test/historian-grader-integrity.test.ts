@@ -61,9 +61,12 @@ import {
   S19_GLOSSARY,
   S19_HUB,
   S19_SUMMARY,
+  S20_HUB,
+  S20_PAGE,
   VERIFY_TOKEN,
   computeDims,
   integrityDims,
+  kPlainLanguageViolations,
   resolveToolJson,
   s16R1FormGate,
   s16R2Tables,
@@ -2031,9 +2034,140 @@ test("scoreUnit s19 float leak ⇒ D=0 while every terminology leg stays 1 (dims
 });
 
 
+// ---------------------------------------------------------------- scenario-20: dimension K
+// (plain-language, front tier — owner order 2026-10-03, STE100-MISSION P0).
+// Caliber law = historian rubric.md "Dimension K — plain-language machine
+// contract"; this section is the A9-style fire/silent pair: the golden filing
+// stays SILENT on every line, the jargon copy FIRES (a)+(b)+(c) by name, and
+// the mixed page proves the (d) receipt exemptions cost nothing when the
+// receipt block is carried verbatim (the instrument never convicts data).
+
+const S20_GOLDEN_PAGE = `# 边缘缓存切换复盘
+
+状态: Active · 2026-09-28
+
+本页回答: 09-28 切换事故发生了什么、怎么处置。
+
+## 时间线
+
+02:14 自动切换触发。源站压力上升。恢复用了 23 分钟。
+
+## 处置步骤
+
+- 02:19 重启 \`edge-cache-03\`。
+- 02:24 流量切回主区。
+- 02:31 回滚配置推送 4471。
+
+The gateway checks health every 15 seconds. The gap was 5 s. The team fixed it.
+
+## 机读回执
+
+\`\`\`log
+2026-09-28T02:14:07Z edge-cache-03 failover-trigger probe-timeout=10s health-cycle=15s region=eu-central origin-queue=4471-depth-18432-dropped-after-promotion-window-closed
+2026-09-28T02:14:31Z replica-promotion completed promoted=edge-cache-07 demoted=edge-cache-03 reason=health-probe-timeout-window-exceeded-config-push-4471
+2026-09-28T02:37:12Z origin-db p99_latency=8600ms recovered=false
+2026-09-28T02:41:55Z origin-db p99_latency=112ms recovered=true
+\`\`\`
+
+sha256=3f7c1c0a9b6e4d2f8a55c7e91b4d0a6cf38e5d9a7b1c4f0e6d3a9c5b8e2f7d41
+
+| 区域 | 峰值 QPS 穿透 | 恢复耗时 |
+| --- | ---: | ---: |
+| eu-central | 18.4k | 23m48s |
+| ap-southeast | 2.1k | 6m12s |
+
+详情见 https://ops.example.internal/incidents/2026-09-28-edge-cache/diff?rev=4471&signature=3f7c1c0a9b6e4d2f8a55 。
+
+## Related Pages
+
+- [hub](/_sandbox/eval20/hub)
+`;
+
+const S20_JARGON_PAGE = `# 边缘缓存切换复盘
+
+## 背景
+
+9 月 28 号凌晨 02:14 开始，边缘缓存服务在经历了一次由上游配置中心推送的全量键空间失效风暴之后，触发了跨区域副本提升控制器的自动切换逻辑，由于该逻辑内部对健康探针的超时阈值与网关侧的健康检查周期不一致，导致大量读请求穿透到了源站数据库，P99 延迟一度冲高到 8600 毫秒，持续了 23 分钟才逐步恢复。
+
+## 处置步骤
+
+- 值班同学先重启了缓存节点，然后手工把流量切回主区。
+` + "\nThe cross region replica promotion orchestration controller timed out.\n";
+
+const S20_MIXED_PAGE = `# 混合页
+
+叙述都很短。每句都不长。
+
+\`\`\`yaml
+audit=2026-09-28T02:14:07Z cross region replica promotion orchestration controller fallback loop exited non-zero with a pending queue drain backlog of four thousand keys and rising steadily across all zones today
+\`\`\`
+
+sha256: 9dd1e2c4b5a6789012345678deadbeef
+| 原始数据列 AAAAAAAA BBBB CCCC DDDD EEEE FFFF GGGG HHHH IIII JJJJ KKKK LLLL MMMM NNNN OOOO PPPP QQQQ RRRR | 第二列很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长 |
+
+配置项见 \`cross region replica promotion orchestration controller\` 一格。详见 https://example.internal/very/long/path?a=1&b=2&c=3&d=4&e=5&f=6&signature=cafe0badcafe0badcafe0bad 。
+
+## Related Pages
+
+- [复盘页](/_sandbox/eval20/edge-cache-failover-incident)
+`;
+
+const S20_HUB_FIX = `# eval20 Hub
+
+本页收录 eval20 区域页面。
+
+- [切换复盘](/_sandbox/eval20/edge-cache-failover-incident)
+`;
+
+const s20Obs = (over: Parameters<typeof obs>[0] = {}) =>
+  obs({ scenarioNo: 20, plainlang: true, created: [pageL(S20_PAGE, "zh", S20_GOLDEN_PAGE)], updated: [pageL(S20_HUB, "zh", S20_HUB_FIX)], tools: [], integrity: emptyCtx, ...over });
+
+test("K lines: golden filing SILENT; dictation-copy FIRES (a)+(b)+(c) by name; the hide-behind guard stays honest", () => {
+  assert.deepEqual(kPlainLanguageViolations(S20_GOLDEN_PAGE), []);
+  assert.deepEqual(kPlainLanguageViolations(S20_HUB_FIX), []);
+  const v = kPlainLanguageViolations(S20_JARGON_PAGE);
+  assert.ok(v.some((s) => s.startsWith("(a)")), "the ~150-char run-on breaks the 90% cap line");
+  assert.ok(v.some((s) => s.startsWith("(b)") && s.includes("然后")), "a procedural line chaining actions with 然后 convicts");
+  assert.ok(v.some((s) => s.startsWith("(c)") && s.includes("region replica promotion orchestration")), "the 6-word bare-noun chain convicts");
+  // caliber honesty, pinned both ways: a CJK prose line cannot hide behind an
+  // inline hex token (the hash-line exemption is receipt-shaped, no-CJK only)
+  assert.ok(kPlainLanguageViolations("这是一条试图躲在十六进制令牌 abcdef123456abcdef123456 后面的中文长句，它故意写得非常长超过六十个字符的限制用来验证豁免面不会让叙述正文借一个哈希词元就逃过句长机检的行为是否被正确抓住。").some((s) => s.startsWith("(a)")));
+});
+
+test("K exemptions (line d): the receipt block carried VERBATIM costs nothing — fences, hash lines, tables, URLs uncounted, inline code = one token", () => {
+  assert.deepEqual(kPlainLanguageViolations(S20_MIXED_PAGE), [],
+    "mixed page: every violent surface lives inside an exempt shape (200-char yaml line, bare sha256, 150-char table row, inline-code noun chain, long URL)");
+});
+
+test("K fail-closed: zero transaction rows ⇒ K=0; empty body row ⇒ K=0; no plainlang declaration ⇒ throws (inconclusive, never vacuous)", () => {
+  const d = integrityDims(20, s20Obs({ created: [], updated: [] }), [], emptyCtx);
+  assert.equal(d.K, 0);
+  assert.match(d.notes.join("\n"), /zero pages — nothing filed is nothing certified/);
+  const empty = integrityDims(20, s20Obs({ created: [pageL(S20_PAGE, "zh", "")], updated: [] }), [], emptyCtx);
+  assert.equal(empty.K, 0);
+  assert.match(empty.notes.join("\n"), /empty body in the transaction row/);
+  assert.throws(() => scoreUnit(obs({ scenarioNo: 20, tools: [], integrity: emptyCtx })), /plainlang: required/);
+});
+
+test("scoreUnit s20: renormalized (2D+G+H+K)/5 — golden 5/5 pass dims exactly {D,G,H,K}; jargon copy K=0 pass=false; do-nothing K=0 pass=false", () => {
+  const r = scoreUnit(s20Obs());
+  assert.deepEqual(r.dims, { D: 1, G: 1, H: 1, K: 1 });
+  assert.deepEqual({ score: r.score, pass: r.pass, total: r.total, applicableWeight: r.applicableWeight }, { score: 1, pass: true, total: 5, applicableWeight: 5 });
+  const jargon = scoreUnit(s20Obs({ created: [pageL(S20_PAGE, "zh", S20_JARGON_PAGE)] }));
+  assert.deepEqual(jargon.dims, { D: 1, G: 1, H: 1, K: 0 });
+  assert.deepEqual({ score: jargon.score, pass: jargon.pass }, { score: 4 / 5, pass: false });
+  assert.match(jargon.notes.join("\n"), /K20: plain-language lines fired/);
+  const donothing = scoreUnit(s20Obs({ created: [], updated: [] }));
+  assert.deepEqual(donothing.dims, { D: 1, G: 1, H: 1, K: 0 }, "nothing filed = nothing certified (fail closed)");
+  assert.equal(donothing.pass, false);
+  const leaky = scoreUnit(s20Obs({ created: [pageL(S20_PAGE, "zh", S20_GOLDEN_PAGE.replace("恢复用了 23 分钟。", "恢复用了 23.412857 分钟。"))] }));
+  assert.deepEqual(leaky.dims, { D: 0, G: 1, H: 1, K: 1 }, "D and K stay orthogonal (总则 3): a float leak convicts curation, not style");
+});
+
+
 // ---------------------------------------------------------------- scoreUnit routing + subsets
 
-test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18/s19 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6 — WEIGHTS table NOT extended", () => {
+test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18/s19 (2D+G+H+2I+2J)=8, s12 (G+H+2I+2J)=6, s20 (2D+G+H+K)=5 — WEIGHTS table NOT extended, K exists ONLY in s20 (owner order 2026-10-03)", () => {
   assert.deepEqual({ ...APPLICABLE }, {
     10: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     11: { D: 2, G: 1, H: 1, I: 2, J: 2 },
@@ -2045,6 +2179,7 @@ test("APPLICABLE subsets: s10/s11/s13/s14/s15/s16/s17/s18/s19 (2D+G+H+2I+2J)=8, 
     17: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     18: { D: 2, G: 1, H: 1, I: 2, J: 2 },
     19: { D: 2, G: 1, H: 1, I: 2, J: 2 },
+    20: { D: 2, G: 1, H: 1, K: 1 },
   });
 });
 

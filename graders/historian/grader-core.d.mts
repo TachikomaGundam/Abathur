@@ -59,6 +59,10 @@ export interface Observation {
   readonly tools?: readonly ToolEvent[] | undefined;
   /** Required for integrity units: seed-state-derived wiki context. */
   readonly integrity?: IntegrityState | undefined;
+  /** scenario-20 (dimension K): the CLI sets this from the resolved scenario
+   *  file's `plainlang: required` declaration. K is activated ONLY when true;
+   *  an APPLICABLE set carrying K without the declaration throws (fail closed). */
+  readonly plainlang?: boolean | undefined;
 }
 
 export interface UnitScore {
@@ -126,6 +130,8 @@ export const S19_JUDGE_RUBRIC: string;
 export const S19_JUDGE_PAGES: ReadonlyArray<{ readonly path: string; readonly locale: string }>;
 export const S19_FORBIDDEN: ReadonlyArray<{ readonly canonical: string; readonly forms: readonly string[] }>;
 export const S19_EXEMPT_LITERALS: readonly string[];
+export const S20_HUB: string;
+export const S20_PAGE: string;
 export const APPLICABLE: Readonly<Record<number, Readonly<Record<string, number>>>>;
 
 /** Doctrine machine-line verdict (scenario-16): deterministic check result. */
@@ -186,8 +192,29 @@ export function s19ForbiddenHits(content: string): readonly string[];
 export function s19FoldJudgeVerdicts(verdicts: unknown): JudgeFold;
 
 export interface IntegrityResult extends IntegrityDims {
+  /** scenario-20 only: the dimension-K bit (plain-language, front tier). */
+  readonly K?: Bit | undefined;
   readonly notes: readonly IntegrityNote[];
 }
+
+/** Dimension K (scenario-20) machine lines over one page body — historian
+ *  rubric.md "Dimension K — plain-language machine contract", implemented line
+ *  for line: (a) 中文 ≤60 non-ws chars / 英文 ≤25 words per sentence, ≥90% of
+ *  scored sentences within caps; (b) zero step connectors inside procedural
+ *  sections (步骤/流程/操作/Steps/Procedure/Runbook/SOP); (c) no 4+ consecutive
+ *  bare-lowercase English content-word chain (closed stop list; capitalized
+ *  and -s/-ed/-ing forms break runs). Exemptions applied first: fenced code
+ *  removed, table lines and hash lines skipped, URLs and markdown link
+ *  destinations uncounted, inline code = one neutral token. Returns the
+ *  violation list ([] = certifies plain). Pure. */
+export function kPlainLanguageViolations(content: string): readonly string[];
+/** K over the transaction rows (created then updated): zero rows or an empty
+ *  body fail CLOSED (K=0). Pure. */
+export function kPlainLanguageDim(rows: ReadonlyArray<{ readonly path: string; readonly locale: string; readonly content: string }>): { readonly K: Bit; readonly note: string | null };
+/** Caliber sentence split + classification for one already-exempted line. Pure. */
+export function kScoredSentences(line: string): ReadonlyArray<{ readonly text: string; readonly lang: "zh" | "en" }>;
+/** First >3-word English noun chain in a sentence, or null. Pure. */
+export function kNounChain(sentence: string): string | null;
 
 export function computeDims(obs: Observation): FullDims;
 export function judgment(scenarioNo: number, created: readonly CreatedPage[], finalMessage: string): Bit;
