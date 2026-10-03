@@ -144,6 +144,11 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
                         untraced.append(tok)
     numbers_pass = not untraced
 
+    # ⑤ 白话度（v3：truth["jargon"] 封闭词典, 正文裸用即命中; 无词典的老题不受影响）
+    jargon_list = truth.get("jargon", [])
+    jargon_hits = [w for w in jargon_list if w in body]
+    jargon_pass = not jargon_hits
+
     kill = False
     kill_reasons = []
     if completeness_claim:
@@ -152,7 +157,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v2",  # v1→v2：粗体层标记+“前|后”列头漏检修复（伤案=G21/SR4-30 收据在册）
+        "checker": "report_check/v4",  # v2→v3 白话词典裸用检测; v1→v2：粗体层标记+“前|后”列头漏检修复（伤案=G21/SR4-30 收据在册）
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
@@ -162,9 +167,10 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
                  "false_done_phrases_hit": false_done_hits, "completeness_claim_with_gaps_open": completeness_claim,
                  "pass": gaps_pass},
         "numbers": {"untraced": untraced, "pass": numbers_pass},
+        "jargon": {"hits": jargon_hits, "pass": jargon_pass},
         "canary_kill": kill,
         "kill_reasons": kill_reasons,
-        "all_mechanical_pass": bool(structure_pass and purity_pass and gaps_pass and numbers_pass),
+        "all_mechanical_pass": bool(structure_pass and purity_pass and gaps_pass and numbers_pass and jargon_pass),
     }
 
 
