@@ -165,6 +165,16 @@ const S19_PROTECTED = [
   [S19_GLOSSARY, "en"],
   [S19_DEAD, "en"],
 ];
+// scenario-20 (plain-style front-page filing): dimension K — the ASD-STE100
+// writing-rule subset for human-facing page bodies (owner order 2026-10-03,
+// historian STE100-MISSION P0). Caliber law: historian rubric.md
+// "Dimension K — plain-language machine contract" — the rubric words it, this
+// code runs it (identical thresholds, exemptions and closed sets). K applies
+// ONLY when the scenario declares `plainlang: required` (grader.mjs reads the
+// flag off the resolved scenario file); APPLICABLE carries K for unit 20
+// alone, so units 01–19 stay byte-identical (F1/characterization invariant).
+export const S20_HUB = "_sandbox/eval20/hub";
+export const S20_PAGE = "_sandbox/eval20/edge-cache-failover-incident";
 
 export const APPLICABLE = Object.freeze({
   10: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
@@ -177,6 +187,10 @@ export const APPLICABLE = Object.freeze({
   17: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   18: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
   19: Object.freeze({ D: 2, G: 1, H: 1, I: 2, J: 2 }),
+  // scenario-20 carries the K dimension (plain-language, front tier). K lives
+  // ONLY here — the A–H WEIGHTS table and every 01–19 subset are untouched,
+  // so incumbent scoring stays byte-identical (characterization invariant).
+  20: Object.freeze({ D: 2, G: 1, H: 1, K: 1 }),
 });
 
 const JUNK_DESC_RE = /^\s*(?:Updated|更新于|Last edited|最近更新)\s*\d{4}-\d{2}-\d{2}[.。]?\s*$/i;
@@ -664,6 +678,153 @@ export function s19FoldJudgeVerdicts(verdicts) {
   return out;
 }
 
+// ------------------------------------------- scenario-20: dimension K (plain-language)
+// The rubric's "Dimension K — plain-language machine contract" (historian
+// rubric.md) is the caliber law; this block implements it line for line:
+// (a) 中文句 ≤60 字 / 英文句 ≤25 词, ≥90% 达标; (b) 程序性小节一句一指令
+// (closed connector set); (c) 英文复合名词链 ≤3 词 (closed stop list);
+// (d) 回执豁免 (fences, hash lines, URLs uncounted; inline code = one neutral
+// token). Zero-LLM, deterministic, byte-reproducible — same discipline as the
+// s16/s19 machine legs. K is activated ONLY by a scenario declaring
+// `plainlang: required` (grader.mjs parses the flag from the scenario file);
+// an APPLICABLE set carrying K WITHOUT the declaration throws — the CLI fails
+// CLOSED as inconclusive, never vacuously.
+
+const K_ZH_CAP = 60;                       // non-whitespace code points
+const K_EN_CAP = 25;                       // word tokens
+const K_RATIO_MIN = 0.9;                   // (a) ≥90% of scored sentences within caps
+const K_ZH_RE = /[\u3400-\u4dbf\u4e00-\u9fff\u3041-\u30ff\uac00-\ud7a3\uf900-\ufaff]/;
+const K_LATIN_RE = /[A-Za-z]/;
+const K_INLINE_CODE_RE = /`[^`\n]*`/g;     // → one neutral token (rubric d)
+const K_LINK_TARGET_RE = /\]\([^)]*\)/g;   // markdown destinations are surfaces (rubric d)
+const K_URL_RE = /https?:\/\/\S+/g;        // dropped from counts (rubric d)
+const K_HASH_TOKEN_RE = /[0-9A-Fa-f]{12,}/; // a line carrying one is a hash line (rubric d)
+// sentence enders (rubric caliber): after 。！？；; and at a latin .!? that is
+// not preceded by a digit/space/period (6.8, v1.4, 10.13.1 stay inside) and is
+// followed by a space or the line end.
+const K_SENT_SPLIT_RE = /(?<=[。！？；;])|(?<=[^\d\s.])[.!?](?=\s|$)/u;
+// (b) closed step-connector set — the rubric list, verbatim
+const K_CONN_ZH_RE = /然后|随后|接着|并且|与此同时/;
+const K_CONN_EN_RE = /\b(?:and then|followed by|then)\b/i;
+// procedural-section headings (rubric closed set)
+const K_PROC_HEADING_RE = /(步骤|流程|操作)|\bsteps?\b|\bprocedure\b|\brunbook\b|\bsop\b/i;
+const K_HEADING_RE = /^#{1,6}\s/;
+// (c) closed stop list: articles, pronouns, prepositions, conjunctions,
+// auxiliaries, common bare verbs. Capitalized tokens and -s/-ed/-ing forms
+// also break a run — the known proxy boundary stated in the rubric.
+const K_STOP = new Set(Object.freeze([
+  "a", "an", "the", "this", "that", "these", "those", "it", "its", "he", "she", "they", "them",
+  "their", "we", "you", "i", "me", "my", "our", "us", "and", "or", "but", "nor", "for", "yet",
+  "so", "as", "if", "then", "than", "when", "where", "while", "who", "whom", "whose", "which",
+  "what", "of", "on", "in", "at", "by", "from", "to", "up", "down", "over", "under", "with",
+  "within", "without", "into", "onto", "off", "about", "above", "below", "is", "are", "was",
+  "were", "be", "been", "being", "do", "does", "did", "have", "has", "had", "will", "would",
+  "can", "could", "should", "may", "might", "must", "shall", "not", "no", "yes", "all", "any",
+  "each", "every", "some", "such", "too", "very", "more", "most", "other", "another", "same",
+  "one", "two", "three", "four", "five", "first", "second", "third",
+]));
+const K_EN_WORD_RE = /[A-Za-z][A-Za-z0-9']*|\d+(?:[.,]\d+)*/g;
+const K_CHAIN_TOKEN_RE = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
+const kChainEligible = (w) => /^[a-z][a-z0-9]*$/.test(w) && !K_STOP.has(w) && !/(?:s|ed|ing)$/.test(w);
+
+/** K-caliber sentence list over one scored line (post-exemption masking):
+ *  inline code → " X ", URLs dropped. Returns {text, lang} per scored
+ *  sentence; lang "zh" (contains CJK) / "en" (latin only); pure-symbol
+ *  fragments are not scored and never returned. */
+export function kScoredSentences(line) {
+  const masked = line.replace(K_INLINE_CODE_RE, " X ").replace(K_LINK_TARGET_RE, "]").replace(K_URL_RE, " ");
+  const out = [];
+  for (const frag of kSplitSentences(masked)) {
+    if (K_ZH_RE.test(frag)) out.push({ text: frag, lang: "zh" });
+    else if (K_LATIN_RE.test(frag)) out.push({ text: frag, lang: "en" });
+  }
+  return out;
+}
+
+function kSplitSentences(text) {
+  return text.split(K_SENT_SPLIT_RE).map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/** (c) first over-3-word English noun chain in a sentence, or null. Hyphen
+ *  parts are separate words; any stop/capitalized/-s/-ed/-ing/number token
+ *  resets the run. */
+export function kNounChain(sentence) {
+  const words = sentence.match(K_CHAIN_TOKEN_RE) ?? [];
+  let run = [];
+  for (const token of words) {
+    for (const w of token.split("-")) {
+      if (kChainEligible(w)) {
+        run.push(w);
+        if (run.length >= 4) return run.join(" ");
+      } else {
+        run = [];
+      }
+    }
+  }
+  return null;
+}
+
+/** The dimension-K machine lines over one page body. Returns the violation
+ *  list ([] = the body certifies plain). Pure — deterministic given the body. */
+export function kPlainLanguageViolations(content) {
+  const viol = [];
+  const noFence = content.replace(/```[\s\S]*?```/g, "\n");
+  let proc = false;
+  let scored = 0;
+  let over = 0;
+  const overSamples = [];
+  for (const raw of noFence.split("\n")) {
+    const line = raw.trim();
+    if (line.length === 0) continue;
+    if (K_HEADING_RE.test(line)) { proc = K_PROC_HEADING_RE.test(line); continue; }
+    // rubric (d) line-level exemptions: raw-data tables + hash lines.
+    // The hash-line exemption is receipt-shaped only: a line carrying CJK
+    // prose never hides from (a) behind a hex token (caliber law, rubric.md).
+    if (line.startsWith("|")) continue;
+    if (!K_ZH_RE.test(line) && K_HASH_TOKEN_RE.test(line)) continue;
+    for (const s of kScoredSentences(line)) {
+      scored += 1;
+      const len = s.lang === "zh" ? s16nonWs(s.text) : (s.text.match(K_EN_WORD_RE) ?? []).length;
+      const cap = s.lang === "zh" ? K_ZH_CAP : K_EN_CAP;
+      if (len > cap) {
+        over += 1;
+        if (overSamples.length < 3) overSamples.push(`${s.lang} ${String(len)}>${String(cap)}: ${s.text.slice(0, 40)}…`);
+      }
+      if (proc && (K_CONN_ZH_RE.test(s.text) || K_CONN_EN_RE.test(s.text))) {
+        viol.push(`(b) procedural sentence chains instructions (closed connector hit): ${s.text.slice(0, 60)}`);
+      }
+      if (s.lang === "en") {
+        const chain = kNounChain(s.text);
+        if (chain !== null) viol.push(`(c) English noun chain over 3 words: "${chain} …"`);
+      }
+    }
+  }
+  if (scored > 0 && (scored - over) / scored < K_RATIO_MIN) {
+    viol.push(`(a) only ${String(scored - over)} of ${String(scored)} scored sentences within caps (min ${String(Math.round(K_RATIO_MIN * 100))}%): ${overSamples.join(" / ")}`);
+  }
+  return viol;
+}
+
+/** Dimension K over the transaction rows (created then updated — the s16
+ *  transactionRows scoping; seeded pages are never convicted, 总则 5).
+ *  Fail-closed shapes: zero transaction rows ⇒ nothing was filed to certify;
+ *  an empty body on a transaction row ⇒ no bytes to score. Both ⇒ K=0. */
+export function kPlainLanguageDim(rows) {
+  if (rows.length === 0) {
+    return { K: 0, note: "K20: the transaction created/updated zero pages — nothing filed is nothing certified (fail closed)" };
+  }
+  const viol = [];
+  for (const r of rows) {
+    if (r.content.length === 0) {
+      viol.push(`${r.path}[${r.locale}]: empty body in the transaction row (fails closed)`);
+      continue;
+    }
+    for (const v of kPlainLanguageViolations(r.content)) viol.push(`${r.path}[${r.locale}]: ${v}`);
+  }
+  if (viol.length === 0) return { K: 1, note: null };
+  return { K: 0, note: `K20: plain-language lines fired — ${viol.join(" | ")}` };
+}
+
 /** I/J deterministic proxies, verbatim from the task-05 validated proposal. */
 export function integrityDims(scenarioNo, obs, tools, state) {
   const notes = [];
@@ -1142,6 +1303,23 @@ export function integrityDims(scenarioNo, obs, tools, state) {
       notes,
     };
   }
+  if (scenarioNo === 20) {
+    // Dimension K only (owner order 2026-10-03, STE100-MISSION P0): the K
+    // machine lines run over the FINAL transaction bodies (kPlainLanguageDim —
+    // rubric "Dimension K — plain-language machine contract" implemented line
+    // for line). P0 ships no s20 I/J legs: the applicable subset is {D,G,H,K},
+    // so the returned I/J bits are never consumed — they exist only to keep
+    // this function's shape uniform. Activation is the declaration: an
+    // APPLICABLE set carrying K WITHOUT the `plainlang: required` line is a
+    // wiring error ⇒ throw ⇒ CLI exits nonzero (inconclusive, never vacuous —
+    // the s10–s15 missing-evidence doctrine applied to the contract itself).
+    if (obs.plainlang !== true) {
+      throw new Error("scoreUnit: scenario-20 carries K in its APPLICABLE subset but the observation lacks the plainlang declaration — the scenario file must contain a `plainlang: required` line (fail closed: an undeclared K unit is never scored vacuously)");
+    }
+    const k = kPlainLanguageDim(transactionRows(obs));
+    if (k.note !== null) notes.push(k.note);
+    return { I: 1, J: 1, K: k.K, notes };
+  }
   return { I: 1, J: 1, notes: [] };
 }
 
@@ -1150,7 +1328,7 @@ function scoreIntegrityUnit(scenarioNo, ahDims, integrity) {
   if (subset === undefined) throw new Error(`scoreIntegrityUnit: no subset for scenario ${scenarioNo}`);
   const dims = { ...subset };
   for (const k of Object.keys(subset)) {
-    const v = k === "I" ? integrity.I : k === "J" ? integrity.J : ahDims[k];
+    const v = k === "I" ? integrity.I : k === "J" ? integrity.J : k === "K" ? integrity.K : ahDims[k];
     dims[k] = v === 1 ? 1 : 0;
   }
   let total = 0;

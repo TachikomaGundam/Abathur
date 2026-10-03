@@ -75,6 +75,16 @@ function resolveScenario(id, p) {
   return abs;
 }
 const scenarioFile = resolveScenario(unitId, scenarioPath);
+// scenario-20 (dimension K): the activation is the scenario's own declaration
+// (rubric K — "Applicable ONLY when the scenario declares it: front-matter or
+// a `plainlang: required` line"). Read from the resolved active-tree file so
+// candidate trees activate K by their own exam text. A unit whose APPLICABLE
+// set carries K WITHOUT the declaration throws in grader-core ⇒ nonzero exit
+// ⇒ inconclusive (fail closed), never vacuously scored.
+let plainlang = false;
+if (scenarioFile !== null) {
+  plainlang = /^\s*plainlang\s*:\s*required\s*$/im.test(readFileSync(scenarioFile, "utf8"));
+}
 const URL_RE = /https?:\/\/\S+\/(?:en|zh)\/_sandbox\/\S+/g;
 
 function reportedUrls(message) {
@@ -125,7 +135,7 @@ const state =
 
 const diff = diffWiki({ pre, post: state.post, content: state.content, scenarioNo });
 const urlChecks = Object.entries(state.urlStatus ?? {}).map(([url, status]) => ({ url, status }));
-const obs = { ...diff, scenarioNo, finalMessage: meta.finalMessage, urlChecks };
+const obs = { ...diff, scenarioNo, finalMessage: meta.finalMessage, urlChecks, plainlang };
 
 // Integrity units (s10/11/12): transcript tool events + the seed capture feed
 // the I/J checkers. A missing/unshaped seed-state.json exits nonzero here —
