@@ -1,0 +1,48 @@
+{
+  "name": "@tachikomagundam/abathur",
+  "version": "0.2.8",
+  "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
+  "author": "TachikomaGundam",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TachikomaGundam/Abathur.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TachikomaGundam/Abathur/issues"
+  },
+  "homepage": "https://github.com/TachikomaGundam/Abathur#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "abathur": "dist/cli.js"
+  },
+  "main": "dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./server": "./plugin/abathur.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "config",
+    "graders",
+    "docs",
+    "plugin"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.17.4",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
