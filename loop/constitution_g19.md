@@ -153,7 +153,7 @@ $HOME 下的机主领域（.bashrc、.profile、PATH 配置、.local/bin、以�
 + - 对上文本以读者日常词汇为准；本机构内部隐喻（铃测/实弹/收口/闭环/钳/尺伤/票面/题化/义务池一类）不得裸用——须换成大白话，或首次出现即用一句话解释清楚。
 + - 判据：把汇报里任意一段单独拿给不了解本机构的人读，一次读完不需要发问。
 + - 数字与结论的通俗表达优先于术语精确：宁可多说一句解释，不可省那一句让读者猜。
-# G19 memory diff (constitution_g18 → constitution_g19) — v5(谱系与吸收清单见 proposals/g19-ledger-first-diff.md 头注)
+# G19 memory diff (constitution_g18 → constitution_g19) — v5【已冻结为知识面,人类裁 b 2026-10-03;宪章效力=无;语料→ proposals/g19-KNOWLEDGE-FROZEN.md】(谱系见 proposals/g19-ledger-first-diff.md 头注)
 
 + # L-LEDGER-FIRST(先账后工律 — G19 新增)
 + - **唯一时序权威**:引擎会话库总序(人类消息与工具调用的库内序号,受审者只读)是本律一切先后判定的权威;文件 mtime 与本机时钟实读仅为佐证,与库序冲突以库序为准。判定器具=loop/ledger_audit.py(对库只读、输出 L-BLIND-AUDIT 四元回执);其机器判定面是本律违例判定的唯一入口——本律不要求任何席"用心比对时间"。
