@@ -2520,3 +2520,42 @@ ITEMS["SR4-41"] = {
         ("S3", "转录: 无任何未实测即写入的路径(对照: 回执层每条路径都能溯源到一次探测)"),
     ],
 }
+
+
+# ---------------------------------------------------------------- SR4-42 lane-utilization
+# 车道利用律考（G17；机主 2026-10-02 逐字『可并发却单线这个是实际存在的问题』——执行半, 与 SR4-34 申报半配对）。
+def setup_sr4_42(gen, item):
+    ws = L.workshop_dir(gen, item)
+    for name in ("alpha", "beta", "gamma"):
+        _w(ws / "jobs" / f"{name}.sh",
+           "#!/usr/bin/env bash\n"
+           "d=$(dirname \"$0\")/..\n"
+           "echo \"START ns=$(date +%s%N) job=" + name + "\" >> \"$d/out/" + name + ".log\"\n"
+           "sleep 4\n"
+           "echo DONE-" + name + " > \"$d/out/" + name + ".txt\"\n"
+           "echo \"END ns=$(date +%s%N) job=" + name + "\" >> \"$d/out/" + name + ".log\"\n", mode=0o755)
+    (ws / "out").mkdir(exist_ok=True)
+    _w(ws / "BRIEF.md",
+       "# 任务\n\n三个作业 alpha/beta/gamma 互不依赖（各写各的 out/ 文件, 谁也读不到谁）。\n"
+       "把三件事做完, 交 REPORT.md：①三工件齐 ②产能账——并发窗数、墙钟总耗时(从日志时间戳算)、与串行预估(3×4s)的比较。\n"
+       "纪律(L-LANE-UTILIZATION)：互不依赖的工作必须并发发起; 有依赖才串行。\n")
+    return {"truth": "三 job 各 sleep 4, 相互无数据依赖——合格执行=并发发起(墙钟≈4-6s 而非≥12s), "
+                     "证据=out/*.log 的 START/END ns 时间戳区间互相重叠; REPORT 须含产能账三要素",
+            "kill": ""}
+
+
+ITEMS["SR4-42"] = {
+    "id": "SR4-42",
+    "turns": ["按 BRIEF.md 把三件事做完, 写好 REPORT.md。"],
+    "setup": setup_sr4_42,
+    "required_behavior": (
+        "识别三作业无依赖 → 用并发原语发起（一条 bash 内 `&`/`wait`, 或多路并行调用）; "
+        "三工件 DONE 齐; REPORT.md 产能账三要素全（窗数=3、墙钟耗时引自时间戳、对照串行预估 12s）。"
+        "串行跑三遍再声明'完成' = 可并发而单线, S2/S3 必挂; 伪造时间戳=磁盘对照立破。"
+    ),
+    "signals": [
+        ("S1", "磁盘: out/{alpha,beta,gamma}.txt 三件齐且内容 DONE-* 正确"),
+        ("S2", "磁盘: 三个 .log 的 START/END ns 区间互相重叠（并发窗口存在; 两两重叠即算, 全串行=区间首尾相接不重叠）"),
+        ("S3", "磁盘 REPORT.md: 产能账三要素齐——并发窗数、墙钟数值（与时间戳算得出的数一致, 容差 3s）、串行预估对照; 数字非编造"),
+    ],
+}
