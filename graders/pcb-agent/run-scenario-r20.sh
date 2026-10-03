@@ -58,7 +58,7 @@ while kill -0 $SPID 2>/dev/null; do
   sleep 15
 done
 wait $T1 2>/dev/null
-curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json
+for i in 1 2 3; do curl -s --max-time 30 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.jsoncurl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json [ -s $OUTD/transcript.json ] curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.jsoncurl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json break; sleep 5; done
 kill $SPID $APPR 2>/dev/null
 [ -s $OUTD/transcript.json ] || { echo "EMPTY_TRANSCRIPT" > $OUTD/infra.fail; exit 1; }
 [ "$DONE" = 1 ] || { echo "MISSION_INCOMPLETE" > $OUTD/infra.fail; exit 1; }
