@@ -120,6 +120,8 @@ def seed_opencode_config(fake_home: Path) -> None:
     cfg = json.loads(strip_jsonc(raw))
     cfg.pop("plugin", None)
     dst = cfg_dir / "opencode.jsonc"
+    if dst.exists() or dst.is_symlink():
+        dst.unlink()  # re-run idempotence: prior seed left 0o444; end-state guarantee unchanged
     dst.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
     dst.chmod(0o444)
 

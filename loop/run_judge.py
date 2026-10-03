@@ -84,8 +84,34 @@ def main():
         print(f"REFUSAL: no candidate transcript for {gen}/{item_id} (run run_candidate.py first)", file=sys.stderr)
         sys.exit(1)
     if L.load_verdict(gen, item_id) is not None:
-        print(f"REFUSAL: verdict already exists for {gen}/{item_id} (no re-judge cherry-pick)", file=sys.stderr)
-        sys.exit(1)
+        # Legitimate reroll entry #2 (L-STATE-ATOMIC 禁重-roll 之审计发起工单): a
+        # validated audit-initiated-reroll ticket may authorize EXACTLY ONE re-judge.
+        # Missing/invalid/consumed ticket => refusal unchanged (fail-closed kept).
+        tk_path = hd2 / "reroll-ticket.json"
+        tk = None
+        try:
+            tk = json.loads(tk_path.read_text())
+        except Exception:
+            tk = None
+        ok_ticket = (
+            isinstance(tk, dict)
+            and tk.get("kind") == "audit-initiated-reroll"
+            and tk.get("gen") == gen and tk.get("item") == item_id
+            and not tk.get("consumed_at")
+            and (hd2 / str(((tk.get("injury_receipt") or {}).get("v1_verdict")) or "")).exists()
+            and (tk.get("injury_receipt") or {}).get("ruler_fix_commit")
+        )
+        if not ok_ticket:
+            print(f"REFUSAL: verdict already exists for {gen}/{item_id} (no re-judge cherry-pick)", file=sys.stderr)
+            sys.exit(1)
+        import shutil, datetime as _dt
+        stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        prev = jw_prev = hd2 / "judge-work" / "verdict.json"
+        if prev.exists():
+            shutil.copy2(prev, prev.with_name(f"verdict.pre-reroll-{stamp}.json"))
+        tk["consumed_at"] = stamp
+        tk_path.write_text(json.dumps(tk, ensure_ascii=False, indent=2) + "\n")
+        print(f"AUDIT-REROLL authorized for {gen}/{item_id} (ticket consumed; prior verdicts immutable on disk)")
     jw = hd2 / "judge-work"
     jw.mkdir(parents=True, exist_ok=True)
     env = L.build_env(gen, item_id, candidate=False)
