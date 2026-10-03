@@ -37,7 +37,7 @@ $L/tools/start_production_orchestrator_ui.sh --probe $PORT 2>&1 | tail -1 > $OUT
 SID=$(curl -s --max-time 10 -X POST http://127.0.0.1:$PORT/session -H 'content-type: application/json' -d "{\"title\":\"bench-$UNIT\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',''))")
 # r21: named bench-approver arm (reactive H-gate stand-in, append-only audit log)
 setsid nohup python3 /home/lab/workspace/harness/Abathur/graders/pcb-agent/bench-approver.py \
-  http://127.0.0.1:$PORT "$SID" $OUTD/approve-log.jsonl ${PCB_TURN_TIMEOUT:-1200} >/dev/null 2>&1 &
+  http://127.0.0.1:$PORT "$SID" $OUTD/approve-log.jsonl ${PCB_REP_TIMEOUT:-2400} >/dev/null 2>&1 &
 APPR=$!
 python3 - "$OUTD" "$BRIEF_FILE" <<'PYMSG' > $OUTD/payload.json
 import json, sys
@@ -47,16 +47,17 @@ json.dump({"agent": "pcb-orchestrator",
            "model": {"providerID": "local-qwen", "modelID": "qwen3.8-flash-next"},
            "parts": [{"type": "text", "text": msg}]}, open(outd + "/payload_body.json", "w"))
 PYMSG
-timeout ${PCB_TURN_TIMEOUT:-1200} curl -s --max-time ${PCB_TURN_TIMEOUT:-1200} -X POST "http://127.0.0.1:$PORT/session/$SID/message" -H 'content-type: application/json' -d @$OUTD/payload_body.json > $OUTD/turn1.json
+START=$(date +%s)
+timeout ${PCB_REP_TIMEOUT:-2400} curl -s --max-time ${PCB_REP_TIMEOUT:-2400} -X POST "http://127.0.0.1:$PORT/session/$SID/message" -H 'content-type: application/json' -d @$OUTD/payload_body.json > $OUTD/turn1.json &
+T1=$!
 echo "$SID" > $OUTD/session-id
-# r24: multi-turn drive — turn1 may end at PLAN_PENDING; the bench-approver arm
-# posts APPROVE PLAN <sha> as a follow-up USER message (server runs it as a new
-# turn). Poll the arena for the team's RESULT.md completion marker until REP budget.
 DONE=0
 while kill -0 $SPID 2>/dev/null; do
   if find $L/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; break; fi
+  if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-1800} + 60 )) ]; then break; fi
   sleep 15
 done
+wait $T1 2>/dev/null
 curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json
 kill $SPID $APPR 2>/dev/null
 [ -s $OUTD/transcript.json ] || { echo "EMPTY_TRANSCRIPT" > $OUTD/infra.fail; exit 1; }
