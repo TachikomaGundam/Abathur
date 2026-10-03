@@ -79,6 +79,12 @@ def m_flat(t):
 
 
 _case("GOOD 优稿", None, lambda r: r["all_mechanical_pass"] and not r["canary_kill"])
+GOOD_DERIVED = GOOD.replace("| 首检通过率 | 58% | 89% |", "| 首检通过率 | 58% | 89%（提高 31 个百分点） |")
+_case("B7 派生数可溯源（89-58=31, v5 白名单算子）", lambda t: GOOD_DERIVED,
+      lambda r: r["numbers"]["untraced"] == [] and r["all_mechanical_pass"])
+LONG_SENT = GOOD.replace("## 回执索引", ("这一句故意写得非常长，" * 12) + "超过六十个字。\n\n## 回执索引")
+_case("B8 长句警戒（STE100 原则子集: 只警不杀, 结构不受影响）", lambda t: LONG_SENT,
+      lambda r: r["plain_style"]["count"] >= 1 and r["all_mechanical_pass"] and not r["canary_kill"])
 GOOD_OTM_STYLE = GOOD.replace("### 客体（生产系统）", "- **① 生产系统（客体）**：").replace(
     "### 器具（治理机制）", "- **② 治理器具**：").replace("### 自我（监督者）", "1. **自我（监督者自评）**：").replace(
     "| 指标 | 战前 | 战后 |", "| 指标 | 前 | 后 |")

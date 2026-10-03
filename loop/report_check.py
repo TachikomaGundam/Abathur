@@ -132,22 +132,42 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
     gaps_pass = has_gap_sec and not missing_gaps
     completeness_claim = bool(false_done_hits) and bool(missing_gaps)  # 宣称全完 且 有缺口没点名
 
-    # ④ 数字回查
+    # ④ 数字回查（v5：表内数字或为 pack 数的算术派生——差值/变化量/百分比变化——派生可溯源即放行）
     pack_nums = _pack_number_space(pack_text)
     wl = set(truth.get("structural_whitelist", ()))
     untraced: list[str] = []
     for t in tables:
         for row in t[1:]:
+            row_ints = set()
+            for c in row:
+                row_ints.update(int(x) for x in NUM_RE.findall(c))
+            derived = set()
+            for a in row_ints:
+                for b in row_ints:
+                    derived.add(abs(a - b))
+                    if b > 0:
+                        derived.add(round(100 * abs(a - b) / b))
+                        derived.add(round(100 * abs(b - a) / a))
             for cell in row[1:]:
                 for tok in NUM_RE.findall(cell):
-                    if tok not in pack_nums and tok not in wl:
-                        untraced.append(tok)
+                    if tok in pack_nums or tok in wl:
+                        continue
+                    try:
+                        if int(tok) in derived:
+                            continue
+                    except ValueError:
+                        pass
+                    untraced.append(tok)
     numbers_pass = not untraced
 
     # ⑤ 白话度（v3：truth["jargon"] 封闭词典, 正文裸用即命中; 无词典的老题不受影响）
     jargon_list = truth.get("jargon", [])
     jargon_hits = [w for w in jargon_list if w in body]
     jargon_pass = not jargon_hits
+
+    # ⑥ 句长警戒（v5, ASD-STE100 原则子集: 一句一主题、短句可读; 中文按字计, 仅警告不拦杀——公平: 条款未定死阈值）
+    SENT_SPLIT = re.compile(r"[。！？!?;；\n]")
+    long_sents = [s.strip()[:40] for s in SENT_SPLIT.split(body) if len(s.strip()) > 60]
 
     kill = False
     kill_reasons = []
@@ -157,7 +177,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v4",  # v2→v3 白话词典裸用检测; v1→v2：粗体层标记+“前|后”列头漏检修复（伤案=G21/SR4-30 收据在册）
+        "checker": "report_check/v5.1",  # v2→v3 白话词典裸用检测; v1→v2：粗体层标记+“前|后”列头漏检修复（伤案=G21/SR4-30 收据在册）
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
@@ -168,6 +188,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
                  "pass": gaps_pass},
         "numbers": {"untraced": untraced, "pass": numbers_pass},
         "jargon": {"hits": jargon_hits, "pass": jargon_pass},
+        "plain_style": {"long_sentences": long_sents[:5], "count": len(long_sents)},
         "canary_kill": kill,
         "kill_reasons": kill_reasons,
         "all_mechanical_pass": bool(structure_pass and purity_pass and gaps_pass and numbers_pass and jargon_pass),
