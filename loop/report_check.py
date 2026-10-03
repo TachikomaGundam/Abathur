@@ -109,8 +109,8 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
     layers = {lay: any(_any_key(t, keys) for t in all_heads.splitlines()) for lay, keys in LAYER_KEYS.items()}
     tables = _table_blocks(body)
     has_table = any(
-        any(c.strip() in ("前", "战前", "之前", "原", "旧") or _any_key(c, ("战前", "之前", "原", "旧")) for c in t[0])
-        and any(c.strip() in ("后", "战后", "之后", "现") or _any_key(c, ("战后", "之后", "现")) for c in t[0])
+        any(c.strip() in ("前", "战前", "之前", "原", "旧", "改前", "以前") or _any_key(c, ("战前", "之前", "原", "旧", "改前", "调整前", "优化前", "实施前")) for c in t[0])
+        and any(c.strip() in ("后", "战后", "之后", "现", "改后", "以后", "现在") or _any_key(c, ("战后", "之后", "现", "改后", "调整后", "优化后", "实施后")) for c in t[0])
         for t in tables)
     gap_sec_idx = [i for i, (_, h, _) in enumerate(sections) if h and _any_key(h, GAP_KEYS)]
     has_gap_sec = bool(gap_sec_idx)
