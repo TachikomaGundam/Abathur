@@ -52,3 +52,9 @@ L="$ARENA/tools/start_production_orchestrator_ui.sh"
 grep -c 'CONTROL_ROOT="/home/lab/workspace/pcb-control"' "$L" | grep -qx 1 || { echo "SEED_FAIL: CONTROL_ROOT literal changed shape"; exit 1; }
 bash -n "$L"
 echo "ARENA_SEEDED $ARENA plugin=$(sha256sum "$ARENA/profiles/production/plugins/pcb-control-plane.ts" | cut -c1-12)"
+# mission inputs (r26 F-001/F-002): seed declares them — copy the named fixture pair into the orchestrator cwd
+# mission inputs (r26 findings F-001/F-002): the scenario text names these; seed must place them
+SEEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed"
+cp -f "$SEEDIR/spec.json" "$ARENA/production-console/spec.json"
+cp -f "$SEEDIR/esp32s3-r12-BRIEF.txt" "$ARENA/production-console/BRIEF.txt"
+test -s "$ARENA/production-console/spec.json" && test -s "$ARENA/production-console/BRIEF.txt" || { echo SEED_FAIL: mission inputs missing; exit 1; }
