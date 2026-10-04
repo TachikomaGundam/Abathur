@@ -21,10 +21,10 @@ def get(path):
         return json.load(r)
 
 
-def post(path, body):
+def post(path, body, timeout=60):
     req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
 
 
@@ -55,7 +55,6 @@ while time.time() < DEADLINE:
         for sha in dict.fromkeys(plans):
             if sha in seen or not HEX64.match(sha):
                 continue
-            seen.add(sha)
             already = False
             for m in arr:
                 info = m.get("info") or m
@@ -65,10 +64,16 @@ while time.time() < DEADLINE:
                     if str(p.get("text", "")).strip() == f"APPROVE PLAN {sha}":
                         already = True
             if already:
+                seen.add(sha)  # r28 fix: consume only on certainty; POST failure retries next loop
                 continue
-            r = post(f"/session/{SID}/message", {
-                "agent": "pcb-orchestrator",
-                "parts": [{"type": "text", "text": f"APPROVE PLAN {sha}"}]})
+            try:
+                r = post(f"/session/{SID}/message", {
+                    "agent": "pcb-orchestrator",
+                    "parts": [{"type": "text", "text": f"APPROVE PLAN {sha}"}]}, timeout=600)
+            except Exception as e:  # noqa: BLE001
+                log({"error": "post-retryable " + str(e)[:120], "sha": sha[:12]})
+                continue
+            seen.add(sha)
             log({"grant": "APPROVE PLAN " + sha, "message_id": (r.get("info") or {}).get("id"),
                  "basis": "reactive to plan declared in team's own session text"})
     except Exception as e:  # noqa: BLE001
