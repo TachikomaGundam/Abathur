@@ -162,7 +162,7 @@ def main(inp, outp):
         if n_ in pcode:
             xs_ = [pd_["x"] - pd_["w"] / 2 for pd_ in ps] + [pd_["x"] + pd_["w"] / 2 for pd_ in ps]
             ys_ = [pd_["y"] - pd_["h"] / 2 for pd_ in ps] + [pd_["y"] + pd_["h"] / 2 for pd_ in ps]
-            prect[n_] = (min(xs_) - 0.8, min(ys_) - 0.8, max(xs_) + 0.8, max(ys_) + 0.8)
+            prect[n_] = (min(xs_) - 1.2, min(ys_) - 1.2, max(xs_) + 1.2, max(ys_) + 1.2)
     gnd_name = "GND"
     keep = []
     nstrip = 0
@@ -239,7 +239,7 @@ def main(inp, outp):
     outline = outline_pts
     z = []
     for LI, LAY in enumerate(["F.Cu", "B.Cu"]):
-        z += [f'(zone (net {gnd_code}) (net_name "GND") (layer "{LAY}") (uuid "5a000000-0000-0000-0000-00000000cafe{LI}")',
+        z += [f'(zone (net {gnd_code}) (net_name "GND") (layer "{LAY}") (priority 3) (uuid "5a000000-0000-0000-0000-00000000cafe{LI}")',
               '  (hatch edge 0.508)',
               '  (connect_pads (clearance 0))',
               '  (min_thickness 0.2)',
@@ -249,28 +249,64 @@ def main(inp, outp):
               ')']
     def rectpts(xa, ya, xb, yb):
         return f"(xy {xa:.4f} {ya:.4f}) (xy {xb:.4f} {ya:.4f}) (xy {xb:.4f} {yb:.4f}) (xy {xa:.4f} {yb:.4f}) (xy {xa:.4f} {ya:.4f})"
+    def rect_subtract(r0, hs):
+        # KiCad zone outlines are single-loop: multi-loop "holes" become bowtie
+        # self-intersections and refill misfills GND-adjacent corners (r37
+        # forensic: PTH GND pads disconnected only with power zones on).
+        # Correct shape = axis-aligned decomposition into hole-free sub-rects.
+        x0, y0, x1, y1 = r0
+        X = sorted({x0, x1} | {v for h in hs for v in (h[0], h[2]) if x0 < v < x1})
+        Y = sorted({y0, y1} | {v for h in hs for v in (h[1], h[3]) if y0 < v < y1})
+        def bad(i, j):
+            mx, my = (X[i] + X[i + 1]) / 2, (Y[j] + Y[j + 1]) / 2
+            return any(h[0] <= mx <= h[2] and h[1] <= my <= h[3] for h in hs)
+        nx, ny = len(X) - 1, len(Y) - 1
+        free = [[not bad(i, j) for i in range(nx)] for j in range(ny)]
+        out = []
+        for j in range(ny):
+            i = 0
+            while i < nx:
+                if free[j][i]:
+                    k = i
+                    while k + 1 < nx and free[j][k + 1]:
+                        k += 1
+                    j2 = j
+                    while j2 + 1 < ny and all(free[j2 + 1][ii] for ii in range(i, k + 1)):
+                        j2 += 1
+                    out.append((X[i], Y[j], X[k + 1], Y[j2 + 1]))
+                    for jj in range(j, j2 + 1):
+                        for ii in range(i, k + 1):
+                            free[jj][ii] = False
+                    i = k + 1
+                else:
+                    i += 1
+        return out
+
     for zi, (n_, rc) in enumerate(sorted(prect.items())):
-        for LI, LAY in enumerate(["F.Cu", "B.Cu"]):
-            holes = []
-            # explicit holes ONLY for GND pads (protects GND fill corridors at the
-            # zone rim); power-vs-power carve stays native so a neighboring
-            # foreign rect never punches away a power pad's own connect island.
-            for pd_ in pads:
-                if pd_["net"] != "GND":
-                    continue
-                hx0, hy0 = pd_["x"] - pd_["w"] / 2 - 0.30, pd_["y"] - pd_["h"] / 2 - 0.30
-                hx1, hy1 = pd_["x"] + pd_["w"] / 2 + 0.30, pd_["y"] + pd_["h"] / 2 + 0.30
-                if hx1 < rc[0] or hx0 > rc[2] or hy1 < rc[1] or hy0 > rc[3]:
-                    continue
-                holes.append(rectpts(hx0, hy0, hx1, hy1))
-            pts = f"(pts {rectpts(*rc)}" + ("".join(" " + h for h in holes)) + ")"
-            z += [f'(zone (net {pcode[n_]}) (net_name "{n_}") (layer "{LAY}") (priority 2) (uuid "5a000000-0000-0000-0000-00000000cbfe{zi}{LI}")',
-                  '  (hatch edge 0.508)',
-                  '  (connect_pads (clearance 0))',
-                  '  (min_thickness 0.2)',
-                  '  (fill yes (thermal_gap 0.4) (thermal_bridge_width 0.5))',
-                  f'  (polygon {pts})',
-                  ')']
+        holes = []
+        for n2, r2 in prect.items():
+            if n2 == n_:
+                continue
+            holes.append((r2[0] + 0.05, r2[1] + 0.05, r2[2] - 0.05, r2[3] - 0.05))
+        for pd_ in pads:
+            if pd_["net"] != "GND":
+                continue
+            hx0, hy0 = pd_["x"] - pd_["w"] / 2 - 0.30, pd_["y"] - pd_["h"] / 2 - 0.30
+            hx1, hy1 = pd_["x"] + pd_["w"] / 2 + 0.30, pd_["y"] + pd_["h"] / 2 + 0.30
+            if hx1 < rc[0] or hx0 > rc[2] or hy1 < rc[1] or hy0 > rc[3]:
+                continue
+            holes.append((hx0, hy0, hx1, hy1))
+        subr = rect_subtract(rc, holes)
+        subr = [(a + 0.12, b + 0.12, c - 0.12, dd - 0.12) for a, b, c, dd in subr if c - a > 0.4 and dd - b > 0.4]
+        for si, sr in enumerate(subr):
+            for LI, LAY in enumerate(["F.Cu", "B.Cu"]):
+                z += [f'(zone (net {pcode[n_]}) (net_name "{n_}") (layer "{LAY}") (priority 2) (uuid "5a00cbfe-0000-0000-0000-{zi:02d}{si:02d}{LI:02d}000000")',
+                      '  (hatch edge 0.508)',
+                      '  (connect_pads (clearance 0))',
+                      '  (min_thickness 0.2)',
+                      '  (fill yes (thermal_gap 0.4) (thermal_bridge_width 0.5))',
+                      f'  (polygon (pts {rectpts(*sr)}))',
+                      ')']
     if KEEPOUT_RECT:
         for LI, LAY in enumerate(["F.Cu", "B.Cu"]):
             k = KEEPOUT_RECT
