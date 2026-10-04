@@ -563,7 +563,14 @@ def route(board_path, out_path, only_nets=None):
                     f' (layers "F.Cu" "B.Cu") (net {n}) (uuid "{U()}"))')
     head = txt[:txt.rindex(")")].rstrip("\n")
     mid = ("\n" + "\n".join(kept_segs)) if (only_nets and kept_segs) else ""
-    open(out_path, "w").write(head + mid + "\n".join(emit) + "\n)\n")
+    _out = head + mid + "\n".join(emit) + "\n)\n"
+    if only_nets:
+        _n_out = len(re.findall(r'\((?:segment|via) ', _out))
+        _n_want = len(kept_segs) + len(segs) + len(vias)
+        if _n_out != _n_want:
+            print(f"PARSE_IMBALANCE resume: want {_n_want} copper blocks (kept+new), out has {_n_out}; aborting write", file=sys.stderr)
+            return 3
+    open(out_path, "w").write(_out)
     print(f"routed: segments={len(segs)} vias={len(vias)} failed_edges={len(fails)}")
     for f in fails[:40]:
         print("  FAIL-EDGE", f)
