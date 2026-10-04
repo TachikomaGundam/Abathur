@@ -333,7 +333,10 @@ def route(board_path, out_path, only_nets=None):
     segs, vias, fails = [], [], []
     kept_segs = []
     if only_nets:
-        mcut = re.search(r'^\s*\((?:segment|via) ', txt, re.M)
+        # r39B F7: author-tool output puts the FIRST copper mid-line
+        # ("\t(embedded_fonts no)  (segment ...") — line-anchored search made
+        # fp_cut=EOF and resume silently destroyed 100% of that copper class.
+        mcut = re.search(r'\((?:segment|via) ', txt)
         fp_cut = mcut.start() if mcut else txt.rindex(")")
         root_end = len(txt) - 1
         tail_blocks = [m.group(0) for m in re.finditer(r'\(segment [^\n]*\)|\(via [^\n]*\)', txt[fp_cut:])]
