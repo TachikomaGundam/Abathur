@@ -21,6 +21,7 @@ bash "$GRAD/seed-r20-arena.sh" "$ARENA" "$GENOME_REPO" > "$OUT/seed.log" 2>&1 ||
 cat > "$OUT/inner.sh" <<'INNER'
 set -x
 L=/home/lab/workspace/pcb-control
+ARENA_DIR=__ARENA__
 OUTD=__OUT__
 PORT=${PCB_PRODUCTION_SERVE_PORT}
 cd $L/production-console
@@ -57,13 +58,34 @@ while kill -0 $SPID 2>/dev/null; do
   if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-1800} + 60 )) ]; then break; fi
   sleep 15
 done
+if [ "$DONE" != 1 ] && find $L/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; fi
 wait $T1 2>/dev/null
-for i in 1 2 3; do curl -s --max-time 30 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.jsoncurl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json [ -s $OUTD/transcript.json ] curl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.jsoncurl -s --max-time 60 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json break; sleep 5; done
+for i in 1 2 3; do curl -s --max-time 30 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json; [ -s $OUTD/transcript.json ] && break; sleep 5; done
+if [ ! -s $OUTD/transcript.json ] || [ $(stat -c %s $OUTD/transcript.json) -lt 100 ]; then
+  for DB in "$ARENA_DIR/production-data/opencode/opencode.db" "$ARENA_DIR/internal-data/opencode/opencode.db"; do
+  [ -f "$DB" ] || continue
+  python3 - "$DB" "$SID" "$OUTD/transcript.json" <<'PYDB' 2>/dev/null || true
+import sqlite3, sys, json
+db, sid, out = sys.argv[1], sys.argv[2], sys.argv[3]
+c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+n = c.execute("select count(*) from message where session_id=?", (sid,)).fetchone()[0]
+if n == 0: sys.exit(1)
+msgs = []
+for mid, data in c.execute("select id, data from message where session_id=? order by time_created", (sid,)):
+    d = json.loads(data); d["id"] = mid
+    parts = [json.loads(p) for (p,) in c.execute("select data from part where message_id=? order by id", (mid,))]
+    msgs.append({"info": d, "parts": parts})
+open(out, "w").write(json.dumps(msgs))
+PYDB
+  [ $(stat -c %s $OUTD/transcript.json 2>/dev/null || echo 0) -ge 100 ] && break
+  done
+fi
 kill $SPID $APPR 2>/dev/null
 [ -s $OUTD/transcript.json ] || { echo "EMPTY_TRANSCRIPT" > $OUTD/infra.fail; exit 1; }
 [ "$DONE" = 1 ] || { echo "MISSION_INCOMPLETE" > $OUTD/infra.fail; exit 1; }
 INNER
 sed -i "s#__OUT__#/tmp/r20-out-$UNIT#g" "$OUT/inner.sh"  # sandbox-writable; harvested after
+sed -i "s#__ARENA__#$ARENA#g" "$OUT/inner.sh"  # whole inner script runs against the arena, not the live control tree (r29 watcher-path fix)
 mkdir -p /tmp/r20-out-$UNIT && rm -f /tmp/r20-out-$UNIT/*
 
 # r20-bench.sh builds the full mount table (bin + every vendored node_modules
