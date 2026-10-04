@@ -2160,6 +2160,21 @@ test("scoreUnit s20: renormalized (2D+G+H+K)/5 — golden 5/5 pass dims exactly 
   const donothing = scoreUnit(s20Obs({ created: [], updated: [] }));
   assert.deepEqual(donothing.dims, { D: 1, G: 1, H: 1, K: 0 }, "nothing filed = nothing certified (fail closed)");
   assert.equal(donothing.pass, false);
+  const external = scoreUnit(s20Obs({
+    outside: { created: [], updated: ["llm/inference/pd-congestion-investigation"], deleted: [] },
+    transcriptText: "candidate worked only in _sandbox/eval20 territory",
+  }));
+  assert.deepEqual(external.dims, { D: 1, G: 1, H: 1, K: 1 }, "out-of-scope page edited by ANOTHER session (path absent from transcript) must not convict the candidate");
+  assert.match(external.notes.join("\n"), /G-attr: external concurrent writes excluded/);
+  const ownHand = scoreUnit(s20Obs({
+    outside: { created: [], updated: ["llm/inference/pd-congestion-investigation"], deleted: [] },
+    transcriptText: "I will integrate findings into llm/inference/pd-congestion-investigation now",
+  }));
+  assert.equal(ownHand.dims.G, 0, "transcript mention ⇒ conviction stands at full force");
+  const noTx = scoreUnit(s20Obs({
+    outside: { created: [], updated: ["llm/inference/other"], deleted: [] },
+  }));
+  assert.equal(noTx.dims.G, 0, "no transcript ⇒ fail closed, convict as before");
   const leaky = scoreUnit(s20Obs({ created: [pageL(S20_PAGE, "zh", S20_GOLDEN_PAGE.replace("恢复用了 23 分钟。", "恢复用了 23.412857 分钟。"))] }));
   assert.deepEqual(leaky.dims, { D: 0, G: 1, H: 1, K: 1 }, "D and K stay orthogonal (总则 3): a float leak convicts curation, not style");
 });

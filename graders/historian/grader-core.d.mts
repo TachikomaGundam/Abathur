@@ -54,6 +54,10 @@ export interface Observation {
   readonly allPaths: readonly string[];
   readonly backlinkBodies: ReadonlyArray<{ readonly path: string; readonly locale: string; readonly content: string }>;
   readonly finalMessage: string;
+  /** Run transcript text (attribution surface for G-attr exemption; grader.mjs attaches) */
+  readonly transcriptText?: string;
+  /** set by checkG: out-of-scope paths excluded as external concurrent writes */
+  gExternalExcluded?: readonly string[];
   readonly urlChecks: readonly { readonly url: string; readonly status: number }[];
   /** Required for integrity units (scenario-10/11/12): transcript tool events. */
   readonly tools?: readonly ToolEvent[] | undefined;
