@@ -48,9 +48,10 @@ while time.time() < DEADLINE:
                 t = str(p.get("text") or "")
                 # plan declarations by the ORCHESTRATOR (assistant text) and
                 # gate-denial echoes (tool text): collect every 64-hex after a plan marker
-                for mm in re.finditer(r"plan_sha256[^0-9a-f]{0,4}([0-9a-f]{64})", t):
+                for mm in re.finditer(r"plan_sha256[^0-9a-f]{0,10}([0-9a-f]{64})", t):
                     plans.append(mm.group(1))
-                for mm in re.finditer(r"PLAN_NOT_APPROVED[^0-9a-f]{0,80}([0-9a-f]{64})", t):
+                for mm in re.finditer(r"HUMAN_GATE[^0-9a-f]{0,200}([0-9a-f]{64})",t): plans.add(mm.group(1))
+                for mm in re.finditer(r"PLAN_NOT_APPROVED[^0-9a-f]{0,120}([0-9a-f]{64})", t):
                     plans.append(mm.group(1))
         for sha in dict.fromkeys(plans):
             if sha in seen or not HEX64.match(sha):
