@@ -135,7 +135,7 @@ const state =
 
 const diff = diffWiki({ pre, post: state.post, content: state.content, scenarioNo });
 const urlChecks = Object.entries(state.urlStatus ?? {}).map(([url, status]) => ({ url, status }));
-const obs = { ...diff, scenarioNo, finalMessage: meta.finalMessage, urlChecks, plainlang };
+const obs = { ...diff, scenarioNo, finalMessage: meta.finalMessage, urlChecks, plainlang, transcriptText };
 
 // Integrity units (s10/11/12): transcript tool events + the seed capture feed
 // the I/J checkers. A missing/unshaped seed-state.json exits nonzero here —
