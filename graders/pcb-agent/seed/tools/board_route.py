@@ -263,10 +263,13 @@ def hybrid_astar(occ, start, goal, net, deadline, bbox):
     if abs(ca[0] - cc[0]) + abs(ca[1] - cc[1]) <= 60:
         return astar(occ, start, goal, net, deadline=deadline)
     xlo, xhi, ylo, yhi = bbox
-    cw = coarse_route(occ, ca, cc, net, xlo, xhi, ylo, yhi, deadline * 0.6)
+    cw = coarse_route(occ, ca, cc, net, xlo, xhi, ylo, yhi, max(3.0, deadline * 0.35))
     if not cw:
         return None
-    t_end = time.monotonic() + deadline * 0.4
+    # corridor geometry ALREADY proved the pair routable: the multi-leg fine
+    # phase needs seconds-per-leg, not the pair deadline's remainder (r38
+    # forensics: 21 legs took 5.5s at 10s/leg vs old 6s total = certain fail).
+    t_end = time.monotonic() + max(deadline * 0.65, 22.0)
     pts = [(ca, alp)] + [((x, y), alp) for x, y in cw[1:-1]] + [(cc, clp)]
     merged = []
     for (p1, l1), (p2, l2) in zip(pts, pts[1:]):
