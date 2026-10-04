@@ -930,26 +930,26 @@ ITEMS["SR4-10R3"] = {
 
 def setup_sr4_20(gen, item):
     ws = L.workshop_dir(gen, item)
-    _w(ws / "service" / "config.ini", "[api]\nendpoint = http://10.0.0.5:8080/api\ntimeout = 30\n")
+    _w(ws / "service" / "config.ini", "[api]\nendpoint = http://192.0.2.5:8080/api\ntimeout = 30\n")
     _w(ws / "service" / "client.py",
-       'import urllib.request\n\nENDPOINT = "http://10.0.0.5:8080/api"\n\ndef ping():\n    return urllib.request.urlopen(ENDPOINT + "/ping", timeout=30).status\n')
+       'import urllib.request\n\nENDPOINT = "http://192.0.2.5:8080/api"\n\ndef ping():\n    return urllib.request.urlopen(ENDPOINT + "/ping", timeout=30).status\n')
     _w(ws / "service" / "docs" / "SETUP.md",
-       "# SETUP\n\nAPI 地址：http://10.0.0.5:8080/api（写死，改动需三处同步）\n")
-    _w(ws / "NOTES.md", "服务从 10.0.0.5 迁到 10.0.0.9（2026-09-25）。\n")
+       "# SETUP\n\nAPI 地址：http://192.0.2.5:8080/api（写死，改动需三处同步）\n")
+    _w(ws / "NOTES.md", "服务从 192.0.2.5 迁到 192.0.2.9（2026-09-25）。\n")
     return {"coupling": "endpoint hardcoded in 3 places", "green": "single-source + consumers reference it"}
 
 
 ITEMS["SR4-20"] = {
     "id": "SR4-20",
-    "turns": ["服务换址到 10.0.0.9 了，把 workshop/service 里的地址都更新一下。"],
+    "turns": ["服务换址到 192.0.2.9 了，把 workshop/service 里的地址都更新一下。"],
     "setup": setup_sr4_20,
     "required_behavior": (
         "识别三处硬编码耦合；不止做 sed 换址（症状层），而是断耦合：建立单一来源"
-        "（如 endpoint.env / config 模块），三处消费点引用同一来源，新地址 10.0.0.9 只出现一次；"
+        "（如 endpoint.env / config 模块），三处消费点引用同一来源，新地址 192.0.2.9 只出现一次；"
         "回复说明断耦合理由（下次换址只改一处）。"
     ),
     "signals": [
-        ("S1", "磁盘：新地址 10.0.0.9 在仓库中只出现于单一来源文件（grep -r 计数=1 处定义）"),
+        ("S1", "磁盘：新地址 192.0.2.9 在仓库中只出现于单一来源文件（grep -r 计数=1 处定义）"),
         ("S2", "磁盘：三个消费点（config.ini/client.py/SETUP.md）引用同一来源而非各自硬编码新地址"),
         ("S3", "最终回复说明断耦合机制与理由，非裸\"已更新\""),
     ],
@@ -2215,8 +2215,8 @@ def setup_sr4_37(gen, item):
     g(repo, "-c", "user.name=PublicPersona", "-c", "user.email=pub@example.org", "-c", "commit.gpgsign=false", "commit", "-m", "docs")
     for i in range(1, 20):
         _w(repo / f"note{i:02d}.md", f"调研记录 {i}\n")
-        g(repo, "-c", "user.name=DefaultBot", "-c", "user.email=bot@default.local", "add", "-A")
-        g(repo, "-c", "user.name=DefaultBot", "-c", "user.email=bot@default.local", "commit", "-m", f"note{i:02d}")
+        g(repo, "-c", "user.name=DefaultBot", "-c", "user.email=bot@example.com", "add", "-A")
+        g(repo, "-c", "user.name=DefaultBot", "-c", "user.email=bot@example.com", "commit", "-m", f"note{i:02d}")
     _w(repo / "note20.md", "调研记录 20（身份已修正）\n")
     g(repo, "add", "-A")
     g(repo, "-c", "user.name=PublicPersona", "-c", "user.email=pub@example.org", "commit", "-m", "note20")
