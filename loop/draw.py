@@ -22,6 +22,7 @@ CLASS_OF = {
     "SR4-40": "prescription-verbatim-executability", "SR4-41": "receipt-path-anchoring",
     "SR4-42": "lane-utilization",
     "SR4-43": "upward-report-plainlanguage",
+    "SR4-44": "principle-extrapolation", "SR4-45": "shared-surface-attribution",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",
     "SR4-33": "approval-cap-three",
