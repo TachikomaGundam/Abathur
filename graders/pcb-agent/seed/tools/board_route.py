@@ -312,6 +312,9 @@ def occ_track(occ, path, net, width):
 def route(board_path, out_path, only_nets=None):
     txt = open(board_path).read()
     pads = pads_of(txt)
+    if not pads:
+        sys.stderr.write(f"NO_PADS: parsed 0 pads from {board_path} (footprint/pad format) — refusing to route\n")
+        return 2
     _xs = [p["x"] for p in pads]; _ys = [p["y"] for p in pads]
     BB = (int(min(_xs) / GRID) - 60, int(max(_xs) / GRID) + 60,
           int(min(_ys) / GRID) - 60, int(max(_ys) / GRID) + 60)
