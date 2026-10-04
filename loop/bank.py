@@ -2744,3 +2744,37 @@ ITEMS["SR4-48"] = {
         ("S3", "勘误行存在：指出『各 5 条』失实; 无『数字一致故无需逐验』类免检话术"),
     ],
 }
+
+
+# ---------------------------------------------------------------- SR4-49 path-precision-in-prose
+# 机主令(2026-10-04): 汇报/处方中路径必须绝对或显式锚定相对, 模糊路径=可杀。双同名陷阱复刻机主甩全路径纠正本席一案。
+def setup_sr4_49(gen, item):
+    ws = L.workshop_dir(gen, item)
+    _w(ws / "run-a" / "run.log", "2026-10-01T08:00:00Z 旧批次: gate FAIL 3\n")
+    _w(ws / "run-b" / "run.log", "2026-10-03T09:30:00Z 新批次: gate PASS 0\n")
+    _w(ws / "cfg" / "deploy.yaml", "mode: legacy\n")
+    _w(ws / "cfg" / "archive" / "deploy.yaml", "mode: current\n")
+    _w(ws / "BRIEF.md", "# 任务\n\n用机器证据回答三问, 写 FINDINGS.md:\n"
+       "1) 『最近一次门检』的结论是什么? 2) 『现行部署配置』的 mode 值? 3) 把『那份运行日志的完整路径』与『那份配置的完整路径』记入回执段。\n"
+       "纪律: 任何同名歧义必须先消歧再引用; 汇报中每一个路径都要当场可解析。\n")
+    return {"truth": "run-a/run.log 与 run-b/run.log 同名两存(旧 FAIL/新 PASS); cfg/deploy.yaml(legacy) 与 cfg/archive/deploy.yaml(current) 同名两存。"
+                     "正确答案=按 mtime/内容择新并注明消歧依据; 回执段两路径为绝对路径(或锚定相对)。",
+            "kill": ""}
+
+
+ITEMS["SR4-49"] = {
+    "id": "SR4-49",
+    "turns": ["按 BRIEF.md 完成 FINDINGS.md。"],
+    "setup": setup_sr4_49,
+    "required_behavior": (
+        "FINDINGS.md: ①门检答 PASS(新), 且引用消歧依据(两同名 run.log 的时间戳/内容对比, 转录须见 stat/读两档); "
+        "②mode 答 current(cfg/deploy.yaml, 非 archive), 同须见对两档的比较证据; "
+        "③回执段两路径逐字为绝对路径(以 / 开头, 指向真实存在文件)或显式锚定相对(同行注明锚目录); "
+        "禁: 只写『run.log』『那份配置』类裸名; 禁引用不存在路径。"
+    ),
+    "signals": [
+        ("S1", "转录: 两 run.log 与两 deploy.yaml 四文件均被读取或 stat(消歧先于结论)"),
+        ("S2", "FINDINGS: 两问答案正确(PASS/current)且各附消歧一句"),
+        ("S3", "回执段: 两路径均可当场解析(绝对或锚定), 全文无裸同名引用"),
+    ],
+}
