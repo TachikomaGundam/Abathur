@@ -35,10 +35,13 @@ const findings = readC("FINDINGS.md");
 const specRaw = (() => { for (const q of [C("spec.json"), "/home/lab/workspace/harness/Abathur/graders/pcb-agent/seed/spec.json"]) { try { return readFileSync(q, "utf8"); } catch {} } return ""; })();
 let spec = null; try { spec = JSON.parse(specRaw); } catch {}
 const schPath = [C("board.kicad_sch"), C("out.kicad_sch")].find(existsSync);
-const pcbPath = [C("board.kicad_pcb"), C("out.kicad_pcb")].find(existsSync);
+// v2.1 resolver fix (r41 fairness defect: scenario deliverable is board-routed.kicad_pcb,
+// v2 keyed board.kicad_pcb -> false no_board). Deterministic preference, richest copper first;
+// phaseA boards still resolve via board.kicad_pcb. Same order for every arm of every A/B.
+const pcbPath = [C("board-poured.kicad_pcb"), C("board-routed.kicad_pcb"), C("board.kicad_pcb"), C("out.kicad_pcb")].find(existsSync);
 const KCLI = process.env.KICAD_CLI || "/home/lab/bin/kicad-cli";
 
-const metrics = { unit: unitId, phase, grader_version: "v2" };
+const metrics = { unit: unitId, phase, grader_version: "v2.1" };
 if (!resultDoc && !findings && !pcbPath) {
   // nothing produced = honest LOW, not inconclusive (same doctrine as v1)
   process.stdout.write(JSON.stringify({ unit: unitId, phase, score: 0, pass: false, metrics: { ...metrics, nothing_produced: true } }) + "\n");
@@ -199,4 +202,4 @@ let eyes = Math.min(0.4, (outcomeEyes / 0.4) * 0.4);
 metrics.eyes = +eyes.toFixed(3); metrics.traps_hit = hits;
 
 const score = +(outcome + eyes).toFixed(3);
-process.stdout.write(JSON.stringify({ unit: unitId, phase, grader_version: "v2", score, pass: score >= 0.7, metrics }) + "\n");
+process.stdout.write(JSON.stringify({ unit: unitId, phase, grader_version: "v2.1", score, pass: score >= 0.7, metrics }) + "\n");
