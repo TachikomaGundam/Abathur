@@ -132,6 +132,10 @@ def rings_from_rects(rects, x0, y0):
 
 def main(inp, outp):
     txt = open(inp).read()
+    mw = re.search(r'\n\)?\s*\(nets\s*\n(.*?)\n\)', txt, re.S)
+    if mw:
+        txt = txt[:mw.start()] + "\n" + mw.group(1) + txt[mw.end():]
+        print("REPAIR: unwrapped KiCad-8 style (nets) wrapper to root (net) tokens, removed stray close (r39B)")
     nm = dict((m.group(2).strip('"'), int(m.group(1))) for m in
               re.finditer(r'\(net (\d+) "([^"]+)"\)', txt))
     gnd_code = nm.get("GND")
@@ -341,7 +345,13 @@ def main(inp, outp):
                   txt[:txt.index("(footprint")].rstrip("\n"))
     body = "\n".join(keep if keep else [])
     tail = "\n".join(z)
-    open(outp, "w").write(head + "\n" + body + "\n" + tail + "\n)\n")
+    out_txt = head + "\n" + body + "\n" + tail + "\n)\n"
+    n_in = len(re.findall(r'\(segment ', txt)) - nstrip
+    n_out = len(re.findall(r'\(segment ', out_txt))
+    if n_out != n_in:
+        sys.stderr.write(f"PARSE_IMBALANCE pour: expected {n_in} segment(s) to survive, output has {n_out} — refusing to emit copper-losing board\n")
+        sys.exit(3)
+    open(outp, "w").write(out_txt)
 
 
 if __name__ == "__main__":
