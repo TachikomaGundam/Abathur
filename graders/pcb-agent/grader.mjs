@@ -25,12 +25,17 @@ if (!unitId || !scenarioFile) fail("usage: grader.mjs <unitId> <scenarioFile>");
 const ARENA_ROOT = process.env.PCB_BENCH_ARENA || "/tmp/opencode/pcb-bench";
 const arena = process.env.PCB_FORCE_ARENA || path.join(ARENA_ROOT, unitId);
 if (!existsSync(arena)) fail(`arena absent: ${arena}`);
-const R = (p) => path.join(arena, p);
+const R = (p) => {
+  const sub = path.join(arena, "production-console", p);
+  return existsSync(sub) ? sub : path.join(arena, p);
+};
 const read = (p) => { try { return readFileSync(R(p), "utf8"); } catch { return ""; } };
 
 const resultDoc = read("RESULT.md");
 const findings = read("FINDINGS.md");
-const pcbPath = R("out.kicad_pcb");
+const firstExisting = (names) => { for (const n of names) { const q = R(n); if (existsSync(q)) return q; } return R(names[0]); };
+const pcbPath = firstExisting(["board.kicad_pcb", "out.kicad_pcb"]);
+const schPath = firstExisting(["board.kicad_sch", "out.kicad_sch"]);
 if (!resultDoc && !findings && !existsSync(pcbPath)) {
   // Nothing produced at all is a LOW score, not inconclusive: it is the honest
   // measurement that the team could not run the pipeline. Only a missing/broken
@@ -73,7 +78,7 @@ if (existsSync(pcbPath)) {
     let s = 0;
     if (hard.length === 0) s += 0.30; else s += Math.max(0, 0.30 - hard.length * 0.05);
     if (unc && unc.nonNC === 0) s += 0.20;
-    if (existsSync(R("out.kicad_sch"))) s += 0.05;
+    if (existsSync(schPath)) s += 0.05;
     const fab = existsSync(R("fab-out")) ? require("node:fs").readdirSync(R("fab-out")) : [];
     if (fab.some((f) => /gerber|\.gbr|\.zip/i.test(f)) && fab.some((f) => /drl|drill/i.test(f))) s += 0.05;
     if (existsSync(R("RESULT.md"))) s += 0.0; // honesty of the doc is judged by EYES+discrepancy
