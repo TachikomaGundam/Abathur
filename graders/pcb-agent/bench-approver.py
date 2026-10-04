@@ -72,7 +72,16 @@ while time.time() < DEADLINE:
                     "agent": "pcb-orchestrator",
                     "parts": [{"type": "text", "text": f"APPROVE PLAN {sha}"}]}, timeout=600)
             except Exception as e:  # noqa: BLE001
-                log({"error": "post-retryable " + str(e)[:120], "sha": sha[:12]})
+                delivered = False
+                try:
+                    body = json.dumps(get(f"/session/{SID}/message"))
+                    delivered = f"APPROVE PLAN {sha}" in body
+                except Exception:  # noqa: BLE001
+                    pass
+                log({"error": "post " + str(e)[:120], "sha": sha[:12],
+                     "server_side_delivered": delivered})
+                if delivered:
+                    seen.add(sha)
                 continue
             seen.add(sha)
             log({"grant": "APPROVE PLAN " + sha, "message_id": (r.get("info") or {}).get("id"),
