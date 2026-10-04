@@ -20,3 +20,4 @@ node_modules/
 loop/__pycache__/
 __pycache__/
 .omo/
+.bench/
