@@ -2,7 +2,7 @@
 Fill from the REAL gate run; this file is the wheel-ticket checked by
 scripts/git-hooks/pre-push on every refs/tags/v* push.
 
-gate: PASS
+gate: <PASS or FAIL — the REAL gate verdict; placeholder never passes>
 packet: <sha of the release commit>
 border-findings: <N finding(s), 0 blocking — verbatim tail line>
 lease: <who>  (must match ~/.config/abathur/release-lease.json)
