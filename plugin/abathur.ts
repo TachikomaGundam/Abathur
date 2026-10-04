@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.7
+// abathur-opencode-plugin v0.2.9
 // Official opencode plugin adapter for the abathur evolution harness.
 // Registers ONE agent tool, `abathur`, that shells out to the abathur CLI —
 // argv-only (node:child_process execFile, never a shell), top-level commands
