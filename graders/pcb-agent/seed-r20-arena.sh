@@ -58,3 +58,15 @@ SEEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed"
 cp -f "$SEEDIR/spec.json" "$ARENA/production-console/spec.json"
 cp -f "$SEEDIR/esp32s3-r12-BRIEF.txt" "$ARENA/production-console/BRIEF.txt"
 test -s "$ARENA/production-console/spec.json" && test -s "$ARENA/production-console/BRIEF.txt" || { echo SEED_FAIL: mission inputs missing; exit 1; }
+
+# phaseB exam input (r23): the placed board is AUTHORED DETERMINISTICALLY here
+# (team-independent: both arms get byte-identical phase-A inputs; no arm's own
+# output can leak into the other's exam). Tools + alias table ship in the tree.
+if [[ "$ARENA" == *phaseB* ]]; then
+  ( cd "$ARENA/production-console" \
+    && python3 "$ARENA/tools/board_author_sch.py" spec.json -o board.kicad_sch \
+    && python3 "$ARENA/tools/board_author_pcb.py" spec.json board.kicad_pcb \
+    && python3 "$ARENA/tools/board_gate.py" board.kicad_sch spec.json \
+    && python3 "$ARENA/tools/board_gate_pcb.py" board.kicad_pcb ) \
+    || { echo SEED_FAIL: phaseB input authoring/gate; exit 1; }
+fi
