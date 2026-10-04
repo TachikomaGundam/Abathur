@@ -94,6 +94,8 @@ timeout $(( ${PCB_REP_TIMEOUT:-1500} + 900 )) bash "$GRAD/r20-bench.sh" "$ARENA"
   "BRIEF_FILE=$BRIEF_FILE bash $OUT/inner.sh" > "$OUT/inner.log" 2>&1
 RC=$?
 cp -f /tmp/r20-out-$UNIT/* "$OUT/" 2>/dev/null || true
+# harvest arena deliverables before the next rep's reseed wipes them (r29R artifact-loss fix)
+mkdir -p "$OUT/arena-harvest"; cp -f "$ARENA"/production-console/*.kicad_* "$ARENA"/production-console/RESULT.md "$ARENA"/production-console/FINDINGS.md "$OUT/arena-harvest/" 2>/dev/null || true
 # node_modules literal-stack binds (arena lacks them by design)
 # harvest: map the control literal back to the arena for the grader
 python3 - "$OUT" "$ARENA" "$LIT" <<'PYH' 2>/dev/null || true
