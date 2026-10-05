@@ -176,7 +176,10 @@ if (phase === "s31") {
   // 3) REAL net closures (v3.1: rats count was rats-distortable by vias; connectivity union-find is truth) 0.20
   om.nets_closed = `${inp.nets.closed}->${out.nets.closed} of ${out.nets.considered}`;
   const closedDelta = out.nets.closed - inp.nets.closed;
-  if (closedDelta >= 3) outcome += 0.20; else if (closedDelta >= 1) outcome += 0.12; else if (out.nonNC < inp.nonNC) outcome += 0.05;
+  // authority order (r52): kicad-cli's own rat count is the connective truth;
+  // the union-find nets metric only distinguishes FULL-net closures as a bonus.
+  if (out.nonNC < inp.nonNC) outcome += 0.10;
+  if (closedDelta >= 2) outcome += 0.10; else if (out.nonNC <= inp.nonNC * 0.7) outcome += 0.05;
   om.nonNC = `${inp.nonNC}->${out.nonNC}`;
   // 4) no NEW hard DRC vs input 0.10
   const newHard = Math.max(0, out.hard - inp.hard);
