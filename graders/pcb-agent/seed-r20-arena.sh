@@ -69,4 +69,9 @@ if [[ "$ARENA" == *phaseB* ]]; then
     && python3 "$ARENA/tools/board_gate.py" board.kicad_sch spec.json \
     && python3 "$ARENA/tools/board_gate_pcb.py" board.kicad_pcb ) \
     || { echo SEED_FAIL: phaseB input authoring/gate; exit 1; }
+  # s3x sub-exams: keep a pristine copy of the authored input so grader v3 can
+  # measure INPUT-vs-OUTPUT deltas with the same code path (fair deltas; team edits
+  # only production-console copies). Harmless for r23 (board is deterministic).
+  mkdir -p "$ARENA/.state"
+  cp "$ARENA/production-console/board.kicad_pcb" "$ARENA/.state/arena-input-board.kicad_pcb"
 fi
