@@ -258,7 +258,7 @@ def coarse_route(occ, ca, cc, net, xlo, xhi, ylo, yhi, deadline):
     return [(x * HGc + HGc // 2, y * HGc + HGc // 2) for x, y in outc]
 
 
-def hybrid_astar(occ, start, goal, net, deadline, bbox):
+def hybrid_astar(occ, start, goal, net, deadline, bbox, last_effort=False):
     (ca, alp), (cc, clp) = start, goal
     if abs(ca[0] - cc[0]) + abs(ca[1] - cc[1]) <= 60:
         return astar(occ, start, goal, net, deadline=deadline)
@@ -269,7 +269,7 @@ def hybrid_astar(occ, start, goal, net, deadline, bbox):
     # corridor geometry ALREADY proved the pair routable: the multi-leg fine
     # phase needs seconds-per-leg, not the pair deadline's remainder (r38
     # forensics: 21 legs took 5.5s at 10s/leg vs old 6s total = certain fail).
-    t_end = time.monotonic() + max(deadline * 0.65, 22.0)
+    t_end = time.monotonic() + (max(deadline * 0.65, 22.0) if last_effort else deadline * 0.65)
     pts = [(ca, alp)] + [((x, y), alp) for x, y in cw[1:-1]] + [(cc, clp)]
     merged = []
     for (p1, l1), (p2, l2) in zip(pts, pts[1:]):
@@ -309,6 +309,8 @@ def occ_track(occ, path, net, width):
                              (cx + dx) * GRID, (cy + dy) * GRID, l, net)
 
 
+
+
 def route(board_path, out_path, only_nets=None):
     txt = open(board_path).read()
     pads = pads_of(txt)
@@ -329,6 +331,25 @@ def route(board_path, out_path, only_nets=None):
     for p in pads:
         if p["net"]:
             by_net[p["net"]].append(p)
+    PADL = {}  # (gx,gy) -> pad's own copper layer (SMD pads exist only there; B.Cu ends never touch them)
+    for p in pads:
+        PADL[cell(p["x"], p["y"])] = p.get("layer", 0)
+
+    def _term_fix(sp, nid_):
+        """endpoints must sit on their pad's copper layer: force the terminal segment."""
+        if not sp:
+            return sp
+        def fix(pt):
+            pl = PADL.get((pt[0], pt[1]))
+            return (pt[0], pt[1], pl) if pl is not None and pt[2] != pl else pt
+        a = fix(sp[0])
+        if a != sp[0]:
+            sp = [a] + ([sp[1]] if len(sp) > 1 else []) + sp[2:]
+        b = fix(sp[-1])
+        if b != sp[-1]:
+            sp = sp[:-2] + ([sp[-2]] if len(sp) > 2 else []) + [b]
+        return sp
+
     # order: power/GND first, prefer bottom layer (B=1); signals then on F=0
     def layer_pref(nid):
         return 1 if nets.get(nid, "") in POWER else 0
@@ -438,21 +459,27 @@ def route(board_path, out_path, only_nets=None):
             ca = cell(a["x"], a["y"])
             cc = cell(c["x"], c["y"])
             alp, clp = a.get("layer", lp), c.get("layer", lp)
-            def ok_via_ends(pp):
+            def ok_via_ends(pp, ea=None, eb=None):
+                # validator must ask about the PADS' layers, not the net's pref
+                # layer: an all-F.Cu straight path between two F.Cu SMD pads is
+                # CORRECT, but r51-era code demanded pref(B) or an end via and
+                # rejected every such path = the zero-net-closure root cause.
                 if not pp:
                     return False
-                a_ok = True if pp[0][2] == lp else (len(pp) > 1 and pp[1][2] != pp[0][2])
-                b_ok = True if pp[-1][2] == lp else (len(pp) > 1 and pp[-2][2] != pp[-1][2])
+                _ea = alp if ea is None else ea
+                _eb = clp if eb is None else eb
+                a_ok = True if pp[0][2] == _ea else (len(pp) > 1 and pp[1][2] != pp[0][2])
+                b_ok = True if pp[-1][2] == _eb else (len(pp) > 1 and pp[-2][2] != pp[-1][2])
                 return a_ok and b_ok
             def budget():
                 return max(0.3, PAIR_DEADLINE - (time.monotonic() - pair_t0))
             cands = [hybrid_astar(occ, (ca, alp), (cc, clp), nid, budget(), BB),
                      hybrid_astar(occ, (ca, alp), (cc, 1 - clp), nid, budget(), BB),
-                     hybrid_astar(occ, (ca, 1 - alp), (cc, clp), nid, budget(), BB)]
+                     hybrid_astar(occ, (ca, 1 - alp), (cc, clp), nid, budget(), BB, last_effort=True)]
             path = next((c for c in cands if ok_via_ends(c)), None)
             if not path:
                 cands = [hybrid_astar(occ, (ca, alp), (cc, clp), nid, budget(), BB),
-                         hybrid_astar(occ, (ca, 1 - alp), (cc, 1 - clp), nid, budget(), BB)]
+                         hybrid_astar(occ, (ca, 1 - alp), (cc, 1 - clp), nid, budget(), BB, last_effort=True)]
                 path = next((c for c in cands if ok_via_ends(c)), None)
             if not path:
                 fails.append((nets.get(nid), a["ref"] + "." + a["pad"], c["ref"] + "." + c["pad"]))
@@ -462,6 +489,7 @@ def route(board_path, out_path, only_nets=None):
             sp = simplify(path)
             occ_track(occ, path, nid, width)
             checkpoint()
+            sp = _term_fix(sp, nid)
             for n1, n2 in zip(sp, sp[1:]):
                 if n1[2] != n2[2]:
                     vias.append((n1[0] * GRID, n1[1] * GRID, nid))
@@ -478,11 +506,11 @@ def route(board_path, out_path, only_nets=None):
             oc.add_rect(min(x1, x2) - w / 2 - CLEAR, min(y1, y2) - w / 2 - CLEAR,
                         max(x1, x2) + w / 2 + CLEAR, max(y1, y2) + w / 2 + CLEAR, l, n)
 
-        def ok_ends(pp, lp_):
+        def ok_ends(pp, ea, eb):
             if not pp:
                 return False
-            a_ok = True if pp[0][2] == lp_ else (len(pp) > 1 and pp[1][2] != pp[0][2])
-            b_ok = True if pp[-1][2] == lp_ else (len(pp) > 1 and pp[-2][2] != pp[-1][2])
+            a_ok = True if pp[0][2] == ea else (len(pp) > 1 and pp[1][2] != pp[0][2])
+            b_ok = True if pp[-1][2] == eb else (len(pp) > 1 and pp[-2][2] != pp[-1][2])
             return a_ok and b_ok
 
         def try_pair(nid_, a, c):
@@ -500,8 +528,8 @@ def route(board_path, out_path, only_nets=None):
                 rem = t_end - time.monotonic()
                 if rem <= 0.1:
                     break
-                pp = hybrid_astar(o2, (ca, la), (cc, lb), nid_, rem, BB)
-                if pp and ok_ends(pp, lp_):
+                pp = hybrid_astar(o2, (ca, la), (cc, lb), nid_, rem, BB, last_effort=True)
+                if pp and ok_ends(pp, la, lb):
                     return pp, w_
             return None, w_
 
@@ -534,7 +562,8 @@ def route(board_path, out_path, only_nets=None):
                     vias.extend(lifted_v)
                     nxt.append((nid, a, c))
                     continue
-                for n1_, n2_ in zip(simplify(pp), simplify(pp)[1:]):
+                sp2 = _term_fix(simplify(pp), nid)
+                for n1_, n2_ in zip(sp2, sp2[1:]):
                     if n1_[2] != n2_[2]:
                         vias.append((n1_[0] * GRID, n1_[1] * GRID, nid))
                     else:
@@ -551,6 +580,41 @@ def route(board_path, out_path, only_nets=None):
             k = (nets.get(nid), a["ref"] + "." + a["pad"], c["ref"] + "." + c["pad"])
             if k not in fails:
                 fails.append(k)
+
+    # r51 forensics: grid-cell endpoints can sit ON a pad's cell yet never connect —
+    # SMD pads carry copper only on their own layer and sit up to GRID/2 off the cell
+    # corner. Stitch: for every pad without same-layer copper within 0.07, draw a stub
+    # to the EXACT pad center from the nearest same-net endpoint (landing via if layer differs).
+    import math as _m
+    _ends = defaultdict(list)
+    for (x1, y1, x2, y2, l, w, n) in segs:
+        _ends[n].append((x1, y1, l)); _ends[n].append((x2, y2, l))
+    for v in vias:
+        _ends[v[2]].append((v[0], v[1], 0)); _ends[v[2]].append((v[0], v[1], 1))
+    stitched = 0
+    for p in pads:
+        nid_ = p["net"]
+        if not nid_:
+            continue
+        pl_ = p.get("layer", 0)
+        px_, py_ = p["x"], p["y"]
+        if any(_m.hypot(x - px_, y - py_) <= 0.07 and l == pl_ for (x, y, l) in _ends[nid_]):
+            continue
+        best = None
+        for (x, y, l) in _ends[nid_]:
+            d = _m.hypot(x - px_, y - py_)
+            if d <= 0.16 and (best is None or d < best[0]):
+                best = (d, x, y, l)
+        if best is None:
+            continue
+        d, x, y, l = best
+        if l != pl_:
+            vias.append((x, y, nid_))
+        segs.append((x, y, px_, py_, pl_, W_SIG, nid_))
+        _ends[nid_].append((px_, py_, pl_))
+        stitched += 1
+    if stitched:
+        print(f"stitch: {stitched} pad stubs", flush=True)
 
     u = [0x5A000000]
     def U():
