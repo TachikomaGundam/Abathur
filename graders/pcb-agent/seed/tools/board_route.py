@@ -360,7 +360,7 @@ def route(board_path, out_path, only_nets=None):
         return 1 if nets.get(nid, "") in POWER else 0
     ordered = sorted(by_net.items(), key=lambda kv: (nets.get(kv[0], "") not in POWER, -len(kv[1])))
     segs, vias, fails = [], [], []
-    kept_segs = []
+    kept_segs, kept_count = [], 0
     if only_nets:
         # r39B F7: author-tool output puts the FIRST copper mid-line
         # ("\t(embedded_fonts no)  (segment ...") — line-anchored search made
@@ -371,10 +371,12 @@ def route(board_path, out_path, only_nets=None):
         tail_blocks = [m.group(0) for m in re.finditer(r'\(segment [^\n]*\)|\(via [^\n]*\)', txt[fp_cut:])]
         newblocks = []
         for blk in tail_blocks:
-            mn2 = re.search(r'\(net (\d+)\)', blk)
-            name2 = nets.get(int(mn2.group(1)), "") if mn2 else ""
-            if name2 in only_nets:
-                continue
+            # r52 F6 fix: resume must NEVER remove existing copper — the old
+            # "rip listed nets then re-lay" design deleted their segments up
+            # front, and when the re-route failed on the corridor the nets came
+            # back EMPTY (35 segs vanished, round-6 r52). Resume is strictly
+            # ADDITIVE now: kept copper seeds occupancy below, planning stays
+            # restricted to only_nets; a blocked net simply stays blocked.
             newblocks.append(blk)
             mm = re.search(r'\(segment \(start ([-\d.]+) ([-\d.]+)\) \(end ([-\d.]+) ([-\d.]+)\) \(width ([.\d]+)\) \(layer "([FB])\.Cu"\)', blk)
             mv = re.search(r'\(via \(at ([-\d.]+) ([-\d.]+)', blk)
@@ -388,7 +390,11 @@ def route(board_path, out_path, only_nets=None):
                 vx, vy = float(mv.group(1)), float(mv.group(2))
                 for l_ in (0, 1):
                     occ.add_rect(vx - 0.4, vy - 0.4, vx + 0.4, vy + 0.4, l_, -1)
-        kept_segs = newblocks
+        kept_count = len(newblocks)
+        # kept blocks are ALREADY embedded in the rewritten txt below; do not
+        # carry them a second time into head+mid+emit assembly (r52 regression:
+        # double-merge tripped PARSE_IMBALANCE guard, which correctly refused).
+        kept_segs = []
         ordered = [kv for kv in ordered if nets.get(kv[0], "") in only_nets]
         txt = txt[:fp_cut] + "\n".join(newblocks) + "\n)\n"
     # r29T checkpoint: same emit format as the final write, flushed every 8 nets
@@ -638,12 +644,12 @@ def route(board_path, out_path, only_nets=None):
     _out = head + mid + "\n".join(emit) + "\n)\n"
     if only_nets:
         _n_out = len(re.findall(r'\((?:segment|via) ', _out))
-        _n_want = len(kept_segs) + len(segs) + len(vias)
+        _n_want = kept_count + len(segs) + len(vias)
         if _n_out != _n_want:
             print(f"PARSE_IMBALANCE resume: want {_n_want} copper blocks (kept+new), out has {_n_out}; aborting write", file=sys.stderr)
             return 3
     open(out_path, "w").write(_out)
-    print(f"routed: segments={len(segs)} vias={len(vias)} failed_edges={len(fails)}")
+    print(f"routed: segments={len(segs)+kept_count} (new={len(segs)} kept={kept_count}) vias={len(vias)+0} failed_edges={len(fails)}")
     for f in fails[:40]:
         print("  FAIL-EDGE", f)
     if fails:
