@@ -62,7 +62,7 @@ test -s "$ARENA/production-console/spec.json" && test -s "$ARENA/production-cons
 # phaseB exam input (r23): the placed board is AUTHORED DETERMINISTICALLY here
 # (team-independent: both arms get byte-identical phase-A inputs; no arm's own
 # output can leak into the other's exam). Tools + alias table ship in the tree.
-if [[ "$ARENA" == *phaseB* ]]; then
+if [[ "$ARENA" == *phaseB* || "$ARENA" == *s31* || "$ARENA" == *s32* ]]; then
   ( cd "$ARENA/production-console" \
     && python3 "$ARENA/tools/board_author_sch.py" spec.json -o board.kicad_sch \
     && python3 "$ARENA/tools/board_author_pcb.py" spec.json board.kicad_pcb \
