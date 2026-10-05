@@ -259,6 +259,11 @@ def coarse_route(occ, ca, cc, net, xlo, xhi, ylo, yhi, deadline):
 
 
 def hybrid_astar(occ, start, goal, net, deadline, bbox, last_effort=False):
+    # r52 A/B: on the s31 exam board plain octile A* beat hybrid 35-segs/900s vs
+    # 8-segs/1500s (coarse phase + leg stitching starves the pair budget; hybrid
+    # was only ever proven on the 21-leg corridor case). Hybrid is now OPT-IN.
+    if not os.environ.get("BR_HYBRID"):
+        return astar(occ, start, goal, net, deadline=deadline)
     (ca, alp), (cc, clp) = start, goal
     if abs(ca[0] - cc[0]) + abs(ca[1] - cc[1]) <= 60:
         return astar(occ, start, goal, net, deadline=deadline)
