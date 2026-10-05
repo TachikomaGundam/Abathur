@@ -29,7 +29,7 @@ const board = phase === "s31"
   : [C("board-poured.kicad_pcb"), C("board-routed.kicad_pcb")].find(existsSync);
 const resultDoc = readC("RESULT.md") || readC("RESULT.md", );
 const findings = readC("FINDINGS.md");
-const metrics = { unit: unitId, phase, grader_version: "v3.1" };
+const metrics = { unit: unitId, phase, grader_version: "v3.2" };
 
 function drcOf(file, refill) {
   const argv = ["pcb", "drc", file, "--severity-error", "--format", "json"];
@@ -133,6 +133,17 @@ function netsClosed(txt) {
     for (const ch of n) if (Array.isArray(ch)) walk(ch);
   }
   walk(root);
+  // v3.2 pad-touch semantics: copper endpoint within 0.075mm of a pad center is
+  // ON the pad (kicad rats agree); exact-key equality alone contradicted kicad.
+  for (const [net, pts] of anchors) {
+    if (/NC/i.test(net) || net === "") continue;
+    const arr = [...pts];
+    for (let i = 0; i < arr.length; i++)
+      for (let j = i + 1; j < arr.length; j++) {
+        const [ax, ay] = arr[i].split(",").map(Number), [bx, by] = arr[j].split(",").map(Number);
+        if (Math.hypot(ax - bx, ay - by) <= 0.075) uni(`n:${net}:${arr[i]}`, `n:${net}:${arr[j]}`);
+      }
+  }
   let closed = 0, considered = 0;
   for (const [net, pts] of anchors) {
     if (/NC/i.test(net) || net === "") continue;
@@ -211,6 +222,6 @@ if (phase === "s31") {
 }
 const score = Math.min(1, outcome);
 process.stdout.write(JSON.stringify({
-  unit: unitId, phase, grader_version: "v3.1", score: +score.toFixed(3), pass: score >= 0.7,
+  unit: unitId, phase, grader_version: "v3.2", score: +score.toFixed(3), pass: score >= 0.7,
   metrics: { ...metrics, outcome: +score.toFixed(3), eyes_reported: eyes, detailed: om },
 }) + "\n");
