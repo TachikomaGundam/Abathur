@@ -1,0 +1,20 @@
+#!/bin/sh
+# identity-guard (pre-commit): every author/committer email must appear in the
+# repo-local allowlist (<git-common-dir>/allowed-identities, one per line).
+# Born from INCIDENT-20261006: bot identities (Wiki.js <wiki@…real domain>) bled
+# into public history via inherited git config and went unnoticed for 19 days.
+# Fail-closed: missing allowlist refuses the commit; the guard never self-silences.
+LIST="$(git rev-parse --git-common-dir)/allowed-identities"
+if [ ! -f "$LIST" ]; then
+  echo "identity-guard: allowlist absent at $LIST — refusing commit (fail-closed). Create it: one allowed email per line." >&2
+  exit 1
+fi
+for VAR in GIT_AUTHOR_EMAIL GIT_COMMITTER_EMAIL; do
+  eval "V=\${$VAR:-}"
+  [ -n "$V" ] || V="$(git config user.email)"
+  grep -qxF "$V" "$LIST" || {
+    echo "identity-guard: $VAR='$V' is not an allowlisted identity — commit refused. See $LIST" >&2
+    exit 1
+  }
+done
+exit 0

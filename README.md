@@ -2,10 +2,11 @@
 
 An evolution harness for OpenCode agents: observe failures, mutate, re-bench,
 select — with promotion held by a human gate. Offline lineage bundles let one
-instance learn from another's evidence; nothing in v1 talks to a network.
+instance learn from another's evidence; the harness itself performs no network
+transport in v1 (model and fixture traffic is whatever your bench spawns).
 
 一个面向 OpenCode 智能体的进化工装：观察失败、变异、重测、筛选——晋升决定始终由人把关。
-离线血缘包（bundle）让一个实例基于另一个实例的证据学习；v1 不含任何联网传输。
+离线血缘包（bundle）让一个实例基于另一个实例的证据学习；v1 工装自身不含任何联网传输（模型与夹具流量取决于你的 bench 起了什么）。
 
 ## English
 
@@ -20,7 +21,7 @@ instance learn from another's evidence; nothing in v1 talks to a network.
   v1 ships two types: `toy` (pure-node fixtures, zero model calls) and
   `opencode-fixture-scenarios` (real agent sessions against a live fixture
   service, scored by script-first graders). Every candidate is re-benched
-  against the incumbent; todo-7 statistics gates decide.
+  against the incumbent; the statistics gates decide.
 - **bundle** — an offline lineage export (`.bundle.tgz`): generation trees,
   patch, ledger summaries, redacted train-only evidence, and a v1 manifest
   that `bundle inspect` re-verifies from the contained bytes. See
@@ -30,25 +31,26 @@ instance learn from another's evidence; nothing in v1 talks to a network.
   `peerClaim` metadata and never feed nomination math.
 - **run loop** — incumbent → brief (failure observations) → mutator session →
   candidate diffs → seal → re-bench → verdicts. Nominated generations sit in
-  the quarantine queue until a human runs `promote`; `tombstone` buries them; `retract` undoes a promote (LIFO, descendant-guarded).
-  Both are append-only ledger decisions; nothing is ever deleted.
+  the quarantine queue until a human runs `promote`; `tombstone` buries them; `retract` undoes a promote (LIFO, descendant-guarded); `re-adjudicate <label> <genId>` re-computes a verdict from ledger state without spawning engines (terminal-only).
+  All three are append-only ledger decisions; nothing is ever deleted.
 
 ### Install
 
 ```bash
 npm i -g @tachikomagundam/abathur  # from the npm registry
 npm pack                          # in a checkout; prepack runs the build
-npm i -g ./tachikomagundam-abathur-0.1.0.tgz
+npm i -g ./tachikomagundam-abathur-*.tgz   # glob: npm pack emits the current version — never pin it here
 abathur --help
 ```
 
-Requires Node >= 22 and `git` on `PATH`. Only `zod` is a runtime dependency.
+Requires Node >= 22 and `git` on `PATH`. Runtime dependencies: `zod` (the harness) plus `@opencode-ai/plugin` (imported at load time by the opencode plugin adapter).
 Real benches additionally need the `opencode` CLI (path via `opencodeBin` in
 config or `PATH` lookup) and whatever a genome's `requires[]` probes name.
 
 Config resolution is fail-closed: `$ABATHUR_CONFIG` (must exist when set) >
 `~/.config/abathur/config.jsonc` > `<package>/config/abathur.jsonc`, with a
-gitignored sibling `*.local.jsonc` deep-merged on top. Unknown keys are exit 2.
+gitignored sibling `*.local.jsonc` deep-merged on top; with none of the three
+files present, built-in defaults apply. Unknown keys are exit 2.
 All writable state lives under the config dir — genome registry
 `<configDir>/genomes/<fp16>.jsonc`, kernel manifests `<configDir>/kernels/`,
 friction queue `<configDir>/friction.jsonl`, pending-graft queue
@@ -182,9 +184,9 @@ Either route gives the session:
   output cap. The binary resolves from `PATH` unless `ABATHUR_BIN` overrides
   it. Honest privilege note: the tool carries bash-equivalent privilege —
   `run` and `genome` legitimately spawn mutator/engine binaries by design —
-  so the allowlist limits typos and UX, not capability. `promote` and
-  `tombstone` are deliberately NOT reachable through the tool: they are
-  human gates and must be run in a terminal.
+  so the allowlist limits typos and UX, not capability. `promote`,
+  `tombstone` and `retract` are deliberately NOT reachable through the tool:
+  they are human gates and must be run in a terminal.
 - the user command **`/abathur <args…>`** — a slash command that tells the
   agent to translate its arguments into a tool call and report the exit code.
   Route A provides it as the copied `commands/abathur.md` file; Route B gets
@@ -193,9 +195,10 @@ Either route gives the session:
 Route A ships its own manager commands: `abathur opencode status` shows each
 target's path, installed/packaged sha256, and state (up-to-date / outdated /
 foreign / absent).
-`abathur opencode uninstall` removes only files carrying the abathur marker; a
-foreign file at a target path makes both commands refuse with exit 2 and name
-the path — nothing is ever overwritten or deleted behind your back (there is
+`abathur opencode uninstall` removes only files carrying the abathur marker. A
+foreign file at a target path makes `install` and `uninstall` refuse with exit 2
+and name the path, while `status` reports the foreign state and exits 0 (it
+observes; it does not act) — nothing is ever overwritten or deleted behind your back (there is
 still no `--force` anywhere).
 
 Caveat: fixture benches mirror the real `~/.config/opencode` (plugins and
@@ -242,7 +245,8 @@ crossing one truncates to `inconclusive` (exit 2), never to a fake pass.
 
 - The genome registry and every writable artifact live **out-of-tree** under
   the config dir; the npm package directory is read-only at runtime.
-- Repo-tracked files contain **zero** machine or product literals. The CI
+- Source under `src/` contains **zero** machine or product literals
+  (`src/test/**` fixtures are exempt by design). The CI
   gate: `grep -rnE '/home/lab|historian' src/` yields nothing outside
   `src/test/**` fixtures. Config templates spell out placeholders instead.
 - Machine paths enter only through config and env: a `${VAR}`-literal
@@ -333,24 +337,24 @@ MIT, see [LICENSE](LICENSE).
   阈值做本地重测。包里的分数只作为 `peerClaim` 元数据记录，永远不参与提名数学。
 - **run 循环**——在位者 → brief（失败观察）→ 变异会话 → 候选 diff → 封印 →
   重测 → 裁决。被提名的一代会停留在隔离队列里，直到人类执行 `promote`；
-  `tombstone` 则埋葬它。两者都是只追加的台账决定；任何数据都不删除。
+  `tombstone` 则埋葬它，`retract` 可撤销一次 promote（LIFO，受后代守卫）；`re-adjudicate <label> <genId>` 不启动引擎、纯从台账重算裁决记录（仅终端可达）。三者都是只追加的台账决定；任何数据都不删除。
 
 ### 安装
 
 ```bash
 npm i -g @tachikomagundam/abathur  # 从 npm registry 安装
 npm pack                          # 在 checkout 里执行；prepack 会先构建
-npm i -g ./tachikomagundam-abathur-0.1.0.tgz
+npm i -g ./tachikomagundam-abathur-*.tgz   # 通配即当前版——npm pack 产出带版本号，此处永不钉死
 abathur --help
 ```
 
-需要 Node >= 22 与 `PATH` 上的 `git`。运行时依赖只有 `zod`。真实基准还需要
+需要 Node >= 22 与 `PATH` 上的 `git`。运行时依赖是 `zod`（工装）与 `@opencode-ai/plugin`（插件适配器装载期即 import）。真实基准还需要
 `opencode` CLI（通过配置里的 `opencodeBin` 或 `PATH` 解析），以及基因组
 `requires[]` 探针点名的那些工具。
 
 配置解析是 fail-closed：`$ABATHUR_CONFIG`（设置就必须存在）>
 `~/.config/abathur/config.jsonc` > `<package>/config/abathur.jsonc`，同级
-gitignored 的 `*.local.jsonc` 会深合并覆盖其上。未知键直接 exit 2。
+gitignored 的 `*.local.jsonc` 会深合并覆盖其上；三者皆不存在时用内置默认。未知键直接 exit 2。
 所有可写状态都在配置目录下——基因组注册表 `<configDir>/genomes/<fp16>.jsonc`、
 内核清单 `<configDir>/kernels/`、摩擦队列 `<configDir>/friction.jsonl`、
 待嫁接队列 `<configDir>/graft-queue/`——绝不写进包目录；每个基因组的台账跟随
@@ -486,7 +490,7 @@ opencode 会在启动时自行从 npm 把包下载到它自己的缓存
 sha256 与状态
 （up-to-date / outdated / foreign / absent）。
 `abathur opencode uninstall` 只删除带有 abathur 标记的文件；若目标路径上躺着
-别人的文件，两条命令都会 exit 2 并点名路径——绝不会背着你覆盖或删除任何东西
+别人的文件，install 与 uninstall 会拒绝、exit 2 并点名路径；status 只报告 foreign 状态并 exit 0（它观察，不动手）——绝不会背着你覆盖或删除任何东西
 （整个二进制依然没有 `--force`）。
 
 注意：夹具基准会把真实的 `~/.config/opencode`（含插件与命令）镜像进沙箱 HOME，
@@ -524,7 +528,7 @@ sha256 与状态
 ### D7 解耦保证
 
 - 基因组注册表与一切可写产物都在**树外**、配置目录下；运行时 npm 包目录只读。
-- 仓库跟踪的文件里**零**机器 / 产品字面量。CI 闸门：`grep -rnE '/home/lab|historian' src/`
+- `src/` 下的源码**零**机器 / 产品字面量（`src/test/**` 夹具按设计豁免）。CI 闸门：`grep -rnE '/home/lab|historian' src/`
   在 `src/test/**` 夹具之外一无所获。配置模板用占位符表达。
 - 机器路径只从配置与环境变量进入：`${VAR}` 字面量形式的 `repoPath` 按**未解析**
   字节参与指纹计算，因此规格身份与机器无关（abathur-self 在任何机器都是
@@ -562,7 +566,7 @@ v1 交付的是**格式和本地工具**，不是网络。bundle 是一个你用
   清空整个 `_sandbox/*` 命名空间——两台机器拿同一个 historian 基因组对着同一个
   wiki 跑基准，会在运行中互相踩掉对方。historian 基准的跨机串行化是操作员的
   职责（排班、锁柜、一 wiki 一基准——随你选哪种）。
-- 晋升与埋葬只属于你：`promote`/`tombstone` 不带 `--confirm`，因为 CLI 调用本身
+- 晋升、埋葬与撤回只属于你：`promote`/`tombstone`/`retract` 不带 `--confirm`，因为 CLI 调用本身
   **就是**闸门；整个二进制里没有 `--force`。晋升前先查看 `abathur status` 的
   隔离深度与 `graft decisions` 行。
 - 待嫁接队列（`<configDir>/graft-queue/`）里的陈旧条目表示某个 bundle 在等环境
