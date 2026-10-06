@@ -13,6 +13,15 @@ GRAD=/home/lab/workspace/harness/Abathur/graders/pcb-agent
 LIT=/home/lab/workspace/pcb-control
 OUT="$GENOME_REPO/.omo/run-artifacts/$UNIT"; mkdir -p "$OUT"
 BRIEF_FILE="$OUT/brief.md"; cp "$SCENARIO" "$BRIEF_FILE"
+# run-card seam (r61): engine candidates deliver guidance as abathur-notes/*.md;
+# append VERBATIM so a candidate tree genuinely steers the benched team (S4 design,
+# previously wired only in the historian runner).
+if [ -d "$4/abathur-notes" ]; then
+  for rc in "$4"/abathur-notes/*.md; do
+    printf '\n## Run card (%s)\n\n' "$(basename "$rc")" >> "$BRIEF_FILE"
+    cat "$rc" >> "$BRIEF_FILE"
+  done
+fi
 
 bash "$GRAD/seed-r20-arena.sh" "$ARENA" "$GENOME_REPO" > "$OUT/seed.log" 2>&1 || { echo "SEED_FAIL" > "$OUT/infra.fail"; exit 1; }
 
