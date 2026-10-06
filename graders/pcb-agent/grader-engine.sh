@@ -4,6 +4,7 @@
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
 unit="$1"; scen="$2"
+[ -n "${PCB_FORCE_ARENA:-}" ] || export PCB_FORCE_ARENA="/tmp/r20-arena-$unit"
 case "$unit" in
   s31*) exec node "$here/grader-v3.mjs" "$unit" "$scen" s31 ;;
   s32*) exec node "$here/grader-v3.mjs" "$unit" "$scen" s32 ;;
