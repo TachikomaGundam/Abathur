@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# engine-lane shim: map unit.id -> grader-v3 phase arg
-# usage: grader-engine.sh <unit.id> <scenario-path> <repoRoot>
+# engine-lane shim: map unit.id -> right grader+phase (v3 only knows s31/s32)
+# usage: grader-engine.sh <unit.id> <scenario-path> [repoRoot-ignored]
 set -u
+here="$(cd "$(dirname "$0")" && pwd)"
 unit="$1"; scen="$2"
 case "$unit" in
-  s31*) phase=s31 ;;
-  s32*) phase=s32 ;;
-  *phaseA*) phase=phaseA ;;
-  *) phase=phaseB ;;
+  s31*) exec node "$here/grader-v3.mjs" "$unit" "$scen" s31 ;;
+  s32*) exec node "$here/grader-v3.mjs" "$unit" "$scen" s32 ;;
 esac
-exec node /home/lab/workspace/harness/Abathur/graders/pcb-agent/grader-v3.mjs "$unit" "$scen" "$phase"
+if [[ "$unit" == *phaseA* ]]; then
+  exec node "$here/grader-v2.mjs" "$unit" "$scen" phaseA
+else
+  exec node "$here/grader-v2.mjs" "$unit" "$scen" phaseB
+fi
