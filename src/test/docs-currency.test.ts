@@ -49,8 +49,8 @@ test("human-gate enumeration is complete on BOTH halves", () => {
     "EN gate sentence must list all three",
   );
   assert.ok(
-    readme.replace(/\s+/g, " ").includes("`promote`、`tombstone` 与 `retract` 刻意不可经由工具触达"),
-    "ZH gate sentence must list all three (whitespace-collapsed match)",
+    /`promote`、`tombstone` 与 `retract` 刻意\s*不可经由工具触达/.test(readme),
+    "ZH gate sentence must list all three (line-wrap tolerant)",
   );
 });
 
