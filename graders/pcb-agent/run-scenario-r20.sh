@@ -77,7 +77,7 @@ echo "$SID" > $OUTD/session-id
 DONE=0
 while kill -0 $SPID 2>/dev/null; do
   if find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; break; fi
-  if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-1800} + 60 )) ]; then break; fi
+  if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-${PCB_REP_TIMEOUT:-2400}} + 60 )) ]; then break; fi
   sleep 15
 done
 if [ "$DONE" != 1 ] && find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; fi
@@ -102,6 +102,7 @@ PYDB
   [ $(stat -c %s $OUTD/transcript.json 2>/dev/null || echo 0) -ge 100 ] && break
   done
 fi
+if [ "$DONE" != 1 ] && find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name "RESULT.md" -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; fi
 kill $SPID $APPR 2>/dev/null
 [ -s $OUTD/transcript.json ] || { echo "EMPTY_TRANSCRIPT" > $OUTD/infra.fail; exit 1; }
 [ "$DONE" = 1 ] || { echo "MISSION_INCOMPLETE" > $OUTD/infra.fail; exit 1; }
