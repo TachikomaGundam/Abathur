@@ -69,25 +69,40 @@ while time.time() < DEADLINE:
             if already:
                 seen.add(sha)  # r28 fix: consume only on certainty; POST failure retries next loop
                 continue
-            try:
-                r = post(f"/session/{SID}/message", {
-                    "agent": "pcb-orchestrator",
-                    "parts": [{"type": "text", "text": f"APPROVE PLAN {sha}"}]}, timeout=600)
-            except Exception as e:  # noqa: BLE001
-                delivered = False
+            # D-e7: server blocks POST /message until the turn FINISHES; a
+            # multi-hour team turn made every 600s grant time out unlogged.
+            # Fire with a short ack window; delivery truth = the verbatim user
+            # row appearing in history (what the gate itself greps). A hung
+            # ack must NOT kill the loop — a background thread re-posts while
+            # the main loop confirms via history.
+            ack = None
+            import threading
+            def _fire():
+                global ack
                 try:
-                    body = json.dumps(get(f"/session/{SID}/message"))
-                    delivered = f"APPROVE PLAN {sha}" in body
-                except Exception:  # noqa: BLE001
+                    ack = post(f"/session/{SID}/message", {
+                        "agent": "pcb-orchestrator",
+                        "parts": [{"type": "text", "text": f"APPROVE PLAN {sha}"}]}, timeout=15)
+                except Exception:
                     pass
-                log({"error": "post " + str(e)[:120], "sha": sha[:12],
-                     "server_side_delivered": delivered})
-                if delivered:
-                    seen.add(sha)
+            threading.Thread(target=_fire, daemon=True).start()
+            delivered = False
+            for _ in range(20):  # up to ~20 polls x 10s to see the row land
+                time.sleep(10)
+                try:
+                    if f"APPROVE PLAN {sha}" in json.dumps(get(f"/session/{SID}/message")):
+                        delivered = True
+                        break
+                except Exception:
+                    pass
+            if delivered:
+                seen.add(sha)
+                log({"grant": "APPROVE PLAN " + sha, "message_id": (ack or {}).get("info", {}).get("id") if isinstance(ack, dict) else None,
+                     "basis": "history-confirmed delivery (ack may be absent by design; gate greps the same row)",
+                     "sha": sha[:12]})
+            else:
+                log({"error": "grant not visible in history after 200s", "sha": sha[:12]})
                 continue
-            seen.add(sha)
-            log({"grant": "APPROVE PLAN " + sha, "message_id": (r.get("info") or {}).get("id"),
-                 "basis": "reactive to plan declared in team's own session text"})
     except Exception as e:  # noqa: BLE001
         log({"error": str(e)[:200]})
     HB[0] += 1
