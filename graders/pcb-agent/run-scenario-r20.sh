@@ -9,6 +9,14 @@
 # Usage: run-scenario-r20.sh <unit-id> <scenario-file> <genome-repo> [arena-root]
 set -uo pipefail
 UNIT="$1"; SCENARIO="$2"; GENOME_REPO="$3"; ARENA="${4:-/tmp/r20-arena-$UNIT}"
+# D-e1 root cause: engine spawns do NOT export PCB_PRODUCTION_SERVE_PORT (manual
+# runs did) -> $PORT was empty in inner.sh -> curl to :0 -> SERVE_UP=0 in ~5s.
+# Runner now allocates a free port itself and exports it for launcher+inner.
+case "$UNIT" in *s31b*|*s32*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-3000};; esac
+if [ -z "${PCB_PRODUCTION_SERVE_PORT:-}" ]; then
+  PCB_PRODUCTION_SERVE_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1]); s.close()")
+  export PCB_PRODUCTION_SERVE_PORT
+fi
 GRAD=/home/lab/workspace/harness/Abathur/graders/pcb-agent
 LIT=/home/lab/workspace/pcb-control
 OUT="$GENOME_REPO/.omo/run-artifacts/$UNIT"; mkdir -p "$OUT"
@@ -16,8 +24,8 @@ BRIEF_FILE="$OUT/brief.md"; cp "$SCENARIO" "$BRIEF_FILE"
 # run-card seam (r61): engine candidates deliver guidance as abathur-notes/*.md;
 # append VERBATIM so a candidate tree genuinely steers the benched team (S4 design,
 # previously wired only in the historian runner).
-if [ -d "$4/abathur-notes" ]; then
-  for rc in "$4"/abathur-notes/*.md; do
+if [ -d "$GENOME_REPO/abathur-notes" ]; then
+  for rc in "$GENOME_REPO"/abathur-notes/*.md; do
     printf '\n## Run card (%s)\n\n' "$(basename "$rc")" >> "$BRIEF_FILE"
     cat "$rc" >> "$BRIEF_FILE"
   done
