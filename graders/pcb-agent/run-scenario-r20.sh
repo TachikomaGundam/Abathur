@@ -9,6 +9,11 @@
 # Usage: run-scenario-r20.sh <unit-id> <scenario-file> <genome-repo> [arena-root]
 set -uo pipefail
 UNIT="$1"; SCENARIO="$2"; GENOME_REPO="$3"; ARENA="${4:-/tmp/r20-arena-$UNIT}"
+# D-e4 (third-flight root cause): engine sandboxes HOME to a per-unit dir, which
+# retargets the arena bind source — team writes then land ONLY in the arena while
+# the DONE poller watched the literal tree forever (MISSION_INCOMPLETE at full
+# timeout). Pin HOME at entry + poll BOTH surfaces (belt & suspenders).
+export HOME=/home/lab/workspace/pcb-control/production-home
 # D-e1 root cause: engine spawns do NOT export PCB_PRODUCTION_SERVE_PORT (manual
 # runs did) -> $PORT was empty in inner.sh -> curl to :0 -> SERVE_UP=0 in ~5s.
 # Runner now allocates a free port itself and exports it for launcher+inner.
@@ -71,11 +76,11 @@ T1=$!
 echo "$SID" > $OUTD/session-id
 DONE=0
 while kill -0 $SPID 2>/dev/null; do
-  if find $L/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; break; fi
+  if find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; break; fi
   if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-1800} + 60 )) ]; then break; fi
   sleep 15
 done
-if [ "$DONE" != 1 ] && find $L/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; fi
+if [ "$DONE" != 1 ] && find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' -newer $OUTD/seed.log 2>/dev/null | grep -qm1 .; then DONE=1; fi
 wait $T1 2>/dev/null
 for i in 1 2 3; do curl -s --max-time 30 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json; [ -s $OUTD/transcript.json ] && break; sleep 5; done
 if [ ! -s $OUTD/transcript.json ] || [ $(stat -c %s $OUTD/transcript.json) -lt 100 ]; then
