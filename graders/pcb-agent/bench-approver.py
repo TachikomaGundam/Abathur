@@ -35,6 +35,8 @@ def log(rec):
 
 
 seen = set()
+HB = [0]
+arr = []
 while time.time() < DEADLINE:
     try:
         msgs = get(f"/session/{SID}/message")
@@ -88,5 +90,8 @@ while time.time() < DEADLINE:
                  "basis": "reactive to plan declared in team's own session text"})
     except Exception as e:  # noqa: BLE001
         log({"error": str(e)[:200]})
+    HB[0] += 1
+    if HB[0] % 6 == 0:
+        log({"heartbeat": HB[0], "seen": sorted(x[:8] for x in seen), "msgs": len(arr) if "arr" in dir() else -1})
     time.sleep(10)
 log({"done": True, "reason": "deadline"})
