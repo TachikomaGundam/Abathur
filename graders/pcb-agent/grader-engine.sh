@@ -4,7 +4,7 @@
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
 unit="$1"; scen="$2"
-[ -n "${PCB_FORCE_ARENA:-}" ] || export PCB_FORCE_ARENA="/tmp/r20-arena-$(basename "$(dirname "$3")")-$unit"  # D-e12 mirror of runner default; $3 = {repoRoot} per arm
+[ -n "${PCB_FORCE_ARENA:-}" ] || export PCB_FORCE_ARENA="/tmp/r20-arena-$(basename "$3")-$unit"  # D-e12 mirror of runner default; $3 = {repoRoot} per arm
 out=$(
   case "$unit" in
     s31*) node "$here/grader-v3.mjs" "$unit" "$scen" s31 ;;
