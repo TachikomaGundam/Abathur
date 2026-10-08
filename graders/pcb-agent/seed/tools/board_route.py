@@ -13,10 +13,43 @@ GRID = float(os.environ.get('BR_GRID', '0.05'))
 CLEAR = 0.26
 POWER = {"VBUS", "5V_SERVO", "5V_LOGIC", "3V3", "+3V3", "GND", "SW_NODE", "+5V_IN"}
 W_POWER, W_SIG = 0.4, 0.25
+# Escape class (r53 campaign): fine-pitch connector rows are IMPOSSIBLE for the
+# default class (measured: 0.5mm pitch, 0.3mm pads -> 0.2mm gap; default needs
+# 0.25+2*0.2=0.65). Legal set: width 0.2 / clearance 0.15 / via 0.4-0.2 threads
+# the inter-row channel (0.2+0.3=0.5 <= gap when centered). Nets on refs starting
+# with BR_ESCAPE_REFS (default J) that are non-power and non-NC get this class,
+# EMITTED as a real net_class block so native DRC adjudicates the same numbers.
+ESC_CLR, ESC_W, VIA_ESC = 0.15, 0.2, (0.4, 0.2)
+ESC_REF_PREFIX = tuple(r.strip() for r in os.environ.get("BR_ESCAPE_REFS", "J").split(",") if r.strip())
+ESCAPE_NETS: set = set()
+ESC_OCC = None
+NAMES: dict = {}
+def width_for(nid):
+    # class-first policy (r58 refactor): ESCAPE membership outranks the legacy
+    # power-table default; v9 seed boards have empty ESCAPE_NETS => identical.
+    if nid in ESCAPE_NETS:
+        return ESC_W
+    nm = NAMES.get(nid, "")
+    if nm in POWER:
+        return W_POWER
+    return W_SIG
 VIA_COST = 40
 START = time.monotonic()
 BOARD_DEADLINE = float(os.environ.get('BR_DEADLINE', '600'))
 PAIR_DEADLINE = float(os.environ.get('BR_PAIR_DEADLINE', '15'))
+# MHALF = worst-case moving-trace half-width (power W/2 = 0.2). Obstacle rings
+# inflate by this so ANY later track center keeps full DRC clearance by construction.
+MHALF = float(os.environ.get('BR_MOVE_HALF', '0.2'))
+# r53 finding (probe, /tmp/rtest): PAIR_DEADLINE=15 STARVES long legs — the
+# 30.3mm LED1 D1.2->R1.1 pair fails at 15s and routes fine at 120s. The 3-way
+# hybrid candidate ladder then gets ~5s each and even the last_effort 22s floor
+# never fits. Budget is now DISTANCE-ADAPTIVE: 15s base + 3.5s per mm Manhattan,
+# capped by BR_PAIR_MAX (130s) so one monster pair cannot eat the board window.
+PMM = float(os.environ.get('BR_PAIR_PER_MM', '3.5'))
+PMAX = float(os.environ.get('BR_PAIR_MAX', '130'))
+def pair_dl_for(da, db):
+    mm = (abs(da[0] - db[0]) + abs(da[1] - db[1])) * GRID
+    return max(PAIR_DEADLINE, min(PMAX, 8.0 + PMM * mm))
 MAX_PUSH = int(os.environ.get('BR_MAX_PUSH', str(int(15000.0 / (GRID * GRID)))))  # r29T: push budget normalized to ~15000mm2 swept area, grid-independent
 
 
@@ -76,7 +109,10 @@ def pads_of(txt):
             ls = lsm.group(1) if lsm else ''
             layer = 1 if ('B.Cu' in ls and 'F.Cu' not in ls) else 0
             pads.append(dict(ref=ref, pad=pm2.group(1) if pm2 else "?", net=int(nm.group(1)),
-                             netname=nm.group(2), x=gx, y=gy, w=w, h=h, layer=layer))
+                             netname=nm.group(2), x=gx, y=gy, w=w, h=h, layer=layer,
+                             rot=(frot + pr),
+                             drill=(float(re.search(r'\(drill ([\d.]+)', pb).group(1))
+                                    if re.search(r'\(drill ([\d.]+)', pb) else 0.0)))
     return pads
 
 
@@ -99,17 +135,18 @@ class Occ:
         return s is None or s == {0} or net in s
 
 
-def build_occ(pads):
+def build_occ(pads, clr=CLEAR, mover_half=None):
     occ = Occ()
+    mvh = MHALF if (mover_half is None and clr == CLEAR) else (mover_half or 0.0)
     for p in pads:
         if str(p.get("num", p.get("pad", "1"))) == "":
             # NPTH retention holes/screws: universal obstacle (no net may own
             # copper in a hole's clearance annulus), sentinel -2 matches nothing.
-            hw, hh = p["w"] / 2 + 0.35, p["h"] / 2 + 0.35
+            hw, hh = p["w"] / 2 + 0.35 + mvh, p["h"] / 2 + 0.35 + mvh
             for l in (0, 1):
                 occ.add_rect(p["x"] - hw, p["y"] - hh, p["x"] + hw, p["y"] + hh, l, -2)
             continue
-        hw, hh = p["w"] / 2 + CLEAR, p["h"] / 2 + CLEAR
+        hw, hh = p["w"] / 2 + clr + mvh, p["h"] / 2 + clr + mvh
         # cross-layer: KiCad enforces Cu-to-Cu clearance between tracks and pads
         # on the OTHER copper layer too -> register every pad ring on BOTH layers.
         for l in (0, 1):
@@ -306,7 +343,7 @@ def simplify(path):
 
 def occ_track(occ, path, net, width):
     """register a laid path (cells + clearance ring) into occupancy for OTHER nets."""
-    r = 2 if width < 0.35 else 3
+    r = int(math.ceil((width / 2 + CLEAR + MHALF) / GRID))
     for (cx, cy, l) in path:
         for dx in range(-r, r + 1):
             for dy in range(-r, r + 1):
@@ -327,11 +364,42 @@ def route(board_path, out_path, only_nets=None):
           int(min(_ys) / GRID) - 60, int(max(_ys) / GRID) + 60)
     nets = {int(m.group(1)): m.group(2) for m in re.finditer(r'\(net (\d+) "([^"]*)"\)', txt)}
     occ = build_occ(pads)
+    NAMES.clear(); NAMES.update(nets)
+    # escape-class membership: nets touching connector refs (J*), non-power, non-NC.
+    ESCAPE_NETS.clear()
+    for p in pads:
+        nm = nets.get(p["net"], "")
+        if (p["ref"].startswith(ESC_REF_PREFIX) and nm
+                and (nm not in POWER or os.environ.get("BR_ESC_INCLUDE_POWER"))
+                and not nm.startswith("NC")):
+            ESCAPE_NETS.add(p["net"])
+    global ESC_OCC
+    # 0.145 ring (not 0.15): passable center line sits exactly tangent to two
+    # opposing pad rings; one quarter-grid shave makes it discretely alive while
+    # real copper (0.2 wide, centered) keeps >= 0.15 clearance by construction.
+    ESC_OCC = build_occ(pads, 0.145) if ESCAPE_NETS else occ
     # r17: J1 USB-C gauntlet — F.Cu inside the pad rows is forbidden (0.85mm pad
     # pitch admits no 0.2mm pair); D+/D-, VBUS, CC and shield stubs are forced
     # to B.Cu / the south channel. Sentinel net -7 closes the box to every net.
     # (gauntlet experiment retired: foreign SMD pads only exist on their own
     # layer's map — B.Cu threads between the J1 rows are clearance-legal.)
+    def class_block():
+        if not ESCAPE_NETS:
+            return ""
+        names = sorted({NAMES[i] for i in ESCAPE_NETS if i in NAMES})
+        adds = "".join(f' (add_net "{m}")' for m in names)
+        return (f'\n  (net_class "Escape" "fine-pitch escape (campaign r53)"'
+                f' (clearance {ESC_CLR}) (trace_width {ESC_W})'
+                f' (via_dia {VIA_ESC[0]}) (via_drill {VIA_ESC[1]})'
+                f' (uvia_dia 0.3) (uvia_drill 0.1){adds})\n')
+
+    def strip_default(head_txt):
+        if not ESCAPE_NETS:
+            return head_txt
+        for m in sorted({NAMES[i] for i in ESCAPE_NETS if i in NAMES}):
+            head_txt = re.sub(r'\s*\(add_net "' + re.escape(m) + r'"\)', "", head_txt)
+        return head_txt
+
     by_net = defaultdict(list)
     for p in pads:
         if p["net"]:
@@ -357,6 +425,8 @@ def route(board_path, out_path, only_nets=None):
 
     # order: power/GND first, prefer bottom layer (B=1); signals then on F=0
     def layer_pref(nid):
+        if nid in ESCAPE_NETS:
+            return 0  # class-first: escape stubs live on the component side
         return 1 if nets.get(nid, "") in POWER else 0
     ordered = sorted(by_net.items(), key=lambda kv: (nets.get(kv[0], "") not in POWER, -len(kv[1])))
     segs, vias, fails = [], [], []
@@ -404,17 +474,84 @@ def route(board_path, out_path, only_nets=None):
         u0[0] += 1
         x = f"{u0[0]:032x}"
         return f"{x[:8]}-{x[8:12]}-{x[12:16]}-{x[16:20]}-{x[20:32]}"
-    head_ = txt[:txt.rindex(")")].rstrip("\n")
+    head_ = strip_default(txt[:txt.rindex(")")].rstrip("\n"))
     mid_ = ("\n" + "\n".join(kept_segs)) if (only_nets and kept_segs) else ""
+    def _rect_d(px, py, q):
+        a = math.radians(q.get("rot", 0.0) or 0.0)
+        dx, dy = px - q["x"], py - q["y"]
+        lx = abs(dx * math.cos(a) + dy * math.sin(a)) - q["w"] / 2
+        ly = abs(-dx * math.sin(a) + dy * math.cos(a)) - q["h"] / 2
+        return math.hypot(max(lx, 0), max(ly, 0))
+
+    def gate_copper():
+        # returns number of removed items; requeues nothing (pairs already in ripQ
+        # via normal fail paths); keeps board honest at the pad-collision level.
+        bad_s, bad_v = [], []
+        for s in segs:
+            x1, y1, x2, y2, l, w, n = s
+            steps = max(2, int(math.hypot(x2 - x1, y2 - y1) / (GRID / 2)) + 1)
+            for k in range(steps + 1):
+                px = x1 + (x2 - x1) * k / steps
+                py = y1 + (y2 - y1) * k / steps
+                if any(_rect_d(px, py, q) < (w / 2 + (0.15 if q["net"] in ESCAPE_NETS else CLEAR))
+                       for q in pads if q["net"] != n and q["net"] != -2
+                       and (q["layer"] == 2 or q["layer"] == l)) or \
+                   any(_rect_d(px, py, q) < w / 2 + 0.25
+                       for q in pads if q["net"] == -2):
+                    bad_s.append(s); break
+        def _seg_d(a, b):
+            ax1, ay1, ax2, ay2 = a[0], a[1], a[2], a[3]
+            bx1, by1, bx2, by2 = b[0], b[1], b[2], b[3]
+            N = max(2, int(max(math.hypot(ax2 - ax1, ay2 - ay1),
+                               math.hypot(bx2 - bx1, by2 - by1)) / (GRID / 2)) + 1)
+            best = 9e9
+            for k in range(N + 1):
+                px = ax1 + (ax2 - ax1) * k / N; py = ay1 + (ay2 - ay1) * k / N
+                for s in range(N + 1):
+                    qx = bx1 + (bx2 - bx1) * s / N; qy = by1 + (by2 - by1) * s / N
+                    dd = math.hypot(px - qx, py - qy)
+                    if dd < best:
+                        best = dd
+                        if best == 0.0:
+                            return 0.0
+            return best
+        tt = set()
+        for i1, s1 in enumerate(segs):
+            for s2 in segs[i1 + 1:]:
+                if s1[6] == s2[6] or s1[4] != s2[4]:
+                    continue
+                if _seg_d(s1, s2) < s1[5] / 2 + s2[5] / 2 + CLEAR:
+                    tt.add(s1 if (s1[2] - s1[0]) ** 2 + (s1[3] - s1[1]) ** 2 <=
+                          (s2[2] - s2[0]) ** 2 + (s2[3] - s2[1]) ** 2 else s2)
+        for s in tt:
+            if s not in bad_s:
+                bad_s.append(s)
+        for v in vias:
+            vx, vy, n = v[0], v[1], v[2]
+            vr = 0.3  # routed via ring: size/2
+            if any(_rect_d(vx, vy, q) < vr + (0.15 if q["net"] in ESCAPE_NETS else CLEAR)
+                   for q in pads if q["net"] != n and q["net"] != -2) or \
+               any(_rect_d(vx, vy, q) < vr + 0.25 for q in pads if q["net"] == -2):
+                bad_v.append(v)
+        if not bad_s and not bad_v:
+            return 0
+        for s in bad_s:
+            segs.remove(s)
+        for v in bad_v:
+            vias.remove(v)
+        return len(bad_s) + len(bad_v)
+    GATE_LOG = []
+
     def checkpoint():
         buf = []
         for (x1, y1, x2, y2, l, w, n) in segs:
             buf.append(f'  (segment (start {x1:.4f} {y1:.4f}) (end {x2:.4f} {y2:.4f}) (width {w})'
                        f' (layer "{"F" if l==0 else "B"}.Cu") (net {n}) (uuid "{U0()}"))')
         for (x, y, n) in vias:
-            buf.append(f'  (via (at {x:.4f} {y:.4f}) (size 0.6) (drill 0.3)'
+            vs, vd = VIA_ESC if n in ESCAPE_NETS else (0.6, 0.3)
+            buf.append(f'  (via (at {x:.4f} {y:.4f}) (size {vs}) (drill {vd})'
                        f' (layers "F.Cu" "B.Cu") (net {n}) (uuid "{U0()}"))')
-        open(out_path, "w").write(head_ + mid_ + "\n".join(buf) + "\n)\n")
+        open(out_path, "w").write(head_ + mid_ + class_block() + "\n".join(buf) + "\n)\n")
     nets_left = sum(1 for _, pl in ordered if len(pl) >= 2 and not nets.get(_, "").startswith("NC"))
     ripQ, pair_cache = [], {}
     RIP_RESERVE = float(os.environ.get("BR_RIP_RESERVE", "150"))
@@ -428,7 +565,7 @@ def route(board_path, out_path, only_nets=None):
         if nets.get(nid, "").startswith("NC"):
             continue  # NC nets are floating-on-purpose groups: copper would
                       # only weld foreign pads together inside connector gauntlets
-        width = W_POWER if nets.get(nid, "") in POWER else W_SIG
+        width = width_for(nid)
         root = min(plist, key=lambda q: (q["x"], q["y"]))
         remaining = [q for q in plist if q is not root]
         tree = [root]
@@ -466,10 +603,12 @@ def route(board_path, out_path, only_nets=None):
                     fails.append((nets.get(nid), a2['ref'] + '.' + a2['pad'], c2['ref'] + '.' + c2['pad']))
                     ripQ.append((nid, a2, c2))
                 break
-            pair_t0 = time.monotonic()
             ca = cell(a["x"], a["y"])
             cc = cell(c["x"], c["y"])
+            pdl = pair_dl_for(ca, cc)
+            pair_t0 = time.monotonic()
             alp, clp = a.get("layer", lp), c.get("layer", lp)
+            on_ = ESC_OCC if nid in ESCAPE_NETS else occ
             def ok_via_ends(pp, ea=None, eb=None):
                 # validator must ask about the PADS' layers, not the net's pref
                 # layer: an all-F.Cu straight path between two F.Cu SMD pads is
@@ -483,14 +622,14 @@ def route(board_path, out_path, only_nets=None):
                 b_ok = True if pp[-1][2] == _eb else (len(pp) > 1 and pp[-2][2] != pp[-1][2])
                 return a_ok and b_ok
             def budget():
-                return max(0.3, PAIR_DEADLINE - (time.monotonic() - pair_t0))
-            cands = [hybrid_astar(occ, (ca, alp), (cc, clp), nid, budget(), BB),
-                     hybrid_astar(occ, (ca, alp), (cc, 1 - clp), nid, budget(), BB),
-                     hybrid_astar(occ, (ca, 1 - alp), (cc, clp), nid, budget(), BB, last_effort=True)]
+                return max(0.3, pdl - (time.monotonic() - pair_t0))
+            cands = [hybrid_astar(on_, (ca, alp), (cc, clp), nid, budget(), BB),
+                     hybrid_astar(on_, (ca, alp), (cc, 1 - clp), nid, budget(), BB),
+                     hybrid_astar(on_, (ca, 1 - alp), (cc, clp), nid, budget(), BB, last_effort=True)]
             path = next((c for c in cands if ok_via_ends(c)), None)
             if not path:
-                cands = [hybrid_astar(occ, (ca, alp), (cc, clp), nid, budget(), BB),
-                         hybrid_astar(occ, (ca, 1 - alp), (cc, 1 - clp), nid, budget(), BB, last_effort=True)]
+                cands = [hybrid_astar(on_, (ca, alp), (cc, clp), nid, budget(), BB),
+                         hybrid_astar(on_, (ca, 1 - alp), (cc, 1 - clp), nid, budget(), BB, last_effort=True)]
                 path = next((c for c in cands if ok_via_ends(c)), None)
             if not path:
                 fails.append((nets.get(nid), a["ref"] + "." + a["pad"], c["ref"] + "." + c["pad"]))
@@ -499,7 +638,8 @@ def route(board_path, out_path, only_nets=None):
                 continue
             sp = simplify(path)
             occ_track(occ, path, nid, width)
-            checkpoint()
+            if gate_copper():
+                checkpoint()
             sp = _term_fix(sp, nid)
             for n1, n2 in zip(sp, sp[1:]):
                 if n1[2] != n2[2]:
@@ -514,8 +654,9 @@ def route(board_path, out_path, only_nets=None):
         # rounds/deadline so the board always lands a resumable artifact.
         def mark_seg(oc, s):
             x1, y1, x2, y2, l, w, n = s
-            oc.add_rect(min(x1, x2) - w / 2 - CLEAR, min(y1, y2) - w / 2 - CLEAR,
-                        max(x1, x2) + w / 2 + CLEAR, max(y1, y2) + w / 2 + CLEAR, l, n)
+            ring = ESC_CLR if n in ESCAPE_NETS else CLEAR + MHALF
+            oc.add_rect(min(x1, x2) - w / 2 - ring, min(y1, y2) - w / 2 - ring,
+                        max(x1, x2) + w / 2 + ring, max(y1, y2) + w / 2 + ring, l, n)
 
         def ok_ends(pp, ea, eb):
             if not pp:
@@ -525,13 +666,14 @@ def route(board_path, out_path, only_nets=None):
             return a_ok and b_ok
 
         def try_pair(nid_, a, c):
-            o2 = build_occ(pads)
+            o2 = build_occ(pads, 0.145 if nid_ in ESCAPE_NETS else CLEAR)
             for s in segs:
                 mark_seg(o2, s)
             ca, cc = cell(a["x"], a["y"]), cell(c["x"], c["y"])
+            pdl2 = pair_dl_for(ca, cc)
             lp_ = layer_pref(nid_)
-            w_ = W_POWER if nets.get(nid_, "") in POWER else W_SIG
-            t_end = time.monotonic() + PAIR_DEADLINE
+            w_ = width_for(nid_)
+            t_end = time.monotonic() + pdl2
             for (la, lb, vc) in ((a.get("layer", lp_), c.get("layer", lp_), VIA_COST),
                                  (a.get("layer", lp_), 1 - c.get("layer", lp_), VIA_COST),
                                  (1 - a.get("layer", lp_), 1 - c.get("layer", lp_), VIA_COST),
@@ -621,7 +763,7 @@ def route(board_path, out_path, only_nets=None):
         d, x, y, l = best
         if l != pl_:
             vias.append((x, y, nid_))
-        segs.append((x, y, px_, py_, pl_, W_SIG, nid_))
+        segs.append((x, y, px_, py_, pl_, width_for(nid_), nid_))
         _ends[nid_].append((px_, py_, pl_))
         stitched += 1
     if stitched:
@@ -632,16 +774,20 @@ def route(board_path, out_path, only_nets=None):
         u[0] += 1
         x = f"{u[0]:032x}"
         return f"{x[:8]}-{x[8:12]}-{x[12:16]}-{x[16:20]}-{x[20:32]}"
+    for _g in range(4):
+        if not gate_copper():
+            break  # v9: legal-copper gate, no requeue (v10 requeue loop collapsed to 3 segs — measured)
     emit = []
     for (x1, y1, x2, y2, l, w, n) in segs:
         emit.append(f'  (segment (start {x1:.4f} {y1:.4f}) (end {x2:.4f} {y2:.4f}) (width {w})'
                     f' (layer "{"F" if l==0 else "B"}.Cu") (net {n}) (uuid "{U()}"))')
     for (x, y, n) in vias:
-        emit.append(f'  (via (at {x:.4f} {y:.4f}) (size 0.6) (drill 0.3)'
+        vs, vd = VIA_ESC if n in ESCAPE_NETS else (0.6, 0.3)
+        emit.append(f'  (via (at {x:.4f} {y:.4f}) (size {vs}) (drill {vd})'
                     f' (layers "F.Cu" "B.Cu") (net {n}) (uuid "{U()}"))')
-    head = txt[:txt.rindex(")")].rstrip("\n")
+    head = strip_default(txt[:txt.rindex(")")].rstrip("\n"))
     mid = ("\n" + "\n".join(kept_segs)) if (only_nets and kept_segs) else ""
-    _out = head + mid + "\n".join(emit) + "\n)\n"
+    _out = head + mid + class_block() + "\n".join(emit) + "\n)\n"
     if only_nets:
         _n_out = len(re.findall(r'\((?:segment|via) ', _out))
         _n_want = kept_count + len(segs) + len(vias)
