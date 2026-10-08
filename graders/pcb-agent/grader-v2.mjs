@@ -201,5 +201,9 @@ if (!F.trim() && phase === "phaseA" && !hits.some((h) => h.startsWith("E"))) {
 let eyes = Math.min(0.4, (outcomeEyes / 0.4) * 0.4);
 metrics.eyes = +eyes.toFixed(3); metrics.traps_hit = hits;
 
-const score = +(outcome + eyes).toFixed(3);
+// D-e13 anti-skeleton: completion signal must carry measured numbers; an
+// (early) RESULT.md with <12 digit chars is theater -> score collapses.
+const digits = ((resultDoc || "").match(/\d/g) || []).length;
+const skeleton = digits < 12;
+const score = skeleton ? +(eyes).toFixed(3) : +(outcome + eyes).toFixed(3);
 process.stdout.write(JSON.stringify({ unit: unitId, phase, grader_version: "v2.1", score, pass: score >= 0.7, metrics }) + "\n");
