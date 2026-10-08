@@ -8,7 +8,7 @@
 # control-plane ledger harvested with literal->arena path mapping for the grader.
 # Usage: run-scenario-r20.sh <unit-id> <scenario-file> <genome-repo> [arena-root]
 set -uo pipefail
-UNIT="$1"; SCENARIO="$2"; GENOME_REPO="$3"; ARENA="${4:-/tmp/r20-arena-$UNIT}"
+UNIT="$1"; SCENARIO="$2"; GENOME_REPO="$3"; ARENA="${4:-/tmp/r20-arena-$(basename "$(dirname "$GENOME_REPO")")-$UNIT}"  # D-e12: arm-distinct arena (baseline repo vs candidate worktree parents differ); shared default let the candidate rep re-seed the arena BEFORE baseline grading, zeroing it
 # D-e4 (third-flight root cause): engine sandboxes HOME to a per-unit dir, which
 # retargets the arena bind source — team writes then land ONLY in the arena while
 # the DONE poller watched the literal tree forever (MISSION_INCOMPLETE at full
