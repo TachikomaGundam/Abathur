@@ -77,9 +77,15 @@ START=$(date +%s)
 timeout ${PCB_REP_TIMEOUT:-2400} curl -s --max-time ${PCB_REP_TIMEOUT:-2400} -X POST "http://127.0.0.1:$PORT/session/$SID/message" -H 'content-type: application/json' -d @$OUTD/payload_body.json > $OUTD/turn1.json &
 T1=$!
 echo "$SID" > $OUTD/session-id
-DONE=0
+DONE=0; SEENFILE=0
 while kill -0 $SPID 2>/dev/null; do
-  if find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' 2>/dev/null | grep -qm1 .; then DONE=1; break; fi
+  if find $L/production-console $ARENA_DIR/production-console -maxdepth 3 -name 'RESULT.md' 2>/dev/null | grep -qm1 .; then
+    # D-e14: existence alone killed sessions mid-router (skeleton-first habit
+    # vs old mtime-blindness — flight-14 post-mortem via the mutator's own
+    # note). Completion = file present AND the team's turn has returned.
+    if ! kill -0 $T1 2>/dev/null; then DONE=1; break; fi
+    SEENFILE=1
+  fi
   if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-${PCB_REP_TIMEOUT:-2400}} + 60 )) ]; then break; fi
   sleep 15
 done
