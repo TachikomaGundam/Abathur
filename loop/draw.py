@@ -49,8 +49,16 @@ ARCHIVE = os.path.join(os.path.dirname(__file__), "..", ".omo", "evidence", "loo
 
 
 def history() -> list[dict]:
+    # CAN generations are instrument self-tests (planted bad answers MUST fail their judge).
+    # A bell ringing is proof the ruler works, not a candidate-class regression — never feed
+    # CAN bundles into duty math (G40 ruler injury, ticketed INTENT-LEDGER 2026-10-09T20:4x;
+    # pre-G40 CAN dirs held no bundle.json, so the contamination path was created by
+    # bundle_close(G40CAN) and is closed here at the consumer).
     out = []
     for bj in sorted(glob.glob(os.path.join(ARCHIVE, "*", "bundle.json"))):
+        gen = os.path.basename(os.path.dirname(bj))
+        if gen.upper().endswith("CAN"):
+            continue
         out.append(json.load(open(bj)))
     return out
 
