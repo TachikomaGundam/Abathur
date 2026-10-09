@@ -75,3 +75,9 @@ if [[ "$ARENA" == *phaseB* || "$ARENA" == *s31* || "$ARENA" == *s32* ]]; then
   mkdir -p "$ARENA/.state"
   cp "$ARENA/production-console/board.kicad_pcb" "$ARENA/.state/arena-input-board.kicad_pcb"
 fi
+# D-e16: pristine snapshot is unit-NAME agnostic — any unit graded by delta
+# graders gets it (r40 manual pair initially tripped the old name gate).
+if [ -f "$ARENA/production-console/board.kicad_pcb" ] && [ ! -f "$ARENA/.state/arena-input-board.kicad_pcb" ]; then
+  mkdir -p "$ARENA/.state"
+  cp "$ARENA/production-console/board.kicad_pcb" "$ARENA/.state/arena-input-board.kicad_pcb"
+fi
