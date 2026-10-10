@@ -147,7 +147,8 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
                     derived.add(abs(a - b))
                     if b > 0:
                         derived.add(round(100 * abs(a - b) / b))
-                        derived.add(round(100 * abs(b - a) / a))
+                        if a > 0:
+                            derived.add(round(100 * abs(b - a) / a))
             for cell in row[1:]:
                 for tok in NUM_RE.findall(cell):
                     if tok in pack_nums or tok in wl:
