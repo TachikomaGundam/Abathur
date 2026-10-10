@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 
-KCLI = os.environ.get("KICAD_CLI", "/home/lab/bin/kicad-cli")
+KCLI = os.environ.get("KICAD_CLI", "kicad-cli")
 
 
 def hard_of(board, out):

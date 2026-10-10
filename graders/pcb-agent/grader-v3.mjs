@@ -20,7 +20,7 @@ const arena = process.env.PCB_FORCE_ARENA || fail("PCB_FORCE_ARENA required");
 const R = (p) => path.join(arena, p);
 const C = (p) => { const q = R(p); return existsSync(q) ? q : R(path.join("production-console", p)); };
 const readC = (p) => { try { return readFileSync(C(p), "utf8"); } catch { return ""; } };
-const KCLI = process.env.KICAD_CLI || "/home/lab/bin/kicad-cli";
+const KCLI = process.env.KICAD_CLI || "kicad-cli";
 const INPUT = [R(".state/arena-input-board.kicad_pcb")].find(existsSync)
   || fail("pristine arena input missing — v3 requires s3x-seeded arena");
 
@@ -71,7 +71,7 @@ function tokenizeSexp(s) {
     if (c === ";") { while (i < s.length && s[i] !== "\n") i++; continue; }
     if (c === "(" || c === ")") { toks.push(c); i++; continue; }
     if (isTokEnd(c)) { i++; continue; }
-    if (c === '"') { let j = i + 1; while (j < s.length && s[j] !== '"') { if (s[j] === "\\") j++; j++; } toks.push(s.slice(i, j + 1)); i = j + 1; continue; }
+    if (c === '"') { let j = i + 1; while (j < s.length && s[j] !== '"') { if (s.charCodeAt(j) === 92) j++; j++; } toks.push(s.slice(i, j + 1)); i = j + 1; continue; }
     let j = i; while (j < s.length && !isTokEnd(s[j])) j++; toks.push(s.slice(i, j)); i = j;
   }
   return toks;

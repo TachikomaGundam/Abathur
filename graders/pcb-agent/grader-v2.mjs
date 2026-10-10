@@ -32,14 +32,14 @@ const C = (p) => { const q = R(p); return existsSync(q) ? q : R(path.join("produ
 const readC = (p) => { try { return readFileSync(C(p), "utf8"); } catch { return ""; } };
 const resultDoc = readC("RESULT.md");
 const findings = readC("FINDINGS.md");
-const specRaw = (() => { for (const q of [C("spec.json"), "/home/lab/workspace/harness/Abathur/graders/pcb-agent/seed/spec.json"]) { try { return readFileSync(q, "utf8"); } catch {} } return ""; })();
+const specRaw = (() => { for (const q of [C("spec.json"), new URL("seed/spec.json", import.meta.url).pathname]) { try { return readFileSync(q, "utf8"); } catch {} } return ""; })();
 let spec = null; try { spec = JSON.parse(specRaw); } catch {}
 const schPath = [C("board.kicad_sch"), C("out.kicad_sch")].find(existsSync);
 // v2.1 resolver fix (r41 fairness defect: scenario deliverable is board-routed.kicad_pcb,
 // v2 keyed board.kicad_pcb -> false no_board). Deterministic preference, richest copper first;
 // phaseA boards still resolve via board.kicad_pcb. Same order for every arm of every A/B.
 const pcbPath = [C("board-poured.kicad_pcb"), C("board-routed.kicad_pcb"), C("board.kicad_pcb"), C("out.kicad_pcb")].find(existsSync);
-const KCLI = process.env.KICAD_CLI || "/home/lab/bin/kicad-cli";
+const KCLI = process.env.KICAD_CLI || "kicad-cli";
 
 const metrics = { unit: unitId, phase, grader_version: "v2.1" };
 if (!resultDoc && !findings && !pcbPath) {
@@ -94,7 +94,7 @@ if (phase === "phaseA") {
         let depth = 0, j = i, instr = false;
         while (j < txt.length) {
           const ch = txt[j];
-          if (ch === '"' && txt[j - 1] !== "\\") instr = !instr;
+          if (ch === '"' && txt.charCodeAt(j - 1) !== 92) instr = !instr;
           else if (!instr) { if (ch === "(") depth++; else if (ch === ")") { depth--; if (depth === 0) break; } }
           j++;
         }

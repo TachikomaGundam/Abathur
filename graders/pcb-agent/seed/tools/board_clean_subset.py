@@ -159,7 +159,7 @@ def main():
     # pad-to-pad; hole_clearance without a Via item = NPTH vs pad geometry).
     txt = open(sys.argv[1]).read()
     dst = sys.argv[2]
-    KCLI = os.environ.get("KICAD_CLI", "/home/lab/bin/kicad-cli")
+    KCLI = os.environ.get("KICAD_CLI", "kicad-cli")
     import subprocess, json as _json
     open(dst, "w").write(txt)
     dropped = [0, 0]
