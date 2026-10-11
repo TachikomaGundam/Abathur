@@ -21,11 +21,12 @@ def main():
     gen, item_id = sys.argv[1], sys.argv[2]
     hd2, ws = L.harness_dir(gen, item_id), L.workshop_dir(gen, item_id)
     manifest = json.loads((hd2 / "manifest.json").read_text())
-    report = ws / "REPORT.md"
+    report_name = L.ITEMS[item_id].get("report_file", "REPORT.md") if hasattr(L, "ITEMS") else __import__("bank").ITEMS[item_id].get("report_file", "REPORT.md")
+    report = ws / report_name
     pack_parts = []
     for rel in manifest["files"]:
         p = L.cand_root(gen, item_id) / rel
-        if rel.endswith("workshop/REPORT.md") or rel.endswith("AGENTS.md") or not p.is_file():
+        if rel.endswith("workshop/" + report_name) or rel.endswith("AGENTS.md") or not p.is_file():
             continue
         pack_parts.append(f"===== {rel} =====\n" + p.read_text(errors="replace"))
     truth = {k: v for k, v in manifest["ground_truth"].items()}

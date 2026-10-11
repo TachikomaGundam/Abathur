@@ -178,7 +178,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v5.1",  # v2→v3 白话词典裸用检测; v1→v2：粗体层标记+“前|后”列头漏检修复（伤案=G21/SR4-30 收据在册）
+        "checker": "report_check/v6",  # v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
