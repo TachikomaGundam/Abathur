@@ -26,6 +26,8 @@ CLASS_OF = {
     "SR4-52": "coverage-recall-audit", "SR4-53": "extractor-fidelity", "SR4-54": "predicate-field-fit",
     "SR4-55": "absence-silence", "SR4-56": "evidence-ladder", "SR4-57": "pre-delivery-readaloud",
     "SR4-58": "ruler-hunting",
+    "SR4-50": "upward-report-plainness", "SR4-51": "cross-seat-executability",
+    "SR4-60": "policy-site-inventory", "SR4-61": "ticket-routing",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",
     "SR4-33": "approval-cap-three",
