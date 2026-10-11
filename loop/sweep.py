@@ -31,7 +31,7 @@ MIN_AGE_S = 3600  # hard floor: never delete anything younger than 1h, whatever 
 
 EVIDENCE_FILES = ("bundle.json", "BUNDLE.md")
 ITEM_EVIDENCE = ("manifest.json", "verdict.json", "transcript.json", "memory.txt",
-                 "disk_probe.json", "hgf_prescan.json")
+                 "disk_probe.json", "hgf_prescan.json", "bell-verdict-console.txt")
 
 
 def sha256_file(p: Path) -> str:
