@@ -28,6 +28,7 @@ CLASS_OF = {
     "SR4-58": "ruler-hunting",
     "SR4-50": "upward-report-plainness", "SR4-51": "cross-seat-executability",
     "SR4-60": "policy-site-inventory", "SR4-61": "ticket-routing",
+    "SR4-62": "ledger-quoting-hygiene",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",
     "SR4-33": "approval-cap-three",
