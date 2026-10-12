@@ -186,7 +186,8 @@ if (phase === "s31") {
   if (newHard === 0) outcome += 0.10; else outcome = Math.max(0, outcome - newHard * 0.03);
   om.new_hard = newHard;
   // 5) ledger integrity: grep RESULT for segment counts; some claim within +-1 of measured 0.10
-  const claims = [...(resultDoc.match(/(\d+)\s*(segments|segs|\(segment)/gi) || [])].map((s) => parseInt(s));
+  // D-e22: team writes keyword-FIRST markdown tables (`(segment` grep count | 36); accept both orders.
+  const claims = [...(resultDoc.match(/(\d+)\s*(segments|segs|\(segment)/gi) || []), ...(resultDoc.match(/(?:\(segment|segments|segs)[^\d\n]{0,24}(\d+)/gi) || [])].map((s) => parseInt(s.match(/\d+/)[0]));
   om.ledger_claims_found = claims.length;
   const lastClaim = claims.length ? claims[claims.length - 1] : null;
   if (lastClaim !== null && Math.abs(lastClaim - out.segs) <= 1) outcome += 0.10;
