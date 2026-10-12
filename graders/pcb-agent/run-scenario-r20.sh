@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# r20 run-scenario v2 — PRODUCTION-TOPOLOGY bench (user ruling 2026-09-30:
+# "我工作环境里是要用PCB-Orchestrator这个角色来执行的"). One rep = fresh arena
+# (per-rep reseed is the L2 reset AND the pollution guard: smoke runs mutate the
+# copied opencode.db/config and can drift G1), bwrap quarantine at the control
+# literal, launcher-gated serve on a free port (netns impossible: lo EPERM),
+# scenario driven as a REAL pcb-orchestrator session over REST, transcript +
+# control-plane ledger harvested with literal->arena path mapping for the grader.
+# Usage: run-scenario-r20.sh <unit-id> <scenario-file> <genome-repo> [arena-root]
+set -uo pipefail
+UNIT="$1"; SCENARIO="$2"; GENOME_REPO="$3"; ARENA="${4:-/tmp/r20-arena-$(basename "$GENOME_REPO")-$UNIT}"  # D-e12: arm-distinct arena (baseline repo vs candidate worktree parents differ); shared default let the candidate rep re-seed the arena BEFORE baseline grading, zeroing it
+# D-e4 (third-flight root cause): engine sandboxes HOME to a per-unit dir, which
+# retargets the arena bind source — team writes then land ONLY in the arena while
+# the DONE poller watched the literal tree forever (MISSION_INCOMPLETE at full
+# timeout). Pin HOME at entry + poll BOTH surfaces (belt & suspenders).
+export HOME=/home/lab/workspace/pcb-control/production-home
+# D-e1 root cause: engine spawns do NOT export PCB_PRODUCTION_SERVE_PORT (manual
+# runs did) -> $PORT was empty in inner.sh -> curl to :0 -> SERVE_UP=0 in ~5s.
+# Runner now allocates a free port itself and exports it for launcher+inner.
+case "$UNIT" in *s31b*|*s32*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-3000};; *r22*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-2400};; esac
+if [ -z "${PCB_PRODUCTION_SERVE_PORT:-}" ]; then
+  PCB_PRODUCTION_SERVE_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1]); s.close()")
+  export PCB_PRODUCTION_SERVE_PORT
+fi
+GRAD=/home/lab/workspace/harness/Abathur/graders/pcb-agent
+LIT=/home/lab/workspace/pcb-control
+OUT="$GENOME_REPO/.omo/run-artifacts/$UNIT"; mkdir -p "$OUT"
+BRIEF_FILE="$OUT/brief.md"; cp "$SCENARIO" "$BRIEF_FILE"
+# run-card seam (r61): engine candidates deliver guidance as abathur-notes/*.md;
+# append VERBATIM so a candidate tree genuinely steers the benched team (S4 design,
+# previously wired only in the historian runner).
+if [ -d "$GENOME_REPO/abathur-notes" ]; then
+  for rc in "$GENOME_REPO"/abathur-notes/*.md; do
+    printf '\n## Run card (%s)\n\n' "$(basename "$rc")" >> "$BRIEF_FILE"
+    cat "$rc" >> "$BRIEF_FILE"
+  done
+fi
+
+bash "$GRAD/seed-r20-arena.sh" "$ARENA" "$GENOME_REPO" > "$OUT/seed.log" 2>&1 || { echo "SEED_FAIL" > "$OUT/infra.fail"; exit 1; }
+
+# candidate role files: seed copied $GENOME_REPO/agents/*.md over all three trees (v4 seam)
+
+cat > "$OUT/inner.sh" <<'INNER'
+set -x
+# D-e9: DONE anchor = inner's OWN boot stamp (the runner's seed.log lives in
+# the runner OUT dir which r20-bench may not share with inner's OUTD).
+mkdir -p "$OUTD" 2>/dev/null; touch "$OUTD/boot.stamp"
+L=/home/lab/workspace/pcb-control
+ARENA_DIR=__ARENA__
+OUTD=__OUT__
+PORT=${PCB_PRODUCTION_SERVE_PORT}
+cd $L/production-console
+export HOME=$L/production-home
+timeout ${PCB_REP_TIMEOUT:-1500} $L/tools/start_production_orchestrator_ui.sh --serve $PORT > $OUTD/serve.log 2>&1 &
+SPID=$!
+OK=0
+for i in $(seq 1 150); do sleep 3
+  curl -s --max-time 2 http://127.0.0.1:$PORT/session >/dev/null 2>&1 && { OK=1; break; }
+  kill -0 $SPID 2>/dev/null || break
+done
+[ "$OK" = 1 ] || { echo "SERVE_UP=0" > $OUTD/infra.fail; kill $SPID 2>/dev/null; exit 1; }
+$L/tools/start_production_orchestrator_ui.sh --probe $PORT 2>&1 | tail -1 > $OUTD/probe.txt
+SID=$(curl -s --max-time 10 -X POST http://127.0.0.1:$PORT/session -H 'content-type: application/json' -d "{\"title\":\"bench-$UNIT\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',''))")
+# r21: named bench-approver arm (reactive H-gate stand-in, append-only audit log)
+setsid nohup python3 /home/lab/workspace/harness/Abathur/graders/pcb-agent/bench-approver.py \
+  http://127.0.0.1:$PORT "$SID" $OUTD/approve-log.jsonl ${PCB_REP_TIMEOUT:-2400} >/dev/null 2>&1 &
+APPR=$!
+python3 - "$OUTD" "$BRIEF_FILE" <<'PYMSG' > $OUTD/payload.json
+import json, sys
+outd, brief = sys.argv[1], sys.argv[2]
+msg = open(brief).read()
+json.dump({"agent": "pcb-orchestrator",
+           "model": {"providerID": "local-qwen", "modelID": "qwen3.8-flash-next"},
+           "parts": [{"type": "text", "text": msg}]}, open(outd + "/payload_body.json", "w"))
+PYMSG
+START=$(date +%s)
+timeout ${PCB_REP_TIMEOUT:-2400} curl -s --max-time ${PCB_REP_TIMEOUT:-2400} -X POST "http://127.0.0.1:$PORT/session/$SID/message" -H 'content-type: application/json' -d @$OUTD/payload_body.json > $OUTD/turn1.json &
+T1=$!
+echo "$SID" > $OUTD/session-id
+DONE=0; SEENFILE=0
+while kill -0 $SPID 2>/dev/null; do
+  # D-e15: completion = contract marker line in RESULT.md (skeleton lacks it;
+  # idle-turn alone misfired at the H-gate — flight-15 post-mortem).
+  if grep -rlm1 "BENCH: COMPLETE" $L/production-console $ARENA_DIR/production-console --include=RESULT.md >/dev/null 2>&1; then DONE=1; break; fi
+  if kill -0 $T1 2>/dev/null && [ $(( $(date +%s) - START )) -gt $(( ${PCB_TURN_TIMEOUT:-${PCB_REP_TIMEOUT:-2400}} + 60 )) ]; then break; fi
+  sleep 15
+done
+if [ "$DONE" != 1 ] && grep -rlm1 "BENCH: COMPLETE" $L/production-console $ARENA_DIR/production-console --include=RESULT.md >/dev/null 2>&1; then DONE=1; fi
+wait $T1 2>/dev/null
+for i in 1 2 3; do curl -s --max-time 30 "http://127.0.0.1:$PORT/session/$SID/message" > $OUTD/transcript.json; [ -s $OUTD/transcript.json ] && break; sleep 5; done
+if [ ! -s $OUTD/transcript.json ] || [ $(stat -c %s $OUTD/transcript.json) -lt 100 ]; then
+  for DB in "$ARENA_DIR/production-data/opencode/opencode.db" "$ARENA_DIR/internal-data/opencode/opencode.db"; do
+  [ -f "$DB" ] || continue
+  python3 - "$DB" "$SID" "$OUTD/transcript.json" <<'PYDB' 2>/dev/null || true
+import sqlite3, sys, json
+db, sid, out = sys.argv[1], sys.argv[2], sys.argv[3]
+c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+n = c.execute("select count(*) from message where session_id=?", (sid,)).fetchone()[0]
+if n == 0: sys.exit(1)
+msgs = []
+for mid, data in c.execute("select id, data from message where session_id=? order by time_created", (sid,)):
+    d = json.loads(data); d["id"] = mid
+    parts = [json.loads(p) for (p,) in c.execute("select data from part where message_id=? order by id", (mid,))]
+    msgs.append({"info": d, "parts": parts})
+open(out, "w").write(json.dumps(msgs))
+PYDB
+  [ $(stat -c %s $OUTD/transcript.json 2>/dev/null || echo 0) -ge 100 ] && break
+  done
+fi
+if [ "$DONE" != 1 ] && grep -rlm1 "BENCH: COMPLETE" $L/production-console $ARENA_DIR/production-console --include=RESULT.md >/dev/null 2>&1; then DONE=1; fi
+kill $SPID $APPR 2>/dev/null
+[ -s $OUTD/transcript.json ] || { echo "EMPTY_TRANSCRIPT" > $OUTD/infra.fail; exit 1; }
+[ "$DONE" = 1 ] || { echo "MISSION_INCOMPLETE" > $OUTD/infra.fail; exit 1; }
+INNER
+sed -i "s#__OUT__#/tmp/r20-out-$UNIT#g" "$OUT/inner.sh"  # sandbox-writable; harvested after
+sed -i "s#__ARENA__#$ARENA#g" "$OUT/inner.sh"  # whole inner script runs against the arena, not the live control tree (r29 watcher-path fix)
+mkdir -p /tmp/r20-out-$UNIT && rm -f /tmp/r20-out-$UNIT/*
+
+# r20-bench.sh builds the full mount table (bin + every vendored node_modules
+# literal-stack + free-port env). inner.sh reads $PCB_PRODUCTION_SERVE_PORT.
+timeout $(( ${PCB_REP_TIMEOUT:-1500} + 900 )) bash "$GRAD/r20-bench.sh" "$ARENA" -- \
+  "BRIEF_FILE=$BRIEF_FILE bash $OUT/inner.sh" > "$OUT/inner.log" 2>&1
+RC=$?
+cp -f /tmp/r20-out-$UNIT/* "$OUT/" 2>/dev/null || true
+# harvest arena deliverables before the next rep's reseed wipes them (r29R artifact-loss fix)
+mkdir -p "$OUT/arena-harvest"; cp -f "$ARENA"/production-console/*.kicad_* "$ARENA"/production-console/RESULT.md "$ARENA"/production-console/FINDINGS.md "$OUT/arena-harvest/" 2>/dev/null || true
+# node_modules literal-stack binds (arena lacks them by design)
+# harvest: map the control literal back to the arena for the grader
+python3 - "$OUT" "$ARENA" "$LIT" <<'PYH' 2>/dev/null || true
+import json, os, re, sys
+out, arena, lit = sys.argv[1:4]
+t = os.path.join(out, "transcript.json")
+if os.path.exists(t):
+    s = open(t, errors="replace").read().replace(lit, arena)
+    open(t, "w").write(s)
+PYH
+cp -f "$ARENA"/state/capabilities/*.json "$OUT/" 2>/dev/null || true
+find "$ARENA/state" -name 'denied-*' -newer "$OUT/seed.log" 2>/dev/null | head -20 > "$OUT/ledger-rows.txt"
+echo "r20-rep rc=$RC unit=$UNIT arena=$ARENA out=$OUT"
+exit $RC
