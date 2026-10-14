@@ -24,6 +24,17 @@ model="${3:?usage: mutate.sh <brief-file> <worktree> <model>}"
 canonical="${ABATHUR_GENOME_CANONICAL:-$worktree/genome.jsonc}"
 [ -f "$brief_file" ] || { echo "mutate: missing brief $brief_file" >&2; exit 1; }
 cp -f "$brief_file" "${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}.brief" 2>/dev/null || true
+
+# clause-economy experiment guidance (2026-10-14): appended to the brief the mutator reads.
+cat >> "$brief_file" <<'ECONOMY'
+
+## Seat guidance — clause-economy control run
+Three consecutive candidate generations LOST the routing exam (s31b 0.3-0.7 vs 0.80/0.85
+baseline) while each card added 30-62 lines of role text. Hypothesis: role-volume itself
+taxes this model family. THIS RUN: propose AT MOST one candidate; total added lines <= 25;
+prefer REWRITING or TIGHTENING an existing rule over appending a new section. If nothing
+passes that bar, propose a notes-only candidate and say so honestly in the rationale.
+ECONOMY
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
 bin="${ABATHUR_OPENCODE_BIN:-opencode}"
 
