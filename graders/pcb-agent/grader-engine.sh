@@ -8,6 +8,7 @@ unit="$1"; scen="$2"
 out=$(
   case "$unit" in
     s31*) node "$here/grader-v3.mjs" "$unit" "$scen" s31 ;;
+    s41*) node "$here/grader-v3.mjs" "$unit" "$scen" s41 ;;
     s32*) node "$here/grader-v3.mjs" "$unit" "$scen" s32 ;;
     *phaseA*) node "$here/grader-v2.mjs" "$unit" "$scen" phaseA ;;
     *) node "$here/grader-v2.mjs" "$unit" "$scen" phaseB ;;

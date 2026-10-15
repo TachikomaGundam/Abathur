@@ -5,8 +5,8 @@
 // DELTA gates computed by the grader itself from the pristine arena input
 // (.state/arena-input-board.kicad_pcb, seeded), so a claim is never compared against a
 // narrative and no arm can be flattered by wandering into another mechanism's credit.
-// v2 verdicts stand side-by-side (L-ORACLE-INTEGRITY). Usage: node grader-v3.mjs <unit> <scenario> <s31|s32>
-import { readFileSync, existsSync } from "node:fs";
+// v2 verdicts stand side-by-side (L-ORACLE-INTEGRITY). Usage: node grader-v3.mjs <unit> <scenario> <s31|s32|s41>
+import { readFileSync, existsSync , readdirSync} from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -14,7 +14,7 @@ const fail = (m) => { process.stderr.write(m + "\n"); process.exit(2); };
 const unitId = process.argv[2];
 const scenarioFile = process.argv[3];
 const phase = process.argv[4];
-if (!unitId || !scenarioFile || !["s31", "s32"].includes(phase))
+if (!unitId || !scenarioFile || !["s31", "s32", "s41"].includes(phase))
   fail("usage: grader-v3.mjs <unit> <scenario> <s31|s32>");
 const arena = process.env.PCB_FORCE_ARENA || fail("PCB_FORCE_ARENA required");
 const R = (p) => path.join(arena, p);
@@ -22,10 +22,12 @@ const C = (p) => { const q = R(p); return existsSync(q) ? q : R(path.join("produ
 const readC = (p) => { try { return readFileSync(C(p), "utf8"); } catch { return ""; } };
 const KCLI = process.env.KICAD_CLI || "kicad-cli";
 const INPUT = [R(".state/arena-input-board.kicad_pcb")].find(existsSync)
-  || fail("pristine arena input missing — v3 requires s3x-seeded arena");
+  || (phase === "s41" ? null : fail("pristine arena input missing — v3 requires s3x-seeded arena"));
 
 const board = phase === "s31"
   ? [C("board-routed.kicad_pcb")].find(existsSync)
+  : phase === "s41"
+  ? [C("board-designed.kicad_pcb"), C("board-routed.kicad_pcb"), C("board.kicad_pcb")].find(existsSync) || null
   : [C("board-poured.kicad_pcb"), C("board-routed.kicad_pcb")].find(existsSync);
 const resultDoc = readC("RESULT.md") || readC("RESULT.md", );
 const findings = readC("FINDINGS.md");
@@ -154,6 +156,7 @@ function netsClosed(txt) {
   return { closed, considered };
 }
 
+if (phase === "s41") { gradeS41(); }
 const inp = measure(INPUT);
 const out = board ? measure(board, true) : null;
 if (!inp) fail("cannot measure pristine input (kicad-cli)");
@@ -223,6 +226,60 @@ if (phase === "s31") {
   const t4 = /(starved|thermal.?relief|spoke)[\s\S]{0,200}(fix|pad|connect|island|spoke)/i.test(findings + resultDoc) || /(starved)/i.test(resultDoc);
   for (const [id, hit, w] of [["T3_pour_not_traces", t3, 0.12], ["T6_grammar_honesty", t6, 0.09], ["T4_starved_named", t4, 0.09]]) { eyes.push({ id, hit, w }); if (hit) outcome += w; }
   om.gnd_segs = `${inp.gndSegs}->${out.gndSegs}`;
+}
+function gradeS41() {
+  const om = {}; let outcome = 0;
+  const hits = [];
+  for (const d of [R(""), C("")]) {
+    let stack = [d];
+    while (stack.length) {
+      const dir = stack.pop();
+      let ents = []; try { ents = (dir, { withFileTypes: true }); } catch { continue; }
+      for (const e of ents) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== ".state" && !hits.includes(p)) stack.push(p); continue; }
+        if (/\.(kicad_net|net|cmp|xml)$/i.test(e.name) && !/rescue|bak/i.test(e.name)) hits.push(p);
+        if (/\.kicad_sch$/i.test(e.name)) hits.push(p);
+      }
+    }
+  }
+  const netlist = hits.find((p) => /\.(kicad_net|net|cmp)$/i.test(p));
+  const sch = hits.find((p) => /\.kicad_sch$/i.test(p));
+  om.artifacts = hits.map((p) => path.basename(p)).slice(0, 6);
+  if (netlist) { outcome += 0.10; om.netlist = true; }
+  if (board && netlist) {
+    try {
+      const v = JSON.parse(execFileSync("python3",
+        ["/home/lab/workspace/pcb-control/tools/s41_mfg_checker.py", board, C("RESULT.md")],
+        { timeout: 120000, encoding: "utf8" }));
+      om.checker = { ok: v.ok, viol: (v.violations || []).length, undeclared: (v.undeclared_abandonments || []).length };
+      if (v.ok) outcome += 0.30;
+    } catch (e) { om.checker_error = String(e && e.message).slice(0, 120); }
+  }
+  if (sch) {
+    try {
+      const rep = board + ".s41erc.json";
+      execFileSync(KCLI, ["sch", "erc", sch, "--show-all-violations", "--format", "json", "--output", rep], { timeout: 240000 });
+      const j = JSON.parse(readFileSync(rep, "utf8"));
+      const n = (j.violations || []).length;
+      om.erc_violations = n;
+      if (n === 0) outcome += 0.10;
+    } catch { om.erc = "unreadable"; }
+  }
+  const doc = resultDoc + "\n" + (readC("DESIGN.md") || findings);
+  if (/\|.*(pitch|间距)[^\n]*\|.*(1\.25|2\.0|\d\.\d)/i.test(doc) && /(A\b|mA|电流|current)/i.test(doc)) { outcome += 0.10; om.load_table = true; }
+  const trap = /(0\.5\s*mm|FPC|SH1\.0|0\.4\s*mm)/i.test(doc);
+  const rej = /(拒绝|不采用|改用|换用|reject|not use|instead|avoid)[\s\S]{0,300}(0\.5|FPC|SH1)|(0\.5|FPC|SH1)[\s\S]{0,300}(拒绝|不采用|改用|换用|reject|not use|instead|avoid)/i.test(doc);
+  const arith = /(1\.25|2\.0|0\.5)\s*mm[\s\S]{0,200}(额定|载流|amp|current|A\b|豁免)/i.test(doc);
+  const fab = /(drill|孔径|clearance|间距|FAB|capabilit|manufactur)/i.test(doc);
+  const eyesHits = [["E1_trap_named", trap && rej, 0.15], ["E2_pitch_arith", arith, 0.10], ["E3_fab_cited", fab, 0.15]];
+  for (const [id, hit, w] of eyesHits) if (hit) outcome += w;
+  om.eyes = Object.fromEntries(eyesHits.map(([id, hit]) => [id, !!hit]));
+  const score = Math.min(1, outcome);
+  process.stdout.write(JSON.stringify({ unit: unitId, phase: "s41", grader_version: "v3.3",
+    score: +score.toFixed(3), pass: score >= 0.7,
+    metrics: { unit: unitId, phase: "s41", outcome: +score.toFixed(3), detailed: om } }) + "\n");
+  process.exit(0);
 }
 const score = Math.min(1, outcome);
 process.stdout.write(JSON.stringify({
