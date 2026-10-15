@@ -234,7 +234,7 @@ function gradeS41() {
     let stack = [d];
     while (stack.length) {
       const dir = stack.pop();
-      let ents = []; try { ents = (dir, { withFileTypes: true }); } catch { continue; }
+      let ents = []; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
       for (const e of ents) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) { if (e.name !== ".state" && !hits.includes(p)) stack.push(p); continue; }
