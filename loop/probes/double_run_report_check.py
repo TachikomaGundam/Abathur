@@ -106,6 +106,13 @@ B6_TAB = (f"| 对象 | sha256 |\n|---|---|\n| 草稿 | {B6_S1} |\n| 入账切片
 _case("B6 哈希表子串不误伤（修前红→修后绿的反例锚, G46 真卷串）",
       lambda t: t.replace("## 还没有的", B6_TAB + "## 还没有的", 1),
       lambda r: r["numbers"]["untraced"] == [] and not r["canary_kill"])
+# B9（v6.2 类）: 证据文件自身的字节长度=合法出处(实测大小指标); 陌生长度数字仍须被拿住。
+_B9_KEY = sorted(_RP_PACK)[0]
+_B9_LEN = str(len(_RP_PACK[_B9_KEY].encode("utf-8")))
+_B9_TAB = (f"| 度量 | 字节 |\n|---|---|\n| 包内首件实测 | {_B9_LEN} |\n| 捏造件实测 | 447711 |\n\n")
+_case("B9 pack 文件字节长度放行、陌生大数仍拿得住（v6.2 双面锚）",
+      lambda t: t.replace("## 还没有的", _B9_TAB + "## 还没有的", 1),
+      lambda r: r["numbers"]["untraced"] == ["447711"])
 
 
 def main():

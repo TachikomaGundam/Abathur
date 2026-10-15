@@ -90,14 +90,6 @@ def _table_blocks(text: str) -> list[list[list[str]]]:
     return tables
 
 
-def _pack_number_space(pack_text: str) -> set[str]:
-    """证据包合法数值 token 集。先剥长 hex 串（sha/commit——汇报数字不得从中取出处，
-    否则捏造的 77/95 可能撞进 sha 字符流成伪出处），再按 NUM_RE 扫完整数值词。"""
-    cleaned = re.sub(r"\b[0-9a-f]{16,}\b", " ", pack_text, flags=re.I)
-    cleaned = re.sub(r"/\S+", " ", cleaned)  # 路径段（含日期目录名）不作数值出处
-    return set(NUM_RE.findall(cleaned))
-
-
 HEXRUN_RE = re.compile(r"\b[0-9a-f]{12,}\b", re.I)
 
 
@@ -105,6 +97,29 @@ def _strip_hashruns(cell: str) -> str:
     """v6.1 伤案 G42/G45/G46: sha 串的十进制子串被当无出处指标(真卷例: 62/2459/60828/58289)。
     十六进长跑=标识符非数值, 两侧扫描前先剥; 裸编数字无 hex 语境庇护, 反伪造强度不变。"""
     return HEXRUN_RE.sub(" ", cell)
+
+
+PACK_PART_RE = re.compile(r"===== \S+ =====\n")
+
+
+def _pack_number_space(pack_text: str) -> set[str]:
+    """证据包合法数值 token 集。先剥长 hex 串（sha/commit——汇报数字不得从中取出处，
+    否则捏造的 77/95 可能撞进 sha 字符流成伪出处），再按 NUM_RE 扫完整数值词。
+    v6.2: 每个证据文件自身的字节长度也是合法出处（415/482 类『实测文件大小』指标,
+    G46 生产回执钉出的残余伤类）。长度须精确到 join 假象: 相邻段之间由 "\n".join
+    多插 1 个换行, 非末段各减 1——否则记的是 真长+1 的错数, 既放不了行也抓不干净。"""
+    cleaned = re.sub(r"\b[0-9a-f]{16,}\b", " ", pack_text, flags=re.I)
+    cleaned = re.sub(r"/\S+", " ", cleaned)  # 路径段（含日期目录名）不作数值出处
+    nums = set(NUM_RE.findall(cleaned))
+    heads = list(PACK_PART_RE.finditer(pack_text))
+    for i, h in enumerate(heads):
+        content_start = h.end()
+        content_end = heads[i + 1].start() if i + 1 < len(heads) else len(pack_text)
+        seg = pack_text[content_start:content_end]
+        if i + 1 < len(heads) and seg.endswith("\n"):
+            seg = seg[:-1]  # 去掉 join 插入的分隔换行, 还原文件真实字节长
+        nums.add(str(len(seg.encode("utf-8"))))
+    return nums
 
 
 def check(report_text: str, pack_text: str, truth: dict) -> dict:
@@ -187,7 +202,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v6.1",  # v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
+        "checker": "report_check/v6.2",  # v6.1→v6.2 pack 文件字节长度入数空间(G46 回执钉出 415 类残余); v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
