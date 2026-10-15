@@ -5,7 +5,7 @@
 // contents or exit codes (todo-9 rule): a forged nominated row still has to survive
 // the independent sealed-path diff below before any ref or manifest moves.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { ExitSignal, blocked, cannotAnswer } from "../exit.js";
@@ -124,8 +124,16 @@ export async function promoteGeneration(req: PromoteRequest): Promise<PromoteOut
   const genRows = records.filter((r) => r.kind === "generation_complete" && r.genId === req.genId);
   const lastRow = genRows.at(-1);
   if (lastRow === undefined) {
+    // A rejected gate must name dead ends, not point into one. The engine ledger
+    // lane governs `abathur run` generations only; exam-lane (loop) generations
+    // have lived, since G21, in .omo/evidence/loop-archive/<gen>/ promoted via the
+    // AGENTS.md clause precedent. Read-only existence probe; no mutation, no bypass.
+    const examLane = path.join(repo, ".omo", "evidence", "loop-archive", String(req.genId), "bundle.json");
+    const examHint = existsSync(examLane)
+      ? ` — note: '${shown}' exists in the exam-lane archive (${examLane}); loop generations promote via the AGENTS.md clause precedent, not this ledger lane`
+      : "";
     blocked(
-      `promote: no generation_complete ledger row for gen '${shown}' of '${entry.label}'`,
+      `promote: no generation_complete ledger row for gen '${shown}' of '${entry.label}'${examHint}`,
       `state is read only from ${ledgerPath(repo)} — check candidates with \`abathur status ${entry.label}\``,
     );
   }

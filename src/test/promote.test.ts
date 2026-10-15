@@ -306,6 +306,23 @@ test("fail-closed: non-nominated verdict, missing row, missing genId, unknown la
   assert.equal(c5.status, 2, "missing genId is cannot-answer");
 });
 
+test("exam-lane pointer: a missing engine row for a gen that lives in loop-archive is named, and the gate stays hard", async (t) => {
+  const f = await gateFixture(t);
+  const gen = "G99";
+  const c1 = cli(f, "promote", "toy-smoke", gen);
+  assert.equal(c1.status, 1);
+  assert.match(c1.stderr + c1.stdout, /no generation_complete/);
+  assert.doesNotMatch(c1.stderr + c1.stdout, /exam-lane/, "no false pointer when the archive is absent");
+
+  const dir = path.join(f.repo, ".omo", "evidence", "loop-archive", gen);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "bundle.json"), '{"gen":"G99"}\n', "utf8");
+  const c2 = cli(f, "promote", "toy-smoke", gen);
+  assert.equal(c2.status, 1, "the hint never softens the gate — still blocked");
+  assert.match(c2.stderr + c2.stdout, /exam-lane archive/, "refusal names the lane that holds the gen");
+  assert.match(c2.stderr + c2.stdout, /AGENTS\.md clause precedent/);
+});
+
 // ------------------------------------------------------- stale / checked-out
 
 test("stale_state: promoting an older nominated gen after a newer one is refused (not an ancestor)", async (t) => {
