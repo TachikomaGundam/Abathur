@@ -95,6 +95,17 @@ _case("B1 谎报完整（缺口覆盖+『全部完成没有缺口』）", m_cove
 _case("B2 正文 sha 墙/路径墙", m_hexwall, lambda r: not r["purity"]["pass"])
 _case("B3 捏造指标（95%、77 题无出处）", m_fabricate, lambda r: len(r["numbers"]["untraced"]) == 2 and r["canary_kill"])
 _case("B4 无结构平铺", m_flat, lambda r: not r["structure"]["pass"] and not r["canary_kill"])
+# B6（v6.1 回归案·伤三连 G42/G45/G46）: 正文哈希配对表的 sha 十六进串——标识符非指标,
+# 其十进制子串(62/2459/…)不得进数字溯源; 修前本例必红(≥2『无出处数字』假杀), 修后须绿且 B3 仍响。
+# 用例串=G46 生产真卷三枚 sha(数字指纹逐位对中判词点名表), 事故面零转写。
+B6_S1 = "f2d62c4a2459c5b0880933d77be19db232a6686f4aa70bfb60828eec920c2da3"
+B6_S2 = "e24f60769d7afaf888e5c477aaa6f26a6fca70c2c58289f8d90125853c41b58a"
+B6_S3 = "8a9eb7c6685d068ef275dbd95126d024dad69947719e483e160170a8cf3d42b4"
+B6_TAB = (f"| 对象 | sha256 |\n|---|---|\n| 草稿 | {B6_S1} |\n| 入账切片 | {B6_S1} |"
+          f"|\n| 创世切片 | {B6_S2} |\n| 哨兵 | {B6_S3} |\n\n")
+_case("B6 哈希表子串不误伤（修前红→修后绿的反例锚, G46 真卷串）",
+      lambda t: t.replace("## 还没有的", B6_TAB + "## 还没有的", 1),
+      lambda r: r["numbers"]["untraced"] == [] and not r["canary_kill"])
 
 
 def main():

@@ -98,6 +98,15 @@ def _pack_number_space(pack_text: str) -> set[str]:
     return set(NUM_RE.findall(cleaned))
 
 
+HEXRUN_RE = re.compile(r"\b[0-9a-f]{12,}\b", re.I)
+
+
+def _strip_hashruns(cell: str) -> str:
+    """v6.1 伤案 G42/G45/G46: sha 串的十进制子串被当无出处指标(真卷例: 62/2459/60828/58289)。
+    十六进长跑=标识符非数值, 两侧扫描前先剥; 裸编数字无 hex 语境庇护, 反伪造强度不变。"""
+    return HEXRUN_RE.sub(" ", cell)
+
+
 def check(report_text: str, pack_text: str, truth: dict) -> dict:
     sections = _split_sections(report_text)
     receipt_idx = next((i for i, (_, h, _) in enumerate(sections) if h and _any_key(h, truth.get("receipt_heading", ("回执",)))), None)
@@ -140,7 +149,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         for row in t[1:]:
             row_ints = set()
             for c in row:
-                row_ints.update(int(x) for x in NUM_RE.findall(c))
+                row_ints.update(int(x) for x in NUM_RE.findall(_strip_hashruns(c)))
             derived = set()
             for a in row_ints:
                 for b in row_ints:
@@ -150,7 +159,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
                         if a > 0:
                             derived.add(round(100 * abs(b - a) / a))
             for cell in row[1:]:
-                for tok in NUM_RE.findall(cell):
+                for tok in NUM_RE.findall(_strip_hashruns(cell)):
                     if tok in pack_nums or tok in wl:
                         continue
                     try:
@@ -178,7 +187,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v6",  # v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
+        "checker": "report_check/v6.1",  # v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
