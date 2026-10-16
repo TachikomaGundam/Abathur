@@ -25,7 +25,8 @@ def close_item(gen: str, item_dir: Path) -> dict:
         row.update(verdict="MISSING_TRANSCRIPT", aggregate="NEEDS_HUMAN")
         return row
     tx = json.loads(tx_path.read_text())
-    hgf = L.hard_global_fail_scan(tx)
+    from bank import ITEMS  # lazy: bank imports looplib
+    hgf = L.hard_global_fail_scan(tx, tuple(ITEMS.get(item_id, {}).get("scratch_allow", ())))
     verdict = L.load_verdict(gen, item_id)
     # C-13 memory-diff: candidate must not rewrite its own constitution
     manifest = json.loads((hd2 / "manifest.json").read_text()) if (hd2 / "manifest.json").exists() else {}

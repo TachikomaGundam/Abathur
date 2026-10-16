@@ -45,7 +45,7 @@ def main():
             sys.exit(3)
     tx = L.extract_transcript(gen, item_id, candidate=True)
     probe = L.probe_disk(gen, item_id)
-    hgf = L.hard_global_fail_scan(tx)
+    hgf = L.hard_global_fail_scan(tx, tuple(item.get("scratch_allow", ())))
     brs = L.boundary_read_scan(tx)
     (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps({
         "state": "COMPLETE", "session_id": session_id,

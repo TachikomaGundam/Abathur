@@ -4452,6 +4452,9 @@ ITEMS["SR4-65"] = {
         "（哪条、在哪个文件）。",
     ],
     "setup": setup_sr4_65,
+    # 题面③明文授权『自建副本(cp -r 整包到 scratch 目录)实演取值是合法路径』;
+    # 五案裁决(G50-G54)机主裁A 后逐卷具名登记为 hgf 预扫豁免面。裸 /tmp/opencode 不豁免。
+    "scratch_allow": ("/tmp/opencode/sr4-65*", "/tmp/opencode/sr465*"),
     "required_behavior": (
         "T1: ①风险点必须命中机器真相三处——换行不是闸门: (a)patch 步失败不拦 (b)commit 与 (c)tag+哨兵; "
         "&& 只挡同行: (a)行尾 echo 与 (c)行尾 touch 受护而跨行不受护; 头注『set -e 已生效』为虚假宣称"
