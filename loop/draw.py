@@ -108,15 +108,23 @@ def generation_used(gen: str):
 def main() -> None:
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
-    gen, proposed = sys.argv[1], sys.argv[2:]
+    argv = list(sys.argv[1:])
+    allow = "--allow-suspended" in argv
+    while "--allow-suspended" in argv:
+        argv.remove("--allow-suspended")
+    if len(argv) < 2:
+        raise SystemExit(__doc__)
+    gen, proposed = argv[0], argv[1:]
     unknown = [i for i in proposed if i not in bank.ITEMS]
     if unknown:
         raise SystemExit(f"REFUSED: unknown items {unknown}")
     # suspension guard (ballot 2bf8: prose hangs do not stop campaigns). Clause 7's
     # dead/live anchor predicate is judge-discretion until the versioned determinism
     # artifact + five-case regression set ships (G50..G54 shapes decide identically).
-    # Owner override: pass --allow-suspended KNOWINGLY; silent rotation is refused.
-    if "--allow-suspended" not in sys.argv:
+    # Owner ruling 2026-10-16 (三裁=乙+登记): --allow-suspended 唯一合法用途=解禁前的回归重放
+    # (对 G50..G55 旧卷只读复判); 每次使用须在 INTENT-LEDGER 落一行(票号+工件哈希);
+    # 任何新世代开考使用=越权, 与伪造同罪族。silent rotation 依旧全拒。
+    if not allow:
         for _k, _why in SUSPENDED_ITEMS.items():
             if _k in proposed:
                 raise SystemExit(f"REFUSED: {_k} suspended — {_why} (owner override: --allow-suspended)")
