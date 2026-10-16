@@ -413,6 +413,22 @@ def run_opencode_turn(env: dict, cwd: Path, title: str, prompt: str, log: Path,
     cmd = [OPENCODE_BIN, "run", "--auto", "--pure", "-m", model, "--title", title]
     if session_id:
         cmd += ["--session", session_id]
+    if len(prompt.encode("utf-8")) > 100000:
+        # E2BIG guard (G52/SR4-65 judge leg, 2026-10-16: full booklets exceed
+        # Linux MAX_ARG_STRLEN 128KiB per-arg). Delivery only: the dossier is
+        # written next to the turn log (harness-side, trusted) and argv carries
+        # a fixed pointer task. Every barrier unchanged: containment, model,
+        # session ledger, logging, timeouts — only the channel for the bytes
+        # moves from argv to disk. Short prompts keep the argv path.
+        case = Path(log).with_name("case-prompt.txt")
+        case.write_text(prompt, encoding="utf-8")
+        prompt = (
+            "Your complete task dossier is on disk at exactly this path: "
+            + str(case)
+            + "\nRead that entire file, all of it, then execute every "
+            "instruction in it exactly. The dossier IS the task; do not "
+            "summarize or restate it - perform it."
+        )
     cmd.append(prompt)
     gen, item = env["LOOP_GEN"], env["LOOP_ITEM"]
     prefix = bwrap_prefix(gen, item, env, cwd) if env.get("LOOP_ROLE") == "candidate" else None
