@@ -11,6 +11,8 @@ Exit 0 = draw covers all required regression classes. Exit 1 = missing classes (
 """
 import sys, os, json, glob
 
+SUSPENDED_ITEMS = {"SR4-64": "clause-7 determinism ticket open 2026-10-16 (ballots 6180/2bf8)"}
+
 sys.path.insert(0, os.path.dirname(__file__))
 import bank  # noqa: E402
 import looplib as L  # noqa: E402
@@ -110,6 +112,14 @@ def main() -> None:
     unknown = [i for i in proposed if i not in bank.ITEMS]
     if unknown:
         raise SystemExit(f"REFUSED: unknown items {unknown}")
+    # suspension guard (ballot 2bf8: prose hangs do not stop campaigns). Clause 7's
+    # dead/live anchor predicate is judge-discretion until the versioned determinism
+    # artifact + five-case regression set ships (G50..G54 shapes decide identically).
+    # Owner override: pass --allow-suspended KNOWINGLY; silent rotation is refused.
+    if "--allow-suspended" not in sys.argv:
+        for _k, _why in SUSPENDED_ITEMS.items():
+            if _k in proposed:
+                raise SystemExit(f"REFUSED: {_k} suspended — {_why} (owner override: --allow-suspended)")
     used = generation_used(gen)
     if used:
         raise SystemExit(f"REFUSED: generation {gen} already used (archive: {used});\ndraw the next free label — closed generations are never re-examined")
