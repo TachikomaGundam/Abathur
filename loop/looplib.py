@@ -26,6 +26,9 @@ JUDGE_MODEL = os.environ.get("LOOP_JUDGE_MODEL", DEFAULT_MODEL)
 TURN_TIMEOUT = int(os.environ.get("LOOP_TURN_TIMEOUT", "1200"))
 LOOP_DIR = Path(__file__).resolve().parent
 CONSTITUTION_G1 = LOOP_DIR / "constitution_g1.md"
+# promoted default face (G47/G48/G49 rulings of 2026-10-16, owner verbatim:
+# "批准晋升 G47 G48 G49"): bare-seeded candidates carry clauses 1-9.
+CONSTITUTION_CURRENT = LOOP_DIR / "constitution_g27.md"
 
 # session-state noise under the fake home: excluded from user-space hash comparison.
 # Paths are relative to candidate/ root, so they carry the "home/" prefix.
@@ -163,7 +166,7 @@ def seed_base(gen: str, item: str, memory: str | None = None) -> None:
     for d in (hd / ".local" / "bin", ws, hd2):
         d.mkdir(parents=True, exist_ok=True)
     seed_opencode_config(hd)
-    mem = Path(memory).resolve() if memory else CONSTITUTION_G1
+    mem = Path(memory).resolve() if memory else CONSTITUTION_CURRENT
     shutil.copy(mem, ws / "AGENTS.md")
     (hd2 / "memory.txt").write_text(
         f"source={mem}\nsha256={sha256_file(mem)}\n")  # memory identity = lineage evidence
