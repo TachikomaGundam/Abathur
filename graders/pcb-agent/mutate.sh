@@ -28,12 +28,13 @@ cp -f "$brief_file" "${ABATHUR_MUTATOR_RAW:-/tmp/abathur-mutate-raw.jsonl}.brief
 # clause-economy experiment guidance (2026-10-14): appended to the brief the mutator reads.
 cat >> "$brief_file" <<'ECONOMY'
 
-## Seat guidance — s41 era, post-convergence
-Role-text on the routing exam (s31b) has CONVERGED: five candidate generations lost it, including a
-20-line economy card. Do not touch routing/ledger-section text. The s41 netlist-manufacturability exam
-is a blank slate at zero baseline: propose AT MOST one candidate whose clause makes the team check pad
-pitch vs power class AT DESIGN TIME (netlist/footprint selection before copper), total added lines
-<= 25, and name the trap arithmetic (0.5mm/1.0mm fine-pitch connectors on battery mains) in the clause.
+## Seat guidance — F38 era (post-first-promotion)
+The pad-pitch run-card is now INCUMBENT (promoted 59ae8cefaa5d). Targets in priority order:
+(1) s41b generalization — same skill, reversed trap (fine pitch legal on encoder signals, illegal
+on 12V mains/phases): propose clauses that teach CLASS-RESOLVED judgment, not blanket bans;
+(2) push s41/s41b eyes past trap declaration (name the rejected temptation with arithmetic).
+Hold the line elsewhere: s31b is converged — do not touch routing/ledger text. One candidate max,
+total added lines <= 25.
 ECONOMY
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
 bin="${ABATHUR_OPENCODE_BIN:-opencode}"
