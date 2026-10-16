@@ -11,7 +11,10 @@ Exit 0 = draw covers all required regression classes. Exit 1 = missing classes (
 """
 import sys, os, json, glob
 
-SUSPENDED_ITEMS = {"SR4-64": "clause-7 determinism ticket open 2026-10-16 (ballots 6180/2bf8)"}
+# clause-7 determinism artifact anchor-law/v1.3 ratified by owner 2026-10-17 (批令『全批』);
+# SR4-64 un-suspended after six-case regression PASS + inline negative-fixture selftest;
+# the guard mechanism stays for future determinism tickets.
+SUSPENDED_ITEMS: dict[str, str] = {}
 
 sys.path.insert(0, os.path.dirname(__file__))
 import bank  # noqa: E402
