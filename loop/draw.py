@@ -29,6 +29,8 @@ CLASS_OF = {
     "SR4-50": "upward-report-plainness", "SR4-51": "cross-seat-executability",
     "SR4-60": "policy-site-inventory", "SR4-61": "ticket-routing",
     "SR4-62": "ledger-quoting-hygiene",
+    "SR4-64": "anchor-citation-hygiene",
+    "SR4-65": "chain-failure-hygiene",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",
     "SR4-33": "approval-cap-three",
@@ -88,6 +90,19 @@ def regression_duty() -> dict[str, str]:
     return duty
 
 
+def generation_used(gen: str):
+    # A generation label is spent the moment its archive dir exists (live, R
+    # rerun, B variant or CAN bell): re-drawing a closed generation re-runs an
+    # exam that was already judged and promoted. G49 near-miss 2026-10-16 —
+    # phantom draw on the promoted G49 (archived as G49R4), caught only by the
+    # post-seed disk read; this guard closes that consumer path. (Ticketed in
+    # INTENT-LEDGER 2026-10-16, second landing point of the draw tool.)
+    for d in sorted(glob.glob(os.path.join(ARCHIVE, gen + "*"))):
+        if os.path.isdir(d):
+            return os.path.basename(d)
+    return None
+
+
 def main() -> None:
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
@@ -95,6 +110,9 @@ def main() -> None:
     unknown = [i for i in proposed if i not in bank.ITEMS]
     if unknown:
         raise SystemExit(f"REFUSED: unknown items {unknown}")
+    used = generation_used(gen)
+    if used:
+        raise SystemExit(f"REFUSED: generation {gen} already used (archive: {used});\ndraw the next free label — closed generations are never re-examined")
     duty = regression_duty()
     covered = {CLASS_OF.get(i) for i in proposed}
     missing = {c: why for c, why in duty.items() if c not in covered}
