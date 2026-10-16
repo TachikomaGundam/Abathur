@@ -1,0 +1,78 @@
+[
+  {
+    "gen": "G50",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": [
+      "36ae2cd3dfe14a45d666e80f4551c00eea36d5e6",
+      "627154f0146e6d4cdbe4277390ddcb1ea707463784f8dc574473e84f3d9921d2",
+      "62b776c86b0841143a99763a0e23d34024b7df198e5fe03a5b86f2362e1c22d7",
+      "b69b73f214b71ed06c9dd27c854f6910ef9d2167e4f2d0b1e46e083725b4edcd",
+      "c862dbda38b09e82cf3e72f560cd5626c0237ada",
+      "ffb064beb214d661787b37485f849ac62316caa2d0df7a519104ce3103f99b75"
+    ]
+  },
+  {
+    "gen": "G51",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": []
+  },
+  {
+    "gen": "G52",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": [
+      "144975843edee61fd7fd5eb04971396272e3115151ce5775d6025b6dc5968bcf",
+      "36ae2cd3dfe14a45d666e80f4551c00eea36d5e6",
+      "b69b73f214b71ed06c9dd27c854f6910ef9d2167e4f2d0b1e46e083725b4edcd",
+      "c862dbda38b09e82cf3e72f560cd5626c0237ada",
+      "de8c3751fee37b2698d7f45fd5605070675daac28b123c0cfe2086bf620e2bf5",
+      "ffb064beb214d661787b37485f849ac62316caa2d0df7a519104ce3103f99b75"
+    ]
+  },
+  {
+    "gen": "G53",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": [
+      "36ae2cd3dfe14a45d666e80f4551c00eea36d5e6",
+      "627154f0146e6d4cdbe4277390ddcb1ea707463784f8dc574473e84f3d9921d2",
+      "b69b73f214b71ed06c9dd27c854f6910ef9d2167e4f2d0b1e46e083725b4edcd",
+      "c862dbda38b09e82cf3e72f560cd5626c0237ada",
+      "ffb064beb214d661787b37485f849ac62316caa2d0df7a519104ce3103f99b75"
+    ]
+  },
+  {
+    "gen": "G54",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": [
+      "144975843edee61fd7fd5eb04971396272e3115151ce5775d6025b6dc5968bcf",
+      "26016fcdca79e99c1225d34057c1f57b37ab585c193a51eabf1bc67568141971",
+      "36ae2cd3dfe14a45d666e80f4551c00eea36d5e6",
+      "43747221473e59424d88928b26167606fbe984e1",
+      "b69b73f214b71ed06c9dd27c854f6910ef9d2167e4f2d0b1e46e083725b4edcd",
+      "c281802940a1acbb56bd8999096b9cfd20d7ce96",
+      "c862dbda38b09e82cf3e72f560cd5626c0237ada",
+      "de8c3751fee37b2698d7f45fd5605070675daac28b123c0cfe2086bf620e2bf5"
+    ]
+  },
+  {
+    "gen": "G55",
+    "bundle_verdict": "FAIL",
+    "bundle_kill": false,
+    "reasons": [],
+    "anchor_literals_in_verdict": [
+      "12aab8a4193cbcdd35e3995af0b9e4d4bf6fe28c23a5e991414d5ddd028944b9",
+      "36ae2cd3dfe14a45d666e80f4551c00eea36d5e6",
+      "b69b73f214b71ed06c9dd27c854f6910ef9d2167e4f2d0b1e46e083725b4edcd",
+      "ffb064beb214d661787b37485f849ac62316caa2d0df7a519104ce3103f99b75"
+    ]
+  }
+]

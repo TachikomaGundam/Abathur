@@ -29,7 +29,11 @@ def main():
         if rel.endswith("workshop/" + report_name) or rel.endswith("AGENTS.md") or not p.is_file():
             continue
         pack_parts.append(f"===== {rel} =====\n" + p.read_text(errors="replace"))
-    truth = {k: v for k, v in manifest["ground_truth"].items()}
+    _gt_outer = manifest["ground_truth"]
+    _gt_inner = _gt_outer.get("ground_truth")
+    # setup 回包有双层形态(工单卷 {ground_truth:{...}, planted, kill} vs 平铺卷);
+    # 谓词字段(dead_literals/receipt_heading)住内层——外层直传=接线断, G50..G55 伤案根因之一。
+    truth = dict(_gt_inner) if isinstance(_gt_inner, dict) else dict(_gt_outer)
     receipt = {
         "gen": gen, "item": item_id,
         "report_present": report.is_file(),
