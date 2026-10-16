@@ -56,6 +56,12 @@ SENT_SPLIT = re.compile(r"[。！？!?\n]")
 #        before==prev falsified by concurrent shared-surface writes + multi-append intervals.
 #   v1.5 2026-10-16 LEDGER-GAP advisory (superseded by v1.6 — any-after/prev schemes were
 #        maskable by a raw write followed by a gate write).
+#   v2.0 2026-10-16 甲案: predicate rewritten to constitutional doctrine (L-STATE-ATOMIC
+#        multi-writer appends LEGAL). PREFIX-TAMPER=CRITICAL (rewritten history),
+#        UNRECEIPTED-APPEND=INFO once per delta (attribution snippet). BYPASS-WRITE and
+#        LEDGER-CHAIN-BREAK alarms REPEALED — they over-enforced single-writer on a
+#        constitutionally shared surface (foreign legit append fired twice, owner chose
+#        甲 per-seat ledgers; this predicate is now doctrine-exact).
 #   v1.6 2026-10-16 receipt carries before_bytes + target_sha256(delta bytes) + payload_sha256;
 #        verdict = byte-slice verification of the ledger tail against the receipt — the only
 #        scheme that unmasks insertions between sanctioned appends. Gap classes: BYPASS-WRITE
@@ -180,93 +186,61 @@ def main() -> int:
     else:
         since = int(time.time() * 1000)
     max_t, scanned, violations = scan(since)
-    # ---- RULE THREE (v1 2026-10-12): ledger bypass-write detection ----
-    # ledger changed while no stamp.sh ledger-append tool call is visible in db -> WARN line.
+    # ---- RULE THREE v2.0 (甲案, owner ruling 2026-10-16) ----
+    # CONSTITUTIONAL PREDICATE (L-STATE-ATOMIC: 追加式证据账本多写者合法, 仅重写/删除既往=断链):
+    #   CRITICAL  PREFIX-TAMPER  — a gate receipt's recorded prefix (bytes 0..after_bytes)
+    #            no longer hashes to its recorded `after`: history was rewritten/deleted.
+    #   INFO      UNRECEIPTED-APPEND — new tail content not covered by any receipt: legal
+    #            under multi-writer doctrine; logged once per delta with an attribution
+    #            snippet (v1.x flagged these as BYPASS/CHAIN-BREAK = ruler wrote a law
+    #            stricter than the constitution; that predicate is hereby repealed).
     led = Path(os.environ.get("PLAINWATCH_LEDGER", str(REPO / ".omo/evidence/INTENT-LEDGER.md")))
     if led.exists():
-        recs: list = []  # 回执缓存, 外层状态写与内层判定共用(账本未变时亦须有定义)
         cur = hashlib.sha256(led.read_bytes()).hexdigest()
         prev_sha = None
         if test_since is None and STATE.exists():
             prev_sha = json.loads(STATE.read_text()).get("ledger_sha")
-        if prev_sha and cur != prev_sha:
-            # v1.3 修 G-82: 完成证据改读回执文件(<ledger 目录>/.g82-receipts.jsonl)——
-            # stdout token 可被调用方管道截伤(cut/grep 实证 30 例误告), 文件通道不可截。
-            rcv = led.parent / ".g82-receipts.jsonl"
-            # v1.6 切片验证制: 回执记 (before_bytes, target_sha256=本次新增字节段的哈希,
-            # payload_sha256=闸收到的草稿文件哈希)。判定: 现账本 skip=before_bytes 起的尾片
-            # 哈希==target 且 target 对应 payload 在场 → 干净; 现值不等于任何回执 after → 裸写
-            # (BYPASS); 现值=某回执 after 但其 target 与实尾片不符或该回执缺失 → 断口(GAP)——
-            # v1.4/1.5 的 any-after 宽认会被『裸写后紧接闸写』遮刀, 唯字节切片能揭。
-            recs = []
-            if rcv.exists():
-                for ln in rcv.read_text().splitlines():
-                    try:
-                        recs.append(json.loads(ln))
-                    except json.JSONDecodeError:
-                        continue
-            stamp_t = time.strftime("%FT%TZ", time.gmtime())
-            size = led.stat().st_size
-            raw = led.read_bytes()
-            # 水位线: rc_seen=上次扫描已见的回执条数。边界衔接= recs[rc_seen-1]->recs[rc_seen]
-            # (上扫描终点与下一条回执之间, 裸写必落此段); 更旧的对在上扫描验过且干净, 不重验=
-            # 断口只报一次。rc_seen==0(初装/迁移)则全链验一遍落基线, 之后的旧断口不再重放。
-            rc_seen = int(st0.get("rc_seen", 0)) if (st0 := (json.loads(STATE.read_text()) if STATE.exists() else {})) else 0
-            # v1.6b 链式判定: 回执 r_i 与 r_{i+1} 之间必须咬合(r_{i+1}.before == r_i.after)。
-            # 逐回执走到 cur: 断口处把游离字节区间(r_i.after 之长度 .. r_{i+1}.before_bytes)
-            # 的首行摘进告警做归因线索(共面他席 vs 裸写, 判读在人)。
-            cur_rec = next((r for r in recs if r.get("after") == cur), None)
-            problem = None
-            if cur_rec is None:
-                problem = f"BYPASS-WRITE ledger sha {prev_sha[:12]}->{cur[:12]} cur-not-a-receipt-after"
-            else:
-                ok_tail = True
-                if "before_bytes" in cur_rec and int(cur_rec["before_bytes"]) <= size:
-                    seg = hashlib.sha256(raw[int(cur_rec["before_bytes"]):]).hexdigest()
-                    ok_tail = seg == cur_rec.get("target_sha256")
-                if not ok_tail:
-                    problem = f"LEDGER-GAP cur={cur[:12]} tail-slice mismatches receipt target"
-                else:
-                    chain = [r for r in recs if "after" in r]
-                    if rc_seen == 0:
-                        lo_i = 0
-                    elif rc_seen < len(chain):
-                        lo_i = rc_seen - 1
-                    else:
-                        lo_i = len(chain)
-                    for a, b in zip(chain[lo_i:], chain[lo_i + 1:]):
-                        if "before_bytes" not in a or "before_bytes" not in b:
-                            continue  # 旧格式回执不参与衔接判定(迁移噪声护栏)
-                        if b.get("before") != a["after"]:
-                            gap_hint = ""
-                            if "before_bytes" in b:
-                                try:
-                                    upto = int(b["before_bytes"])
-                                    # 断口尾段=上一回执之后、本回执入场之前的游离字节(其首行为归因线索)
-                                    snippet = raw[max(0, upto - 160):upto]
-                                    gap_hint = " loose-tail:" + repr(snippet.decode("utf-8", "replace").strip()[-80:])
-                                except (ValueError, TypeError):
-                                    pass
-                            problem = f"LEDGER-CHAIN-BREAK after {str(a['after'])[:12]} before {str(b.get('before'))[:12]}{gap_hint}"
-                            break
-            if problem:
+        recs: list = []
+        rcv = led.parent / ".g82-receipts.jsonl"
+        if rcv.exists():
+            for ln in rcv.read_text().splitlines():
+                try:
+                    recs.append(json.loads(ln))
+                except json.JSONDecodeError:
+                    continue
+        stamp_t = time.strftime("%FT%TZ", time.gmtime())
+        raw = led.read_bytes()
+        problems: list = []
+        for r in recs:
+            ab = r.get("after_bytes")
+            af = r.get("after")
+            if ab is None or af is None or int(ab) > len(raw):
+                continue
+            if hashlib.sha256(raw[:int(ab)]).hexdigest() != af:
+                problems.append(f"PREFIX-TAMPER receipt {str(r.get('ts'))} prefix {int(ab)}B no longer hashes to {af[:12]}")
+        max_ab = max([int(r["after_bytes"]) for r in recs if "after_bytes" in r], default=0)
+        tail = raw[max_ab:]
+        st0 = json.loads(STATE.read_text()) if STATE.exists() else {}
+        if tail.strip():
+            seen_tail = st0.get("tail_seen_sha")
+            if hashlib.sha256(tail).hexdigest() != seen_tail:
                 with LOG.open("a") as f:
-                    f.write(f"- {stamp_t} WARN {problem}\n")
-                violations += 1
+                    f.write(f"- {stamp_t} INFO UNRECEIPTED-APPEND {len(tail)}B after last receipt; attribution-head: {tail[:120].decode('utf-8', 'replace').strip()!r}\n")
+        else:
+            seen_tail = st0.get("tail_seen_sha")
         if test_since is None:
             STATE.parent.mkdir(parents=True, exist_ok=True)
             st = json.loads(STATE.read_text()) if STATE.exists() else {}
-            upd = {"last_time": max_t, "ledger_sha": cur}
-            if cur != prev_sha or "rc_seen" not in st:
-                upd["rc_seen"] = len([r for r in recs if "after" in r]) if recs else st.get("rc_seen", 0)
-            st.update(upd)
+            st.update({"last_time": max_t, "ledger_sha": cur,
+                       "tail_seen_sha": hashlib.sha256(tail).hexdigest() if tail.strip() else None})
             tmp = STATE.with_suffix(".tmp")
             tmp.write_text(json.dumps(st) + "\n")
             os.replace(tmp, STATE)
-        return_out = (max_t, scanned, violations)
-    else:
-        return_out = (max_t, scanned, violations)
-    print(f"plain-watch: scanned={return_out[1]} violations={return_out[2]} state_to={return_out[0]}")
+        for msg in problems:
+            violations += 1
+            with LOG.open("a") as f:
+                f.write(f"- {stamp_t} CRITICAL {msg}\n")
+    print(f"plain-watch: scanned={scanned} violations={violations} state_to={max_t}")
     return 0
 
 
