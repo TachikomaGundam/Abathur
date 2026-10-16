@@ -28,7 +28,7 @@ LOOP_DIR = Path(__file__).resolve().parent
 CONSTITUTION_G1 = LOOP_DIR / "constitution_g1.md"
 # promoted default face (G47/G48/G49 rulings of 2026-10-16, owner verbatim:
 # "批准晋升 G47 G48 G49"): bare-seeded candidates carry clauses 1-9.
-CONSTITUTION_CURRENT = LOOP_DIR / "constitution_g28.md"  # g28 = g27 + clause-7 UNRATIFIED banner (2bf8)
+CONSTITUTION_CURRENT = LOOP_DIR / "constitution_g29.md"  # g29 = g28 + 批一轮数上限（机主逐字『一』2026-10-16 批准入宪）
 
 # session-state noise under the fake home: excluded from user-space hash comparison.
 # Paths are relative to candidate/ root, so they carry the "home/" prefix.
