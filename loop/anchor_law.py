@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""anchor_law/v1 — clause-7 determinism artifact (owner ratification pending).
+"""anchor_law — zone-lenient dead-anchor classifier. STATUS: NOT-RATIFIED (2026-10-17):
+the ratified clause-7 determinism artifact is report_check/v7 strict kill-table wiring
+(annotation restatements NOT exempt). Retained as history + a regression utility for
+receipt-surface analysis; do not cite as the exam caliber.
+
+Original draft framing: clause-7 determinism artifact (owner ratification pending).
 
 Removes judge discretion from the dead/live-anchor classification of SR4-64
 receipts. A DEAD anchor's literal is lawful precisely when it appears as
