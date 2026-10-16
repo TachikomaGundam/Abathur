@@ -50,6 +50,8 @@ SENT_SPLIT = re.compile(r"[。！？!?\n]")
 #        bless a window; only completed-gate output token counts as authorization.
 #   v1.2 2026-10-12 ledger/state/log paths env-overridable (PLAINWATCH_LEDGER/STATE/LOG)
 #        — integration tests must never target the live intent ledger.
+#   v1.3 2026-10-16 bypass evidence moved to gate receipt FILE (before,after pairing);
+#        stdout token retired as evidence (truncatable by caller pipes — G-82, 30 false warns).
 # ---------------------------------------------------------------------------
 PRESCRIPTION_MIN_CHARS = 200
 VERB_FAMILIES = [
@@ -179,16 +181,20 @@ def main() -> int:
         if test_since is None and STATE.exists():
             prev_sha = json.loads(STATE.read_text()).get("ledger_sha")
         if prev_sha and cur != prev_sha:
-            adb = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
-            n_app = adb.execute(
-                "SELECT COUNT(*) FROM part p JOIN message m ON p.message_id=m.id"
-                " JOIN session s ON s.id=m.session_id"
-                " WHERE s.directory LIKE '%Abathur' AND json_extract(p.data,'$.type')='tool'"
-                " AND m.time_created > ? AND m.time_created <= ?"
-                " AND p.data LIKE '%LEDGER-APPEND-OK%'",
-                (since, int(time.time() * 1000)),
-            ).fetchone()[0]
-            if n_app == 0:
+            # v1.3 修 G-82: 完成证据改读回执文件(<ledger 目录>/.g82-receipts.jsonl)——
+            # stdout token 可被调用方管道截伤(cut/grep 实证 30 例误告), 文件通道不可截。
+            rcv = led.parent / ".g82-receipts.jsonl"
+            blessed = False
+            if rcv.exists():
+                for ln in rcv.read_text().splitlines():
+                    try:
+                        rec = json.loads(ln)
+                    except json.JSONDecodeError:
+                        continue
+                    if rec.get("before") == prev_sha and rec.get("after") == cur:
+                        blessed = True
+                        break
+            if not blessed:
                 stamp_t = time.strftime("%FT%TZ", time.gmtime())
                 with LOG.open("a") as f:
                     f.write(f"- {stamp_t} WARN BYPASS-WRITE ledger sha {prev_sha[:12]}->{cur[:12]} no-ledger-append-call-visible\n")
