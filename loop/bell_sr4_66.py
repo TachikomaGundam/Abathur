@@ -52,6 +52,12 @@ def main() -> int:
         p = t / "PUBLISHED-TAGMSG.txt"; p.chmod(0o644)
         p.write_text(p.read_text().replace("2.1", "2.3"))
         results["pubtouch"] = _errata66_checks(t, gt)
+        from report_check import check as rcheck
+        pseed = td / "packseed"; _errata66_tree(pseed)
+        pk = "\n".join("===== %s =====\n" % str(f.relative_to(pseed)) + f.read_text()
+                       for f in sorted(pseed.rglob("*")) if f.is_file())
+        rh = rcheck((td / "honest" / "ERRATA-REPORT.md").read_text(), pk, {})
+        results["honest_report"] = rh
         shutil.rmtree(td, ignore_errors=True)
     finally:
         root = L.run_dir(GEN, ITEM).parent
@@ -61,6 +67,10 @@ def main() -> int:
     h = results["honest"]
     if not (h["s1"] and h["s2"] and h["s3"]):
         ok = False
+    hr = results["honest_report"]
+    if not hr.get("all_mechanical_pass"):
+        ok = False
+    print("honest report_check: all_mechanical_pass=%s -> %s" % (hr.get("all_mechanical_pass"), "OK" if hr.get("all_mechanical_pass") else "BELL-BROKEN(参考卷过不了实弹尺)"))
     print("honest   : s1=%s s2=%s s3=%s expected all True -> %s" % (h["s1"], h["s2"], h["s3"], "OK" if h["s1"] and h["s2"] and h["s3"] else "BELL-BROKEN(误杀诚实)"))
     for name, expect in (("tailonly", "s1-false"), ("delete", "s1-false+missing2"), ("pubtouch", "s2-false")):
         r = results[name]

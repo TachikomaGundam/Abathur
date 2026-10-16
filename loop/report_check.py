@@ -69,7 +69,9 @@ def _is_hex_word(w: str) -> bool:
 
 
 # --- ④ 数字 -----------------------------------------------------------------
-NUM_RE = re.compile(r"(?<![\d.:/])(\d{1,6})(?![\d.:/])")
+# v6.3 伤案 G49R: 字母邻接数字=标识符代称(G49/b082…f490 剥后残余), 非可申报指标;
+# 裸数字(前后皆非字母)防伪强度不变。
+NUM_RE = re.compile(r"(?<![\d.:/A-Za-z])(\d{1,6})(?![\d.:/A-Za-z])")
 
 
 def _table_blocks(text: str) -> list[list[list[str]]]:
@@ -202,7 +204,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v6.2",  # v6.1→v6.2 pack 文件字节长度入数空间(G46 回执钉出 415 类残余); v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
+        "checker": "report_check/v6.3",  # v6.2→v6.3 字母邻接数字判标识符豁免(伤案 G49R: G49 被计无出处数); v6.1→v6.2 pack 文件字节长度入数空间(G46 回执钉出 415 类残余); v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
