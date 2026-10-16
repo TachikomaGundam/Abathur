@@ -135,8 +135,8 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
     layers = {lay: any(_any_key(t, keys) for t in all_heads.splitlines()) for lay, keys in LAYER_KEYS.items()}
     tables = _table_blocks(body)
     has_table = any(
-        any(c.strip() in ("前", "战前", "之前", "原", "旧", "改前", "以前") or _any_key(c, ("战前", "之前", "原", "旧", "改前", "调整前", "优化前", "实施前")) for c in t[0])
-        and any(c.strip() in ("后", "战后", "之后", "现", "改后", "以后", "现在") or _any_key(c, ("战后", "之后", "现", "改后", "调整后", "优化后", "实施后")) for c in t[0])
+        any(c.strip() in ("前", "战前", "之前", "此前", "原", "旧", "改前", "以前") or _any_key(c, ("战前", "之前", "此前", "原", "旧", "改前", "调整前", "优化前", "实施前")) for c in t[0])
+        and any(c.strip() in ("后", "战后", "之后", "此后", "现", "改后", "以后", "现在") or _any_key(c, ("战后", "之后", "此后", "现", "改后", "调整后", "优化后", "实施后")) for c in t[0])
         for t in tables)
     gap_sec_idx = [i for i, (_, h, _) in enumerate(sections) if h and _any_key(h, GAP_KEYS)]
     has_gap_sec = bool(gap_sec_idx)
@@ -204,7 +204,7 @@ def check(report_text: str, pack_text: str, truth: dict) -> dict:
         kill, kill_reasons = True, kill_reasons + [f"≥2 个表内数字在证据包中无出处（捏造指标）: {untraced}"]
 
     return {
-        "checker": "report_check/v6.3",  # v6.2→v6.3 字母邻接数字判标识符豁免(伤案 G49R: G49 被计无出处数); v6.1→v6.2 pack 文件字节长度入数空间(G46 回执钉出 415 类残余); v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
+        "checker": "report_check/v6.4",  # v6.3→v6.4 此前/此后 同义对入表头词组(伤案 G49R3: 诚实卷『此前/此后』表头漏配); v6.2→v6.3 字母邻接数字判标识符豁免(伤案 G49R: G49 被计无出处数); v6.1→v6.2 pack 文件字节长度入数空间(G46 回执钉出 415 类残余); v6→v6.1 数字溯源剥 hex 长跑(伤三连 G42/G45/G46, B6 真卷锚); v5.1→v6 派生数除零护栏(零基期百分比跳过不崩, 旧 blob 回归证明 G41 案在册); v2→v3 白话词典裸用检测; v1→v2 粗体层标记+前/后列头漏检修复(伤案=G21/SR4-30)
         "structure": {"one_line": bool(has_oneline), "layers": layers,
                       "before_after_table": has_table, "gap_section": has_gap_sec,
                       "receipt_layer": has_receipt, "pass": structure_pass},
