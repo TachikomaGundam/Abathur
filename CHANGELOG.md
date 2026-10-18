@@ -10,14 +10,43 @@ All notable changes to Abathur are documented here.
   untagged observed heads, and contradictory versions stay distinct
 - bind the compiled version record to the adjacent package manifest; a stale
   compiled artifact now refuses to report a version
-- ship an explicit runtime whitelist: compiled tests and the campaign-local PCB
-  grader stay out of the package, while the configured historian grader remains
+- ship an explicit runtime whitelist: compiled tests, the campaign-local PCB
+  grader, and the historian integration assets all stay out of the package —
+  both service integrations moved to a separate checkout entirely
 - remove machine-local defaults from historian judge hooks; operators must
   explicitly provide the judge bench and model, or the hook exits 2 before spawn
 - remove the unused `stateDir` setting; legacy config now refuses it with a
   migration reason instead of claiming to redirect runtime state
 - make the OpenCode adapter an optional peer dependency and exclude all
   service-specific historian assets from the core npm package
+- publish.yml now runs the full suite before publish; CI covers the declared
+  Node floor and the publish toolchain (22.22.2 + 24) and gates on
+  `npm audit --omit=dev`; plugin/abathur.ts is type-checked via
+  tsconfig.plugin.json on every test run
+
+## 0.2.9 — 2026-10-12
+
+- release gate receipt: CRITICAL=0, suite green on the cargo tree; the
+  empty-spin incident was named with a baseline-math detection trail
+- sanitized cargo slice from main (post PCB fix 43117e7): closed-list build,
+  orphan content-only
+
+## 0.2.5 — 2026-09-22
+
+- sanitized sync from internal main @ 5dcca10: graders s13-17, the stats
+  cross-arm rule, and d7 hygiene fixes
+- retro-added the 0.2.4 CHANGELOG entry and plugin marker parity
+- border waiver for the integrity-test Windows-drive regex literal (same
+  recognized class as the v0.2.4 set)
+
+## 0.2.4 — 2026-09-14
+
+- sanitized sync from local main (content-only; excludes session state per the
+  border closed-list)
+- status resolves env-literal repoPaths via effectiveRepoPath, matching every
+  other command
+- test(bench): unique hang marker per file — fixes the cross-file ps race hit
+  twice by this release's CI
 
 ## 0.2.8
 - engine fail-open repair (r21 injury ticket): non-finite grader scores are ruler failures, never replicates; a fully-excluded comparison pool returns inconclusive("vacuous evidence") instead of minting NaN nominations; regression test (stats 32/32, suite 552/0-fail)

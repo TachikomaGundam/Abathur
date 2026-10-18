@@ -14,7 +14,9 @@ import { COMMANDS } from "../cli.js";
 
 const REPO = fileURLToPath(new URL("../..", import.meta.url));
 const readme = readFileSync(path.join(REPO, "README.md"), "utf8");
+const changelog = readFileSync(path.join(REPO, "CHANGELOG.md"), "utf8");
 const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8")) as {
+  version: string;
   dependencies: Record<string, string>;
 };
 
@@ -59,4 +61,9 @@ test("opencode-status foreign semantics stay as the code behaves", () => {
   assert.ok(!readme.includes("both commands refuse with exit 2"), "stale EN foreign claim");
   assert.ok(!readme.includes("两条命令都会 exit 2"), "stale ZH foreign claim");
   assert.ok(readme.includes("reports the foreign state and exits 0"), "EN foreign/status pair missing");
+});
+
+test("package version has a CHANGELOG entry", () => {
+  const heading = new RegExp(`^## ${pkg.version.replaceAll(".", String.raw`\.`)}\\b`, "m");
+  assert.match(changelog, heading, `CHANGELOG.md has no entry for ${pkg.version}`);
 });
