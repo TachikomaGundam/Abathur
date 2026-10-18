@@ -45,7 +45,12 @@ abathur --help
 
 Requires Node `^22.22.2 || ^24.15.0 || >=26.0.0` and `git` on `PATH`. The core
 runtime depends only on `zod`. The optional OpenCode adapter requires its host
-to resolve the `@opencode-ai/plugin` peer.
+to resolve the `@opencode-ai/plugin` peer. The peer is declared as a semver range, not
+a pinned version — compatibility drift is caught by the plugin typecheck gate
+(`tsconfig.plugin.json`, run by `npm test`), not by freezing the dependency. The
+package's `./server` export intentionally points at `plugin/abathur.ts` TypeScript
+source: OpenCode loads plugin entries through its own loader, so this follows the host
+convention rather than shipping a pre-compiled artifact.
 Real benches additionally need the `opencode` CLI (path via `opencodeBin` in
 config or `PATH` lookup) and whatever a genome's `requires[]` probes name.
 
