@@ -6,17 +6,16 @@ import { createHash } from "node:crypto";
 
 import { cannotAnswer } from "../exit.js";
 import { parseJsonc } from "../jsonc.js";
-import { benchDigest, type BenchDigestScript, type BenchDigestUnit } from "./ids.js";
-import { genomeSpecSchema, type GenomeSpec } from "./spec.js";
 import { buildMaskPlan, type MaskPlan } from "./bundle-mask.js";
 import type { TarMember } from "./bundle-tar.js";
+import { type BenchDigestScript, type BenchDigestUnit, benchDigest } from "./ids.js";
+import { type GenomeSpec, genomeSpecSchema } from "./spec.js";
 
 export const EVIDENCE_CAP_BYTES = 2 * 1024 * 1024;
 export const TREES_PREFIX = "trees/";
 export const EVIDENCE_PREFIX = "evidence/";
 
-export const sha256Hex = (data: Uint8Array | string): string =>
-  createHash("sha256").update(data).digest("hex");
+export const sha256Hex = (data: Uint8Array | string): string => createHash("sha256").update(data).digest("hex");
 
 /** trees/<genId>/... member paths → the generation ids shipped in this bundle. */
 export function bundleGenIds(members: readonly TarMember[]): string[] {
@@ -51,7 +50,9 @@ export function parseSpecMember(bytes: Uint8Array, origin: string): GenomeSpec {
   try {
     document = parseJsonc(new TextDecoder().decode(bytes));
   } catch (cause) {
-    return cannotAnswer(`bundle: malformed JSONC in ${origin}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    return cannotAnswer(
+      `bundle: malformed JSONC in ${origin}: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
   }
   const parsed = genomeSpecSchema.safeParse(document);
   if (!parsed.success) {
@@ -62,7 +63,8 @@ export function parseSpecMember(bytes: Uint8Array, origin: string): GenomeSpec {
 
 export function containedSpec(tree: Map<string, Uint8Array>, genId: string): GenomeSpec {
   const specBytes = tree.get("genome.jsonc");
-  if (specBytes === undefined) cannotAnswer(`bundle: trees/${genId}/genome.jsonc missing — cannot self-describe the genome`);
+  if (specBytes === undefined)
+    cannotAnswer(`bundle: trees/${genId}/genome.jsonc missing — cannot self-describe the genome`);
   return parseSpecMember(specBytes, `trees/${genId}/genome.jsonc`);
 }
 
@@ -95,7 +97,8 @@ export function benchScriptsFor(spec: GenomeSpec, tree: Map<string, Uint8Array>)
 export function benchDigestFor(spec: GenomeSpec, tree: Map<string, Uint8Array>, genId: string): string {
   const units: BenchDigestUnit[] = spec.bench.units.map((unit) => {
     const content = tree.get(unit.path);
-    if (content === undefined) cannotAnswer(`bundle: bench unit '${unit.id}' file '${unit.path}' absent from trees/${genId}/`);
+    if (content === undefined)
+      cannotAnswer(`bundle: bench unit '${unit.id}' file '${unit.path}' absent from trees/${genId}/`);
     return { unitId: unit.id, content };
   });
   return benchDigest({

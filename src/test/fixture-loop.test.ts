@@ -15,17 +15,16 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { registerGenome, requireGenomesByLabel, type RegistryEntry } from "../core/genome.js";
-import { Ledger } from "../core/ledger.js";
-import type { WorktreeEnv } from "../core/genome-paths.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
-import { runEvolution, type RunLoopOutcome } from "../core/evolve/run-loop.js";
+import { type RunLoopOutcome, runEvolution } from "../core/evolve/run-loop.js";
+import { type RegistryEntry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv } from "../core/genome-paths.js";
+import { Ledger } from "../core/ledger.js";
 
 // --------------------------------------------------------------------- stubs
 
@@ -290,7 +289,10 @@ test("--include-val completes the run AND exposes val ids/paths in this run's ma
   const manifests = manifestsUnder(f.sandboxRoot);
   assert.ok(manifests.length >= 2);
   for (const m of manifests) {
-    assert.ok(readFileSync(m, "utf8").includes(VAL_CANARY), `operator asked for exposure: ${m} still hides the val path`);
+    assert.ok(
+      readFileSync(m, "utf8").includes(VAL_CANARY),
+      `operator asked for exposure: ${m} still hides the val path`,
+    );
     const val = valEntry(m);
     assert.equal(val.id, "v1");
     assert.equal(val.path, VAL_PATH);

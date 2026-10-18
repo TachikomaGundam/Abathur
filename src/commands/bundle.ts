@@ -2,13 +2,12 @@
 // registry lookup live here; all bundle mechanics in src/core/bundle*.ts.
 
 import { homedir } from "node:os";
-
+import type { CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
-import { EXIT_OK, cannotAnswer, type ExitCode } from "../exit.js";
 import { exportBundle } from "../core/bundle-export.js";
 import { inspectBundle } from "../core/bundle-inspect.js";
+import { cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
-import type { CommandSpec } from "../cli.js";
 import { resolveUniqueEntry } from "./run.js";
 
 const USAGE =
@@ -36,7 +35,8 @@ function parseExportFlags(args: readonly string[]): ExportFlags {
       genIds.push(value);
       i += 1;
     } else if (flag === "--last") {
-      if (value === undefined || !/^\d+$/.test(value)) cannotAnswer("bundle export: --last needs a positive integer", USAGE);
+      if (value === undefined || !/^\d+$/.test(value))
+        cannotAnswer("bundle export: --last needs a positive integer", USAGE);
       last = Number.parseInt(value, 10);
       i += 1;
     } else if (flag === "--out") {
@@ -48,7 +48,8 @@ function parseExportFlags(args: readonly string[]): ExportFlags {
     }
   }
   if (genIds.length > 0 && last !== null) cannotAnswer("bundle export: choose --gen or --last, not both", USAGE);
-  if (genIds.length === 0 && last === null) cannotAnswer("bundle export: pick generations with --gen <id> or --last <N>", USAGE);
+  if (genIds.length === 0 && last === null)
+    cannotAnswer("bundle export: pick generations with --gen <id> or --last <N>", USAGE);
   if (outDir === null) cannotAnswer("bundle export: --out <dir> is required", USAGE);
   return { label, genIds: genIds.length > 0 ? genIds : null, last, outDir };
 }
@@ -66,7 +67,8 @@ async function runBundle(args: readonly string[]): Promise<ExitCode> {
   }
   if (sub === "inspect") {
     const [bundlePath] = rest;
-    if (bundlePath === undefined || rest.length !== 1) cannotAnswer("bundle inspect: expected exactly one bundle path", USAGE);
+    if (bundlePath === undefined || rest.length !== 1)
+      cannotAnswer("bundle inspect: expected exactly one bundle path", USAGE);
     const outcome = inspectBundle({ bundlePath, home: homedir() });
     for (const line of outcome.lines) writeStdout(line);
     return outcome.exitCode;

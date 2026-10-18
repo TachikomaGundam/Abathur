@@ -17,23 +17,34 @@
 // Fail-closed: no candidate row / no incumbent row for the same runId / an existing
 // promote row for the gen ⇒ refusal before any state read becomes a mutation.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { blocked, cannotAnswer } from "../exit.js";
-import type { RegistryEntry } from "./genome.js";
-import { effectiveRepoPath } from "./spec.js";
-import { evaluate, needsExit, type BudgetCounters, type Verdict } from "./stats.js";
-import { acquireGenomeLock, acquireLock, Ledger, ledgerPath, ledgerRecordSchema, LEDGER_KIND_GENERATION_COMPLETE, LEDGER_KIND_PROMOTE, type LedgerRecord } from "./ledger.js";
 import { asReplicates, decodeGenerationRecord } from "./evolve/run-bench.js";
 import { effectiveCaps } from "./evolve/run-plan.js";
 import type { GenerationRowData } from "./evolve/run-rows.js";
 import { loadScoreBank } from "./evolve/score-bank.js";
+import type { RegistryEntry } from "./genome.js";
+import {
+  acquireGenomeLock,
+  acquireLock,
+  LEDGER_KIND_GENERATION_COMPLETE,
+  LEDGER_KIND_PROMOTE,
+  Ledger,
+  type LedgerRecord,
+  ledgerPath,
+  ledgerRecordSchema,
+} from "./ledger.js";
+import { effectiveRepoPath } from "./spec.js";
+import { type BudgetCounters, evaluate, needsExit, type Verdict } from "./stats.js";
 
 const LIVE_LEDGER = "ledger.jsonl";
 
 function isRotatedArchive(name: string): boolean {
-  return name.startsWith("ledger.") && name.endsWith(".jsonl") && name !== LIVE_LEDGER && !name.startsWith("ledger.corrupt-");
+  return (
+    name.startsWith("ledger.") && name.endsWith(".jsonl") && name !== LIVE_LEDGER && !name.startsWith("ledger.corrupt-")
+  );
 }
 
 interface FileRow {
@@ -83,7 +94,10 @@ function collectRows(dir: string): { rows: FileRow[]; notices: string[] } {
 }
 
 function display(value: string, max = 96): string {
-  const flat = value.replace(/[^ -~]/g, " ").replace(/\s+/g, " ").trim();
+  const flat = value
+    .replace(/[^ -~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
@@ -122,7 +136,10 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
     if (data.source === "candidate") candidate = { row: r, data };
   }
   if (candidate === null) {
-    blocked(`re-adjudicate: no candidate generation_complete row for gen '${shown}' (searched live ledger + rotated archives in ${dir})`, `state is read only from the ledger files — check candidates with \`abathur status ${entry.label}\``);
+    blocked(
+      `re-adjudicate: no candidate generation_complete row for gen '${shown}' (searched live ledger + rotated archives in ${dir})`,
+      `state is read only from the ledger files — check candidates with \`abathur status ${entry.label}\``,
+    );
   }
   if (candidate.data.verdict === undefined) {
     blocked(`re-adjudicate: candidate row for gen '${shown}' has no verdict — nothing to re-judge`);
@@ -135,7 +152,10 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
 
   // incumbent row: same runId, candidate's epoch — search ALL rows, archives included.
   const runId = cand.row.record.runId;
-  if (runId === undefined) cannotAnswer(`re-adjudicate: candidate row for gen '${shown}' lacks runId — cannot pair it with its incumbent baseline`);
+  if (runId === undefined)
+    cannotAnswer(
+      `re-adjudicate: candidate row for gen '${shown}' lacks runId — cannot pair it with its incumbent baseline`,
+    );
   for (const r of rows) {
     if (r.record.kind !== LEDGER_KIND_GENERATION_COMPLETE || r.record.runId !== runId) continue;
     if (r.record.genId === genId) continue; // same gen never supplies the incumbent arm
@@ -147,13 +167,17 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
     }
     if (data.source === "incumbent") {
       if (incumbent !== null && incumbent.row.record.genId !== r.record.genId) {
-        cannotAnswer(`re-adjudicate: multiple incumbent rows for runId '${display(runId)}' with differing gens — ambiguous epoch, refusing`);
+        cannotAnswer(
+          `re-adjudicate: multiple incumbent rows for runId '${display(runId)}' with differing gens — ambiguous epoch, refusing`,
+        );
       }
       incumbent = { row: r, data };
     }
   }
   if (incumbent === null) {
-    blocked(`re-adjudicate: no incumbent baseline row for runId '${display(runId)}' (candidate gen '${shown}') — cannot re-judge an unpaired epoch`);
+    blocked(
+      `re-adjudicate: no incumbent baseline row for runId '${display(runId)}' (candidate gen '${shown}') — cannot re-judge an unpaired epoch`,
+    );
   }
   const inc = incumbent; // non-null alias (incumbent guarded above; narrowing dies in the loop)
 
@@ -176,7 +200,9 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
   }
   const counters: BudgetCounters = { candidates: 0, modelCalls, tokens, wallS: Number(wallS.toFixed(3)) };
 
-  const bank = loadScoreBank(repo, { excludeCandidateTrees: cand.data.treeSha === undefined ? [] : [cand.data.treeSha] });
+  const bank = loadScoreBank(repo, {
+    excludeCandidateTrees: cand.data.treeSha === undefined ? [] : [cand.data.treeSha],
+  });
   const gate = evaluateWith(entry, cand.data, inc.data, counters, runId, bank);
 
   const lines: string[] = [];
@@ -196,17 +222,26 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
   const ledger = Ledger.open(repo);
   const lease = acquireGenomeLock({ ledger, configDir: req.configDir, genomeFp: entry.fingerprint });
   try {
-    const repoLease = acquireLock({ configDir: path.join(repo, ".state", "abathur"), key: "gate", label: "re-adjudicate lock" });
+    const repoLease = acquireLock({
+      configDir: path.join(repo, ".state", "abathur"),
+      key: "gate",
+      label: "re-adjudicate lock",
+    });
     try {
       // re-read under lock: a promote or younger row may have landed while we computed.
-      const fresh = collectRows(dir).rows.filter((r) => r.record.kind === LEDGER_KIND_GENERATION_COMPLETE && r.record.genId === genId);
-      const lastData = [...fresh].reverse().map((r) => {
-        try {
-          return decodeGenerationRecord(r.record);
-        } catch {
-          return null;
-        }
-      }).find((d) => d !== null);
+      const fresh = collectRows(dir).rows.filter(
+        (r) => r.record.kind === LEDGER_KIND_GENERATION_COMPLETE && r.record.genId === genId,
+      );
+      const lastData = [...fresh]
+        .reverse()
+        .map((r) => {
+          try {
+            return decodeGenerationRecord(r.record);
+          } catch {
+            return null;
+          }
+        })
+        .find((d) => d !== null);
       if (lastData === undefined) {
         blocked(`re-adjudicate: gen '${shown}' rows vanished under lock — state moved, nothing appended`);
       }
@@ -215,10 +250,14 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
         return { appended: false, verdict: gate.verdict, lines };
       }
       if (lastData.readjudication !== undefined) {
-        blocked(`re-adjudicate: gen '${shown}' already has a readjudication row verdict '${lastData.verdict}' disagreeing with replay '${gate.verdict}' — a second correction would erase the first; hand the ledger a ruling instead`);
+        blocked(
+          `re-adjudicate: gen '${shown}' already has a readjudication row verdict '${lastData.verdict}' disagreeing with replay '${gate.verdict}' — a second correction would erase the first; hand the ledger a ruling instead`,
+        );
       }
       if (fresh.some((r) => r.record.kind === LEDGER_KIND_PROMOTE)) {
-        blocked(`re-adjudicate: gen '${shown}' was promoted while this command computed — refusing to amend a promoted epoch`);
+        blocked(
+          `re-adjudicate: gen '${shown}' was promoted while this command computed — refusing to amend a promoted epoch`,
+        );
       }
       const replayExit = needsExit(gate.verdict);
       const data: GenerationRowData = {
@@ -240,8 +279,12 @@ export function readjudicateGeneration(req: ReadjudicateRequest): ReadjudicateOu
         },
       };
       ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, genId, ...(runId === undefined ? {} : { runId }), data });
-      lines.push(`ledger: appended corrected generation_complete row (verdict '${gate.verdict}', actor: re-adjudicate) to ${ledgerPath(repo)}`);
-      lines.push(`files are immutable — the original '${cand.data.verdict}' row remains in ${cand.row.file} as history`);
+      lines.push(
+        `ledger: appended corrected generation_complete row (verdict '${gate.verdict}', actor: re-adjudicate) to ${ledgerPath(repo)}`,
+      );
+      lines.push(
+        `files are immutable — the original '${cand.data.verdict}' row remains in ${cand.row.file} as history`,
+      );
       for (const f of gate.failures) lines.push(`  gate: ${f}`);
     } finally {
       repoLease.release();
@@ -269,5 +312,10 @@ function evaluateWith(
     nPairs: 1,
     ...(bank === null ? {} : { bank: bank.units }),
   });
-  return { verdict: verdict.verdict, gain: verdict.gain, failures: verdict.failures, candidateVerdictBefore: String(candidate.verdict) };
+  return {
+    verdict: verdict.verdict,
+    gain: verdict.gain,
+    failures: verdict.failures,
+    candidateVerdictBefore: String(candidate.verdict),
+  };
 }

@@ -9,21 +9,20 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { gunzipSync } from "node:zlib";
-
-import { EXIT_BLOCKED, ExitSignal, cannotAnswer, type ExitCode } from "../exit.js";
-import type { ConfigEnv } from "../config.js";
 import { runChild } from "../bench/adapter.js";
 import { probeEngines, resolveOpencodeBin } from "../bench/fixture-probe.js";
 import { compareSemver, parseSemver } from "../bench/fixture-support.js";
+import type { ConfigEnv } from "../config.js";
+import { cannotAnswer, EXIT_BLOCKED, type ExitCode, ExitSignal } from "../exit.js";
 import { benchDigestFor, containedSpec } from "./bundle-common.js";
-import { bundleManifestSchema, deriveBenchProvenance, type BundleManifest } from "./bundle-manifest.js";
+import { type BundleManifest, bundleManifestSchema, deriveBenchProvenance } from "./bundle-manifest.js";
 import { readTar, type TarMember } from "./bundle-tar.js";
-import { clampReps } from "./stats.js";
-import { emptyCounters, readResume, type GenerationRowData } from "./evolve/run-rows.js";
+import { emptyCounters, type GenerationRowData, readResume } from "./evolve/run-rows.js";
 import type { RegistryEntry } from "./genome.js";
-import { Ledger } from "./ledger.js";
-import { decodeGraftImport, isTerminalDecision, sha12, LEDGER_KIND_GRAFT_IMPORT } from "./graft-support.js";
+import { decodeGraftImport, isTerminalDecision, LEDGER_KIND_GRAFT_IMPORT, sha12 } from "./graft-support.js";
+import type { Ledger } from "./ledger.js";
 import type { GenomeSpec } from "./spec.js";
+import { clampReps } from "./stats.js";
 
 const BUNDLE_MAX_BYTES = 256 * 1024 * 1024;
 const PROBE_TIMEOUT_S = 30;
@@ -59,7 +58,9 @@ export function readBundleBytes(bundlePath: string): Buffer {
     return cannotAnswer(`graft: cannot read bundle ${bundlePath}`);
   }
   if (bytes.byteLength > BUNDLE_MAX_BYTES) {
-    cannotAnswer(`graft: bundle ${bundlePath} is ${String(bytes.byteLength)} bytes — exceeds the ${String(BUNDLE_MAX_BYTES)} byte ceiling`);
+    cannotAnswer(
+      `graft: bundle ${bundlePath} is ${String(bytes.byteLength)} bytes — exceeds the ${String(BUNDLE_MAX_BYTES)} byte ceiling`,
+    );
   }
   return bytes;
 }
@@ -71,7 +72,9 @@ export function parseBundleBytes(bytes: Uint8Array): VerifiedBundle {
   try {
     members = readTar(new Uint8Array(gunzipSync(bytes)));
   } catch (cause) {
-    return cannotAnswer(`graft: bundle bytes unreadable after inspect passed: ${cause instanceof Error ? cause.message : String(cause)}`);
+    return cannotAnswer(
+      `graft: bundle bytes unreadable after inspect passed: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
   }
   const raw = members.find((m) => m.path === "manifest.json");
   if (raw === undefined) return cannotAnswer("graft: manifest.json vanished from the bundle");
@@ -79,11 +82,15 @@ export function parseBundleBytes(bytes: Uint8Array): VerifiedBundle {
   try {
     document = JSON.parse(new TextDecoder().decode(raw.content));
   } catch (cause) {
-    return cannotAnswer(`graft: manifest.json is not valid JSON: ${cause instanceof Error ? cause.message.split("\n")[0] : String(cause)}`);
+    return cannotAnswer(
+      `graft: manifest.json is not valid JSON: ${cause instanceof Error ? cause.message.split("\n")[0] : String(cause)}`,
+    );
   }
   const parsed = bundleManifestSchema.safeParse(document);
   if (!parsed.success) {
-    return cannotAnswer(`graft: manifest.json failed schema v1: ${String(parsed.error.issues[0]?.message ?? "schema")}`);
+    return cannotAnswer(
+      `graft: manifest.json failed schema v1: ${String(parsed.error.issues[0]?.message ?? "schema")}`,
+    );
   }
   return { manifest: parsed.data, members };
 }
@@ -125,9 +132,16 @@ export function provenanceGateFailures(
   const claim = manifest.benchProvenance;
   const peerSpec = containedSpec(tree, primary);
   const localVersions = latestIncumbentVersions(ledger);
-  const local = deriveBenchProvenance(provenanceRow(localVersions, clampReps(undefined, spec.bench.stats.nReps), spec), spec);
+  const local = deriveBenchProvenance(
+    provenanceRow(localVersions, clampReps(undefined, spec.bench.stats.nReps), spec),
+    spec,
+  );
   const peer = deriveBenchProvenance(
-    provenanceRow(claim.opencodeVersion === null ? [] : [{ bin: "opencode", version: claim.opencodeVersion }], claim.nRepeats ?? 1, peerSpec),
+    provenanceRow(
+      claim.opencodeVersion === null ? [] : [{ bin: "opencode", version: claim.opencodeVersion }],
+      claim.nRepeats ?? 1,
+      peerSpec,
+    ),
     peerSpec,
   );
   const failures: string[] = [];
@@ -137,11 +151,15 @@ export function provenanceGateFailures(
       failures.push(`${key}: local '${String(local[key] ?? "null")}' vs peer-derived '${String(peer[key] ?? "null")}'`);
     }
     if (claim[key] !== peer[key]) {
-      failures.push(`${key}: manifest claims '${String(claim[key] ?? "null")}' but the contained spec derives '${String(peer[key] ?? "null")}'`);
+      failures.push(
+        `${key}: manifest claims '${String(claim[key] ?? "null")}' but the contained spec derives '${String(peer[key] ?? "null")}'`,
+      );
     }
   }
   if (!opencodeVersionCompatible(local.opencodeVersion, claim.opencodeVersion)) {
-    failures.push(`opencodeVersion: local '${local.opencodeVersion ?? "null"}' not semver-equal to peer '${claim.opencodeVersion ?? "null"}'`);
+    failures.push(
+      `opencodeVersion: local '${local.opencodeVersion ?? "null"}' not semver-equal to peer '${claim.opencodeVersion ?? "null"}'`,
+    );
   }
   return failures;
 }
@@ -170,7 +188,10 @@ function provenanceRow(
     units: [],
     counters: emptyCounters(),
     manifest: [],
-    benchProvenance: { benchType: spec.bench.type, versions: versions.map((v) => ({ bin: v.bin, version: v.version })) },
+    benchProvenance: {
+      benchType: spec.bench.type,
+      versions: versions.map((v) => ({ bin: v.bin, version: v.version })),
+    },
   };
 }
 
@@ -188,16 +209,11 @@ function latestIncumbentVersions(ledger: Ledger): readonly { readonly bin: strin
  * fixture-probe's runChild discipline exactly (argv spawn, 30s, exit-2-before-
  * any-unit on spawn_failed / probeExit mismatch).
  */
-export async function probeGraftPrerequisites(
-  spec: GenomeSpec,
-  opencodeBin: string | null | undefined,
-): Promise<void> {
+export async function probeGraftPrerequisites(spec: GenomeSpec, opencodeBin: string | null | undefined): Promise<void> {
   const repoRoot = path.resolve(spec.repoPath);
   if (spec.bench.type === "opencode-fixture-scenarios") {
     const env: ConfigEnv = process.env;
-    const bin = resolveOpencodeBin(
-      opencodeBin === null || opencodeBin === undefined ? { env } : { opencodeBin, env },
-    );
+    const bin = resolveOpencodeBin(opencodeBin === null || opencodeBin === undefined ? { env } : { opencodeBin, env });
     await probeEngines(spec, bin, repoRoot);
     return;
   }

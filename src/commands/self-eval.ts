@@ -11,22 +11,22 @@
 // trusted tree itself is untrustworthy, so scoring refuses with exit 1 BEFORE
 // any snapshot, spawn, or state exists.
 
+import { existsSync, readFileSync } from "node:fs";
+import type { CommandContext, CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
+import { appendRunFriction, type FrictionUnitEvidence, type RunFrictionInput, scrub } from "../core/evolve/friction.js";
+import { asReplicates } from "../core/evolve/run-bench.js";
+import { runExitCode } from "../core/evolve/run-loop.js";
+import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-rows.js";
+import { type SelfBenchResult, selfBench, selfGuardVerdict } from "../core/evolve/self-snapshot.js";
 import { readRegistry } from "../core/genome.js";
+import { fingerprint, genId } from "../core/ids.js";
 import { auditKernel } from "../core/kernel.js";
 import { ledgerPath, ledgerRecordSchema } from "../core/ledger.js";
-import { existsSync, readFileSync } from "node:fs";
-import { asReplicates } from "../core/evolve/run-bench.js";
-import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-rows.js";
-import { runExitCode } from "../core/evolve/run-loop.js";
-import { appendRunFriction, scrub, type FrictionUnitEvidence, type RunFrictionInput } from "../core/evolve/friction.js";
-import { selfBench, selfGuardVerdict, type SelfBenchResult } from "../core/evolve/self-snapshot.js";
 import { effectiveRepoPath, isEnvRepoLiteral } from "../core/spec.js";
-import { clampReps, evaluate, type BudgetCaps, type BudgetCounters, type Verdict } from "../core/stats.js";
-import { blocked, cannotAnswer, type ExitCode } from "../exit.js";
-import { genId, fingerprint } from "../core/ids.js";
+import { type BudgetCaps, type BudgetCounters, clampReps, evaluate, type Verdict } from "../core/stats.js";
 import { openGenome } from "../core/worktree.js";
-import type { CommandContext, CommandSpec } from "../cli.js";
+import { blocked, cannotAnswer, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
 import { resolveUniqueEntry } from "./run.js";
 
@@ -46,7 +46,8 @@ function parseFlags(args: readonly string[]): SelfEvalFlags {
   const next = (flag: string): string => {
     index += 1;
     const raw = args[index];
-    if (raw === undefined || raw.length === 0 || raw.startsWith("--")) cannotAnswer(`self-eval: ${flag} requires a value`, USAGE);
+    if (raw === undefined || raw.length === 0 || raw.startsWith("--"))
+      cannotAnswer(`self-eval: ${flag} requires a value`, USAGE);
     return raw;
   };
   while (index < args.length) {
@@ -90,18 +91,23 @@ function candidateRows(genomeRepo: string): CandidateRow[] {
     const value: unknown = JSON.parse(line);
     const parsed = ledgerRecordSchema.safeParse(value);
     if (!parsed.success) {
-      cannotAnswer(`self-eval: ${file}: line ${String(index + 1)} failed ledger schema validation: ${parsed.error.message}`, "the ledger is append-only truth — repair by hand");
+      cannotAnswer(
+        `self-eval: ${file}: line ${String(index + 1)} failed ledger schema validation: ${parsed.error.message}`,
+        "the ledger is append-only truth — repair by hand",
+      );
     }
     const record = parsed.data;
     if (record.kind !== "generation_complete" || record.genId === undefined) return;
     const data = decodeGenerationRecord(record);
-    if (data.source === "candidate" && data.commitSha !== undefined) out.push({ genId: record.genId, commit: data.commitSha, data });
+    if (data.source === "candidate" && data.commitSha !== undefined)
+      out.push({ genId: record.genId, commit: data.commitSha, data });
   });
   return out;
 }
 
 function suiteText(res: SelfBenchResult): string {
-  if (res.suiteRuns.length === 0) return `suite ${res.buildStatus === "timeout" ? "BUILD TIMEOUT" : res.buildStatus === "failed" ? "BUILD FAILED" : "no samples"}`;
+  if (res.suiteRuns.length === 0)
+    return `suite ${res.buildStatus === "timeout" ? "BUILD TIMEOUT" : res.buildStatus === "failed" ? "BUILD FAILED" : "no samples"}`;
   return `suite ${res.suiteRuns.map((r) => `${String(r.pass)}/${String(r.tests)}`).join(" ")}`;
 }
 
@@ -122,8 +128,12 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
   const configDir = resolveConfigDir();
   for (const warning of readRegistry(configDir).warnings) writeStdout(`warning: ${warning}`);
   const entry = resolveUniqueEntry(configDir, flags.label, "self-eval");
-  if (!isEnvRepoLiteral(entry.spec.repoPath)) {  // raw-repoPath: self-mode detection must inspect the STORED literal, not the resolved path
-    cannotAnswer(`self-eval: '${entry.spec.label}' is not a self genome — repoPath must be the \${ABATHUR_SELF_REPO} literal`, "self-eval grades the harness against its own sealed kernel; see genomes/abathur-self.jsonc");
+  if (!isEnvRepoLiteral(entry.spec.repoPath)) {
+    // raw-repoPath: self-mode detection must inspect the STORED literal, not the resolved path
+    cannotAnswer(
+      `self-eval: '${entry.spec.label}' is not a self genome — repoPath must be the \${ABATHUR_SELF_REPO} literal`,
+      "self-eval grades the harness against its own sealed kernel; see genomes/abathur-self.jsonc",
+    );
   }
   const audit = auditKernel(entry, configDir);
   if (!audit.ok) {
@@ -143,11 +153,18 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
   if (flags.gens.length > 0) {
     const wanted = new Set(flags.gens);
     const missing = flags.gens.filter((g) => !byGen.has(g));
-    if (missing.length > 0) blocked(`self-eval: no candidate generation rows for ${missing.map((m) => `'${m}'`).join(", ")} in '${entry.spec.label}'`, `known candidates: ${[...byGen.keys()].join(", ") || "(none)"}`);
+    if (missing.length > 0)
+      blocked(
+        `self-eval: no candidate generation rows for ${missing.map((m) => `'${m}'`).join(", ")} in '${entry.spec.label}'`,
+        `known candidates: ${[...byGen.keys()].join(", ") || "(none)"}`,
+      );
     picked = picked.filter((row) => wanted.has(row.genId));
   }
   if (picked.length === 0) {
-    cannotAnswer(`self-eval: no candidate generations recorded for '${entry.spec.label}' — run evolution first`, `abathur run --genome ${entry.spec.label} --mutator <template>`);
+    cannotAnswer(
+      `self-eval: no candidate generations recorded for '${entry.spec.label}' — run evolution first`,
+      `abathur run --genome ${entry.spec.label} --mutator <template>`,
+    );
   }
   const reps = clampReps(flags.reps ?? undefined, spec.bench.stats.nReps);
   const caps: BudgetCaps = {
@@ -158,7 +175,9 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
   };
   const invRunId = genId(fingerprint({ selfEval: opened.headCommit, at: Date.now() }));
 
-  writeStdout(`self-eval ${entry.spec.label} fp ${entry.fingerprint} incumbent ${opened.headCommit.slice(0, 12)} reps ${String(reps)}`);
+  writeStdout(
+    `self-eval ${entry.spec.label} fp ${entry.fingerprint} incumbent ${opened.headCommit.slice(0, 12)} reps ${String(reps)}`,
+  );
   const incumbent = await selfBench({
     spec,
     genomeRepo,
@@ -169,7 +188,9 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
     reps,
     env: process.env,
   });
-  writeStdout(`  baseline: ${suiteText(incumbent)}, replay observed ${incumbent.replayDigest ?? "n/a"} expected ${incumbent.replayExpected}`);
+  writeStdout(
+    `  baseline: ${suiteText(incumbent)}, replay observed ${incumbent.replayDigest ?? "n/a"} expected ${incumbent.replayExpected}`,
+  );
 
   const evidence = new Map<string, FrictionUnitEvidence>();
   unitEvidence(incumbent, evidence);
@@ -205,15 +226,21 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
     if (res.buildStatus !== "ok") writeStdout(`  build ${res.buildStatus}: ${scrub(res.buildNote, 200)}`);
     if (res.overlaid.length > 0) {
       const shown = res.overlaid.slice(0, 10).join(", ");
-      writeStdout(`  overlay: ${shown}${res.overlaid.length > 10 ? ` (+${String(res.overlaid.length - 10)} more)` : ""}`);
+      writeStdout(
+        `  overlay: ${shown}${res.overlaid.length > 10 ? ` (+${String(res.overlaid.length - 10)} more)` : ""}`,
+      );
     }
     for (const reason of ["sealed", "trusted-tests"] as const) {
       const dropped = res.dropped.filter((d) => d.reason === reason);
       if (dropped.length > 0) writeStdout(`  dropped (${reason}): ${dropped.map((d) => d.path).join(", ")}`);
     }
     for (const failure of gate.failures) writeStdout(`  gate: ${failure}`);
-    if (verdict !== gate.verdict) writeStdout(`  guard: self-bench downgraded ${gate.verdict} -> ${verdict} (see overlay-empty/build-timeout rule)`);
-    for (const note of res.failures) if (note.startsWith("self-bench:")) reasons.push(`${row.data.candidateId ?? row.genId}: ${scrub(note, 200)}`);
+    if (verdict !== gate.verdict)
+      writeStdout(
+        `  guard: self-bench downgraded ${gate.verdict} -> ${verdict} (see overlay-empty/build-timeout rule)`,
+      );
+    for (const note of res.failures)
+      if (note.startsWith("self-bench:")) reasons.push(`${row.data.candidateId ?? row.genId}: ${scrub(note, 200)}`);
   }
 
   const exit = runExitCode(verdicts);
@@ -237,7 +264,10 @@ async function selfEvalHandler(context: CommandContext): Promise<ExitCode> {
     },
     rejected: [],
     units: [...evidence.values()],
-    reasons: [`self-eval ${entry.spec.label}: ${String(picked.length)} candidate(s) over snapshot-overlay bench`, ...reasons],
+    reasons: [
+      `self-eval ${entry.spec.label}: ${String(picked.length)} candidate(s) over snapshot-overlay bench`,
+      ...reasons,
+    ],
     stall: { budgetTruncated: !incumbent.complete, orphanGroups: 0 },
   };
   try {

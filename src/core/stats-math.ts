@@ -9,16 +9,15 @@
 
 const BISECTION_ITERATIONS = 60;
 const LANCZOS: readonly number[] = [
-  0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
-  -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
-  1.5056327351493116e-7,
+  0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+  12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
 ];
 
 // Lanczos g=7 pairs with the 9 coefficients (c0..c8) above.
 const LANCZOS_G = 7;
 
 function logGamma(z: number): number {
-  let x = z - 1;
+  const x = z - 1;
   let acc = LANCZOS[0] as number;
   for (let i = 1; i < LANCZOS.length; i++) {
     acc += (LANCZOS[i] as number) / (x + i);

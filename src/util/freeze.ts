@@ -6,11 +6,7 @@
 import { chmod, lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 
-async function walk(
-  dir: string,
-  dirMode: number,
-  fileMode: (mode: number) => number,
-): Promise<void> {
+async function walk(dir: string, dirMode: number, fileMode: (mode: number) => number): Promise<void> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (entry.isSymbolicLink()) continue;
     const p = path.join(dir, entry.name);

@@ -9,17 +9,21 @@ export const RELEASE_SOURCES = Object.freeze([
 ] as const);
 
 const observationSchema = z.discriminatedUnion("kind", [
-  z.object({
-    source: z.enum(RELEASE_SOURCES),
-    kind: z.literal("observed"),
-    version: z.string().min(1),
-    released: z.boolean(),
-  }).strict(),
-  z.object({
-    source: z.enum(RELEASE_SOURCES),
-    kind: z.literal("unavailable"),
-    reason: z.string().min(1),
-  }).strict(),
+  z
+    .object({
+      source: z.enum(RELEASE_SOURCES),
+      kind: z.literal("observed"),
+      version: z.string().min(1),
+      released: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      source: z.enum(RELEASE_SOURCES),
+      kind: z.literal("unavailable"),
+      reason: z.string().min(1),
+    })
+    .strict(),
 ]);
 
 export type ReleaseSource = (typeof RELEASE_SOURCES)[number];
@@ -86,17 +90,20 @@ export function assessReleaseIdentity(input: readonly unknown[]): ReleaseIdentit
     const observation = bySource.get(source);
     return observation?.kind === "observed" && observation.released === false;
   });
-  const releasedVersions = new Set(RELEASE_SOURCES.flatMap((source) => {
-    const observation = bySource.get(source);
-    return observation?.kind === "observed" && observation.released ? [observation.version] : [];
-  }));
-  const status: ReleaseIdentityStatus = missing.length > 0 || unavailable.length > 0
-    ? "incomplete"
-    : releasedVersions.size > 1
-      ? "diverged"
-      : unreleased.length > 0
-        ? "unreleased"
-        : "aligned";
+  const releasedVersions = new Set(
+    RELEASE_SOURCES.flatMap((source) => {
+      const observation = bySource.get(source);
+      return observation?.kind === "observed" && observation.released ? [observation.version] : [];
+    }),
+  );
+  const status: ReleaseIdentityStatus =
+    missing.length > 0 || unavailable.length > 0
+      ? "incomplete"
+      : releasedVersions.size > 1
+        ? "diverged"
+        : unreleased.length > 0
+          ? "unreleased"
+          : "aligned";
 
   return Object.freeze({
     basis: "supplied-observations" as const,

@@ -9,14 +9,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { parseGenomeSpecDocument, type GenomeSpec } from "../core/spec.js";
-import type { RegistryEntry } from "../core/genome.js";
-import { openBenchAdapter } from "../core/evolve/run-bench.js";
-import { runEvolution } from "../core/evolve/run-loop.js";
 import { FixtureScenariosAdapter, type ScenarioEntry } from "../bench/fixture.js";
 import { parseRunFlags } from "../commands/run.js";
+import { openBenchAdapter } from "../core/evolve/run-bench.js";
+import { runEvolution } from "../core/evolve/run-loop.js";
+import type { RegistryEntry } from "../core/genome.js";
+import { type GenomeSpec, parseGenomeSpecDocument } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 // ------------------------------------------------------------- parse seam
 
@@ -127,7 +126,13 @@ function toyEntry(t: TestContext): RegistryEntry {
     },
     "<include-val-test>",
   );
-  return { fingerprint: "0123456789abcdef", label: "iv-toy", spec, registryFile: "<test>/iv-toy.jsonc", storedText: "{}" };
+  return {
+    fingerprint: "0123456789abcdef",
+    label: "iv-toy",
+    spec,
+    registryFile: "<test>/iv-toy.jsonc",
+    storedText: "{}",
+  };
 }
 
 test("runEvolution: toy genome + --include-val fails closed (exit 2), even with --dry-run", async (t) => {

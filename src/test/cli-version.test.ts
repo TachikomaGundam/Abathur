@@ -60,21 +60,25 @@ for (const command of [
 
 test("runtime version: unreadable manifest has a named error", () => {
   assert.throws(
-    () => runtimeVersion(() => { throw new Error("read denied"); }),
+    () =>
+      runtimeVersion(() => {
+        throw new Error("read denied");
+      }),
     PackageVersionError,
   );
 });
 
 test("runtime version: malformed manifest has a named error", () => {
-  assert.throws(
-    () => runtimeVersion(() => "{"),
-    PackageVersionError,
-  );
+  assert.throws(() => runtimeVersion(() => "{"), PackageVersionError);
 });
 
 test("runtime version: compiled artifact version must match the manifest", () => {
   assert.throws(
-    () => runtimeVersion(() => '{"version":"0.2.10"}', () => '{"version":"0.2.9"}'),
+    () =>
+      runtimeVersion(
+        () => '{"version":"0.2.10"}',
+        () => '{"version":"0.2.9"}',
+      ),
     PackageVersionError,
   );
 });

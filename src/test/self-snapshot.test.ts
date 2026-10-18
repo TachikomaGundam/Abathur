@@ -17,13 +17,11 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { genId, fingerprint } from "../core/ids.js";
-import { registerGenome, requireGenomesByLabel, fingerprint16, type RegistryEntry } from "../core/genome.js";
-import { Ledger } from "../core/ledger.js";
+import { prepareToyGenome } from "../bench/toy.js";
+import { appendRunFriction } from "../core/evolve/friction.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
 import {
@@ -32,13 +30,21 @@ import {
   DEFAULT_TEST_TIMEOUT_S,
   SELF_BUILD_TIMEOUT,
   SELF_OVERLAY_EMPTY,
+  type SelfBenchResult,
   selfBench,
   selfGuardVerdict,
-  type SelfBenchResult,
 } from "../core/evolve/self-snapshot.js";
-import { appendRunFriction } from "../core/evolve/friction.js";
-import { prepareToyGenome } from "../bench/toy.js";
-import { captureReplayDigest, editFile, headSha, makeSelfHarness, seedExpectedDigest, type SelfHarness } from "./fixtures-self.js";
+import { fingerprint16, type RegistryEntry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import { fingerprint, genId } from "../core/ids.js";
+import { Ledger } from "../core/ledger.js";
+import {
+  captureReplayDigest,
+  editFile,
+  headSha,
+  makeSelfHarness,
+  type SelfHarness,
+  seedExpectedDigest,
+} from "./fixtures-self.js";
 
 const HARNESS_ROOT = path.resolve(new URL("../../", import.meta.url).pathname);
 
@@ -144,12 +150,19 @@ test("self-snapshot suite", async (t) => {
   });
 
   await t.test("AC-5: golden replay digest identical across two invocations", async () => {
-    const again = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ rerun: 1 }), new Date()), candidateCommit: null }));
-    const third = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ rerun: 2 }), new Date()), candidateCommit: null }));
+    const again = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ rerun: 1 }), new Date()), candidateCommit: null }),
+    );
+    const third = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ rerun: 2 }), new Date()), candidateCommit: null }),
+    );
     assert.equal(again.replayDigest, fx.expected);
     assert.equal(third.replayDigest, fx.expected);
     assert.equal(again.replayDigest, third.replayDigest);
-    assert.deepEqual(again.units.map((u) => u.scores), fx.incumbent.units.map((u) => u.scores));
+    assert.deepEqual(
+      again.units.map((u) => u.scores),
+      fx.incumbent.units.map((u) => u.scores),
+    );
   });
 
   await t.test("AC-4: candidate deleting a trusted test + editing another ⇒ zero score effect", async () => {
@@ -157,11 +170,16 @@ test("self-snapshot suite", async (t) => {
       rmSync(path.join(fx.harness.repo, "src/test/self-mutators.test.ts"));
       editFile(fx.harness.repo, "src/test/self-sanity.test.ts", (s) => `${s}\n// candidate tampering\n`);
     });
-    const res = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ ac4: cand }), new Date()), candidateCommit: cand }));
+    const res = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ ac4: cand }), new Date()), candidateCommit: cand }),
+    );
     assert.ok(res.dropped.some((d) => d.path === "src/test/self-sanity.test.ts" && d.reason === "trusted-tests"));
     assert.deepEqual(res.overlaid, []);
     assert.ok(res.failures.some((f) => f.startsWith(SELF_OVERLAY_EMPTY)));
-    assert.deepEqual(res.units.map((u) => u.scores), fx.incumbent.units.map((u) => u.scores));
+    assert.deepEqual(
+      res.units.map((u) => u.scores),
+      fx.incumbent.units.map((u) => u.scores),
+    );
     for (const run of res.suiteRuns) assert.deepEqual([run.tests, run.fail], [4, 0]);
     assert.equal(res.replayDigest, fx.expected);
     assert.equal(selfGuardVerdict(res.failures, "nominated"), "indeterminate");
@@ -169,9 +187,13 @@ test("self-snapshot suite", async (t) => {
 
   await t.test("sealed-core candidate never overlays (stats.ts edit dropped as sealed)", async () => {
     const cand = commitSurgery(fx, "tamper sealed stats", () => {
-      editFile(fx.harness.repo, "src/core/stats.ts", (s) => s.replace("export const FAMILY_ALPHA", "export const FAMILY_ALPHA // tampered"));
+      editFile(fx.harness.repo, "src/core/stats.ts", (s) =>
+        s.replace("export const FAMILY_ALPHA", "export const FAMILY_ALPHA // tampered"),
+      );
     });
-    const res = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ sealed: cand }), new Date()), candidateCommit: cand }));
+    const res = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ sealed: cand }), new Date()), candidateCommit: cand }),
+    );
     assert.ok(res.dropped.some((d) => d.path === "src/core/stats.ts" && d.reason === "sealed"));
     assert.deepEqual(res.overlaid, []);
     assert.equal(res.buildStatus, "ok");
@@ -180,9 +202,13 @@ test("self-snapshot suite", async (t) => {
 
   await t.test("benign unsealed candidate overlays and stays nominated (non-degenerate)", async () => {
     const cand = commitSurgery(fx, "comment edit src/out.ts", () => {
-      editFile(fx.harness.repo, "src/out.ts", (s) => s.replace("// stdout funnel (todo 1 seam)", "// stdout funnel (todo 1 seam, patched)"));
+      editFile(fx.harness.repo, "src/out.ts", (s) =>
+        s.replace("// stdout funnel (todo 1 seam)", "// stdout funnel (todo 1 seam, patched)"),
+      );
     });
-    const res = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ benign: cand }), new Date()), candidateCommit: cand }));
+    const res = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ benign: cand }), new Date()), candidateCommit: cand }),
+    );
     assert.deepEqual(res.overlaid, ["src/out.ts"]);
     assert.deepEqual(res.dropped, []);
     assert.equal(res.buildStatus, "ok");
@@ -192,9 +218,11 @@ test("self-snapshot suite", async (t) => {
 
   await t.test("broken build scores zero and culls; caps + guards pinned", async () => {
     const cand = commitSurgery(fx, "type error in out.ts", () => {
-      editFile(fx.harness.repo, "src/out.ts", () => 'export const writeStdout: (t: string) => void = 42;\n');
+      editFile(fx.harness.repo, "src/out.ts", () => "export const writeStdout: (t: string) => void = 42;\n");
     });
-    const res = await selfBench(selfBenchReq(fx, { genId: genId(fingerprint({ broken: cand }), new Date()), candidateCommit: cand }));
+    const res = await selfBench(
+      selfBenchReq(fx, { genId: genId(fingerprint({ broken: cand }), new Date()), candidateCommit: cand }),
+    );
     assert.equal(res.buildStatus, "failed");
     assert.ok(res.failures.some((f) => f.includes("tsc")));
     for (const u of res.units) assert.deepEqual(u.scores, [0, 0]);
@@ -206,14 +234,16 @@ test("self-snapshot suite", async (t) => {
 
   await t.test("hung suite is killed at the cap: no suite samples, inconclusive", async () => {
     const cand = commitSurgery(fx, "event-loop-never-drains hang in out.ts", () => {
-      editFile(fx.harness.repo, "src/out.ts", () => [
-        "const keepAlive: ReturnType<typeof setInterval> = setInterval(() => {}, 60_000);",
-        "void keepAlive;",
-        "export function writeStdout(text: string): void {",
-        "  process.stdout.write(text);",
-        "}",
-        "",
-      ].join("\n"));
+      editFile(fx.harness.repo, "src/out.ts", () =>
+        [
+          "const keepAlive: ReturnType<typeof setInterval> = setInterval(() => {}, 60_000);",
+          "void keepAlive;",
+          "export function writeStdout(text: string): void {",
+          "  process.stdout.write(text);",
+          "}",
+          "",
+        ].join("\n"),
+      );
     });
     const res = await selfBench({
       ...selfBenchReq(fx, { genId: genId(fingerprint({ hung: cand }), new Date()), candidateCommit: cand }),
@@ -224,7 +254,10 @@ test("self-snapshot suite", async (t) => {
     const suite = res.units.find((u) => u.unitId === "suite");
     const replay = res.units.find((u) => u.unitId === "golden-replay");
     assert.deepEqual(suite?.scores ?? ["missing"], []);
-    assert.ok(suite?.failures.some((f) => f.includes("timeout")) ?? false, JSON.stringify({ failures: suite?.failures, buildNote: res.buildNote, suiteRuns: res.suiteRuns }));
+    assert.ok(
+      suite?.failures.some((f) => f.includes("timeout")) ?? false,
+      JSON.stringify({ failures: suite?.failures, buildNote: res.buildNote, suiteRuns: res.suiteRuns }),
+    );
     assert.deepEqual(replay?.scores ?? ["missing"], [1, 1]); // helper runs reps: 2; replay path never imports out.js
     assert.equal(res.complete, false);
     assert.equal(selfGuardVerdict(res.failures, "nominated"), "inconclusive");
@@ -250,7 +283,10 @@ test("self-snapshot suite", async (t) => {
     assert.equal(summary?.rejected.length, 2, "both rejects carried stage+reason");
     assert.equal(summary?.counts.nominated, 1);
     assert.equal(outcome.exitCode, 0);
-    assert.ok(outcome.lines.some((l) => l.includes("stats-tamper rejected (path)")), outcome.lines.join("\n"));
+    assert.ok(
+      outcome.lines.some((l) => l.includes("stats-tamper rejected (path)")),
+      outcome.lines.join("\n"),
+    );
     assert.ok(outcome.lines.some((l) => l.includes("no-diffs rejected (schema)")));
     assert.ok(outcome.lines.some((l) => l.includes("annotate-out") && l.includes("nominated")));
     assert.equal(ledgerCount(fx), before + 2, "incumbent row + candidate row");
@@ -265,17 +301,21 @@ test("self-snapshot suite", async (t) => {
   await t.test("self-eval CLI reports verdict + drops + digest, appends friction, writes no ledger", () => {
     const genRow = latestGenIdFor(fx, "annotate-out");
     const before = ledgerCount(fx);
-    const run = spawnSync(process.execPath, [path.join(HARNESS_ROOT, "dist/cli.js"), "self-eval", "--genome", "abathur-self", "--gen", genRow, "--reps", "2"], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        ABATHUR_CONFIG: path.join(fx.harness.configDir, "config.jsonc"),
-        ABATHUR_SELF_REPO: fx.harness.repo,
-        HOME: path.join(fx.harness.root, "home"),
-        XDG_CACHE_HOME: path.join(fx.harness.root, "xdg-selfeval"),
+    const run = spawnSync(
+      process.execPath,
+      [path.join(HARNESS_ROOT, "dist/cli.js"), "self-eval", "--genome", "abathur-self", "--gen", genRow, "--reps", "2"],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          ABATHUR_CONFIG: path.join(fx.harness.configDir, "config.jsonc"),
+          ABATHUR_SELF_REPO: fx.harness.repo,
+          HOME: path.join(fx.harness.root, "home"),
+          XDG_CACHE_HOME: path.join(fx.harness.root, "xdg-selfeval"),
+        },
+        timeout: 280_000,
       },
-      timeout: 280_000,
-    });
+    );
     assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
     assert.ok(run.stdout.includes("verdict nominated"), run.stdout);
     assert.ok(run.stdout.includes(fx.expected), "trusted replay digest surfaces in the report");

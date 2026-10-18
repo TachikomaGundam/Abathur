@@ -9,10 +9,10 @@ import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { blocked } from "../exit.js";
-import { git, tryGit } from "../util/git.js";
 import { freezeTree, thawTree } from "../util/freeze.js";
-import { gitOpts, requireSha, snapshotsDir } from "./genome-paths.js";
+import { git, tryGit } from "../util/git.js";
 import type { GenomeRef, SnapshotHandle, WorktreeOptions } from "./genome-paths.js";
+import { gitOpts, requireSha, snapshotsDir } from "./genome-paths.js";
 
 /** Thaw (if needed) then remove a frozen tree. Tolerates a vanished root. */
 export async function removeFrozenTree(target: string): Promise<void> {

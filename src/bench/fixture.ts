@@ -29,54 +29,53 @@
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
-import { cannotAnswer, ExitSignal } from "../exit.js";
-import { resolveConfigDir, type ConfigEnv } from "../config.js";
+import { type ConfigEnv, resolveConfigDir } from "../config.js";
 import { fingerprint } from "../core/ids.js";
 import { acquireGenomeLock, Ledger } from "../core/ledger.js";
 import type { LockLease } from "../core/locks.js";
-import { effectiveRepoPath, type BenchUnit, type GenomeSpec } from "../core/spec.js";
+import { type BenchUnit, effectiveRepoPath, type GenomeSpec } from "../core/spec.js";
+import { cannotAnswer, ExitSignal } from "../exit.js";
 import {
+  type BenchAdapter,
+  type ChildHandle,
   childStatus,
   firstLine,
   inconclusive,
+  type ProvenanceVersion,
   parseGraderLine,
+  type RunResult,
   renderCommand,
   runChild,
+  type ScoreOutcome,
   sandboxVars,
   unitVars,
   ZERO_METRICS,
-  type BenchAdapter,
-  type ChildHandle,
-  type ProvenanceVersion,
-  type RunResult,
-  type ScoreOutcome,
 } from "./adapter.js";
+import { probeEngines, resolveOpencodeBin } from "./fixture-probe.js";
 import {
   buildManifest,
   gateVal,
   mirrorSandboxHome,
   parseRunMeta,
+  type ScenarioEntry,
   sandboxHomeDir,
   transcriptPathFor,
   writeManifest,
-  type ScenarioEntry,
 } from "./fixture-support.js";
-import { probeEngines, resolveOpencodeBin } from "./fixture-probe.js";
 
+export { probeEngines, resolveOpencodeBin } from "./fixture-probe.js";
 export {
   buildManifest,
   compareSemver,
   manifestPathFor,
   mirrorSandboxHome,
   parseSemver,
+  type ScenarioEntry,
+  type SemverVersion,
   sandboxHomeDir,
   transcriptPathFor,
   writeManifest,
-  type ScenarioEntry,
-  type SemverVersion,
 } from "./fixture-support.js";
-export { probeEngines, resolveOpencodeBin } from "./fixture-probe.js";
 
 export interface FixtureAdapterOptions {
   /** Env surface for config/HOME resolution; defaults to process.env. */
@@ -280,10 +279,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       });
     } catch (cause) {
       if (cause instanceof ExitSignal) {
-        cannotAnswer(
-          `fixture: another bench active for genome '${fp.slice(0, 16)}'`,
-          cause.hint ?? cause.message,
-        );
+        cannotAnswer(`fixture: another bench active for genome '${fp.slice(0, 16)}'`, cause.hint ?? cause.message);
       }
       throw cause;
     }
@@ -304,11 +300,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
   }
 
   /** seed/reset hooks are infrastructure: a failing hook is a tool error (exit 2). */
-  private async hook(
-    template: string | undefined,
-    sandboxDir: string,
-    label: string,
-  ): Promise<void> {
+  private async hook(template: string | undefined, sandboxDir: string, label: string): Promise<void> {
     if (template === undefined) return;
     const outcome = await runChild({
       argv: renderCommand(template, sandboxVars(sandboxDir, this.repoRoot)),
@@ -318,9 +310,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
       ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited" || outcome.exitCode !== 0) {
-      cannotAnswer(
-        `fixture ${label} failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`,
-      );
+      cannotAnswer(`fixture ${label} failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`);
     }
   }
 

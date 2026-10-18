@@ -15,15 +15,14 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
-
+import { type ChildHandle, renderCommand, runChild } from "../../bench/adapter.js";
 import { blocked, cannotAnswer } from "../../exit.js";
-import { renderCommand, runChild, type ChildHandle } from "../../bench/adapter.js";
+import { fingerprint16 } from "../genome.js";
+import type { GenomeRef, WorktreeEnv } from "../genome-paths.js";
 import { fingerprint, genId } from "../ids.js";
 import { Ledger } from "../ledger.js";
-import { fingerprint16 } from "../genome.js";
-import { newGeneration, openGenome, sealGeneration } from "../worktree.js";
-import type { GenomeRef, WorktreeEnv } from "../genome-paths.js";
 import { formatZodIssues, type GenomeSpec } from "../spec.js";
+import { newGeneration, openGenome, sealGeneration } from "../worktree.js";
 import {
   ARTIFACT_GLOBS,
   artifactGlobsFromGitignore,
@@ -33,18 +32,18 @@ import {
 } from "./candidate.js";
 import { applyChanges } from "./udiff.js";
 
-export { buildBrief, type BriefUnitEvidence } from "./brief.js";
+export { type BriefUnitEvidence, buildBrief } from "./brief.js";
 export {
   ARTIFACT_GLOBS,
   artifactGlobsFromGitignore,
+  type CandidateValidation,
   candidateSchema,
   mutatorOutputSchema,
-  validateCandidate,
-  type CandidateValidation,
   type PathPolicy,
   type RejectionStage,
+  validateCandidate,
 } from "./candidate.js";
-export { parseUnifiedDiff, applyChanges, type FileChange, type ParseOutcome, type ApplyOutcome } from "./udiff.js";
+export { type ApplyOutcome, applyChanges, type FileChange, type ParseOutcome, parseUnifiedDiff } from "./udiff.js";
 
 export interface MutatorSessionOptions {
   readonly spec: GenomeSpec;
@@ -181,7 +180,12 @@ export async function runMutatorSession(opts: MutatorSessionOptions): Promise<Mu
 
   const applied: AppliedCandidate[] = [];
   const rejected: RejectedCandidate[] = [];
-  const reject = (candidateId: string, stage: RejectedCandidate["stage"], reason: string, genIdValue?: string): void => {
+  const reject = (
+    candidateId: string,
+    stage: RejectedCandidate["stage"],
+    reason: string,
+    genIdValue?: string,
+  ): void => {
     rejected.push({ candidateId, stage, reason });
     ledger.append({
       kind: "candidate_rejected",
@@ -192,7 +196,10 @@ export async function runMutatorSession(opts: MutatorSessionOptions): Promise<Mu
 
   let launchGenId = "";
   try {
-    launchGenId = genId(fingerprint({ abathur: "mutator-launch", head: opened.headCommit, at: now().getTime() }), now());
+    launchGenId = genId(
+      fingerprint({ abathur: "mutator-launch", head: opened.headCommit, at: now().getTime() }),
+      now(),
+    );
     const launch = await newGeneration(genome, opened.headCommit, launchGenId, { env });
     try {
       const argv = renderCommand(opts.mutatorCommand, { worktree: launch.worktreePath, brief: briefFile });
@@ -215,7 +222,13 @@ export async function runMutatorSession(opts: MutatorSessionOptions): Promise<Mu
           continue;
         }
         const gen = genId(
-          fingerprint({ parent: opened.headCommit, candidateId: v.candidateId, changes: v.changes, at: now().getTime(), index }),
+          fingerprint({
+            parent: opened.headCommit,
+            candidateId: v.candidateId,
+            changes: v.changes,
+            at: now().getTime(),
+            index,
+          }),
           now(),
         );
         const wt = await newGeneration(genome, opened.headCommit, gen, { env });

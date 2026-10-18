@@ -63,7 +63,10 @@ function firstLineOf(text: string, index: number): { line: number; snippet: stri
   const lineStart = nl + 1;
   let lineEnd = text.indexOf("\n", lineStart);
   if (lineEnd === -1) lineEnd = text.length;
-  const raw = text.slice(lineStart, lineEnd).replace(/[^\x20-\x7e]/g, " ").trim();
+  const raw = text
+    .slice(lineStart, lineEnd)
+    .replace(/[^\x20-\x7e]/g, " ")
+    .trim();
   return {
     line: before.split("\n").length,
     snippet: raw.length > 120 ? `${raw.slice(0, 117)}...` : raw,

@@ -6,7 +6,7 @@
 // the genome-rm ledgerless check. The queue file IS the graft_import record
 // when no local repo exists to hold a ledger.
 
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { cannotAnswer } from "../exit.js";
@@ -18,13 +18,7 @@ export const GRAFT_QUEUE_DIRNAME = "graft-queue";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
-export type GraftDecision =
-  | "quarantined"
-  | "pending-bench"
-  | "nominated"
-  | "culled"
-  | "indeterminate"
-  | "inconclusive";
+export type GraftDecision = "quarantined" | "pending-bench" | "nominated" | "culled" | "indeterminate" | "inconclusive";
 
 const DECISIONS: readonly GraftDecision[] = [
   "quarantined",
@@ -80,7 +74,9 @@ function parseQueueFile(file: string, name: string): GraftQueueEntry {
   try {
     doc = JSON.parse(readFileSync(file, "utf8"));
   } catch (cause) {
-    return cannotAnswer(`graft queue: ${file} is not readable JSON — refusing to render a partial truth: ${cause instanceof Error ? cause.message : String(cause)}`);
+    return cannotAnswer(
+      `graft queue: ${file} is not readable JSON — refusing to render a partial truth: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
   }
   const raw = (typeof doc === "object" && doc !== null && !Array.isArray(doc) ? doc : undefined) as
     | Record<string, unknown>
@@ -113,7 +109,9 @@ export function listGraftQueue(configDir: string): readonly GraftQueueEntry[] {
   const dir = graftQueueDir(configDir);
   let names: string[];
   try {
-    names = readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
+    names = readdirSync(dir)
+      .filter((n) => n.endsWith(".json"))
+      .sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; // no queue yet = empty, not an error
     throw error; // unreadable-but-present (EACCES/EIO) must never render as an empty queue
@@ -217,7 +215,13 @@ export function decodeGraftImport(data: Record<string, unknown>): GraftImportRow
 /** The quarantine/pending row's peerClaim projection of a bundle manifest. */
 export function peerClaimFromManifest(manifest: {
   stats: { verdict: string | null };
-  benchProvenance: { nRepeats: number | null; opencodeVersion: string | null; agentModel: string | null; judgeModel: string | null; statsConfigDigest: string | null };
+  benchProvenance: {
+    nRepeats: number | null;
+    opencodeVersion: string | null;
+    agentModel: string | null;
+    judgeModel: string | null;
+    statsConfigDigest: string | null;
+  };
   rationale: string;
 }): GraftPeerClaim {
   return {
@@ -233,7 +237,10 @@ export function peerClaimFromManifest(manifest: {
 
 /** Single-line print sanitizer for untrusted echo content (todo-8 flat discipline). */
 export function echo(value: string, max = 140): string {
-  const one = value.replace(/[^ -~]/g, " ").replace(/\s+/g, " ").trim();
+  const one = value
+    .replace(/[^ -~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return one.length > max ? `${one.slice(0, max)}…` : one;
 }
 

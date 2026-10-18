@@ -5,9 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
-
-import { requireGenomesByLabel, registerGenome } from "../core/genome.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
+import { registerGenome, requireGenomesByLabel } from "../core/genome.js";
 import { ExitSignal } from "../exit.js";
 
 const exec = promisify(execFile);
@@ -29,14 +28,22 @@ interface FixtureSpecOpts {
   readonly withRequires?: boolean;
 }
 
-function fixtureSpec(repo: string, label: string, probeFile: string, opts: FixtureSpecOpts = {}): Record<string, unknown> {
+function fixtureSpec(
+  repo: string,
+  label: string,
+  probeFile: string,
+  opts: FixtureSpecOpts = {},
+): Record<string, unknown> {
   const type = opts.type ?? "opencode-fixture-scenarios";
   const doc: Record<string, unknown> = {
     label,
     repoPath: repo,
     bench: {
       type,
-      units: [{ id: "u1", path: "units/u1.md", split: "train" }, { id: "u2", path: "units/u2.md", split: "val" }],
+      units: [
+        { id: "u1", path: "units/u1.md", split: "train" },
+        { id: "u2", path: "units/u2.md", split: "val" },
+      ],
       runCommand: "true {unit.id}",
       graderCommand: "true {unit.id}",
       ...(type === "opencode-fixture-scenarios" ? { agentModel: "family/model" } : {}),
@@ -65,7 +72,10 @@ test("dry-run (fixture type): requires probes run without spawning OpenCode and 
   const repo = await fixtureRepo({ "sealed.txt": "seal\n", "units/u1.md": "a\n", "units/u2.md": "b\n" });
   const out = await dryRun(fixtureSpec(repo, "probe-ok", "sealed.txt"));
   assert.equal(out.exitCode, 0);
-  assert.ok(out.lines.some((line) => /requires probes: 1\/1 OK/.test(line)), out.lines.join("\n"));
+  assert.ok(
+    out.lines.some((line) => /requires probes: 1\/1 OK/.test(line)),
+    out.lines.join("\n"),
+  );
 });
 
 test("dry-run (fixture type): a failed requires probe exits 2 before any plan", async () => {

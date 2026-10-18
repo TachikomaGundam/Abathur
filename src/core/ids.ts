@@ -106,7 +106,10 @@ export function treeDigestAt(root: string): string {
 
 /** Compact path-safe UTC stamp: 2026-09-09T14:25:30.000Z -> 20260909T142530Z. */
 export function compactUtc(at: Date): string {
-  return at.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  return at
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
 }
 
 /** Generation id: g-<ulctime>-<first8 of the generation content fingerprint>. */

@@ -3,17 +3,7 @@
 // reports the exact tree sha of the snapshotted commit.
 
 import assert from "node:assert/strict";
-import {
-  lstat,
-  mkdir,
-  mkdtemp,
-  open,
-  readFile,
-  rm,
-  stat,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -40,11 +30,7 @@ test("freezeTree/thawTree: strip then restore write bits, exec bit preserved, sy
   await freezeTree(root);
   assert.equal((await stat(path.join(root, "plain.txt"))).mode & 0o222, 0);
   assert.equal((await stat(path.join(root, "sub"))).mode & 0o7777, 0o555);
-  assert.equal(
-    (await stat(path.join(root, "prog.sh"))).mode & 0o7777,
-    0o555,
-    "exec bit survives, write bits stripped",
-  );
+  assert.equal((await stat(path.join(root, "prog.sh"))).mode & 0o7777, 0o555, "exec bit survives, write bits stripped");
   assert.equal((await lstat(path.join(root, "link.txt"))).isSymbolicLink(), true);
 
   await thawTree(root);
@@ -66,11 +52,7 @@ test("snapshotCommit: read-only copy whose git tree sha matches the commit exact
   assert.equal(await gitIn(snap.snapshotPath, "rev-parse", "HEAD^{tree}"), expectedTree);
   // real copy of the tree content, under the injected XDG cache scheme
   assert.equal(await readFile(path.join(snap.snapshotPath, "a.txt"), "utf8"), "first\n");
-  assert.ok(
-    snap.snapshotPath.startsWith(
-      path.join(fx.env.XDG_CACHE_HOME, "abathur", "worktrees", fx.fp, "snapshots"),
-    ),
-  );
+  assert.ok(snap.snapshotPath.startsWith(path.join(fx.env.XDG_CACHE_HOME, "abathur", "worktrees", fx.fp, "snapshots")));
 
   // second call: content-addressed cache hit, same path + tree
   const again = await snapshotCommit(genome, fx.head, { env: fx.env });

@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { CommandSpec } from "../cli.js";
-import { EXIT_OK, cannotAnswer, type ExitCode } from "../exit.js";
+import { cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
 
 /** Minimal env surface for testability; defaults to process.env at call time (src/config.ts seam style). */
@@ -172,9 +172,7 @@ function opencodeStatus(env: OpencodeEnv): ExitCode {
     const packaged = readPackagedAsset(target);
     const { state, installed } = classify(target, packaged);
     const installedSha = installed === null ? "-" : sha256(installed);
-    writeStdout(
-      `${target.destination}: ${state}  installed=${installedSha}  packaged=${sha256(packaged)}`,
-    );
+    writeStdout(`${target.destination}: ${state}  installed=${installedSha}  packaged=${sha256(packaged)}`);
   }
   return EXIT_OK;
 }

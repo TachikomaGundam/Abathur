@@ -8,8 +8,6 @@ import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises
 import * as os from "node:os";
 import path from "node:path";
 import test from "node:test";
-
-import { ExitSignal } from "../exit.js";
 import {
   cacheRoot,
   cleanupStale,
@@ -19,6 +17,7 @@ import {
   openGenome,
   sealGeneration,
 } from "../core/worktree.js";
+import { ExitSignal } from "../exit.js";
 import { fixtureRepo, gitIn } from "./fixtures-wt.js";
 
 async function expectExit(code: 1 | 2, pattern: RegExp, action: Promise<unknown>): Promise<void> {
@@ -235,10 +234,26 @@ test("fastForwardIncumbent: creates, ff-forwards, refuses rewind and checked-out
 
 test("unsafe genomeFp/genId/parentCommit are tool errors (exit 2), never spawned to git", async (t) => {
   const fx = await fixtureRepo(t);
-  await expectExit(2, /fingerprint/, newGeneration({ repoPath: fx.repo, genomeFp: "../evil" }, fx.head, "g-1", { env: fx.env }));
-  await expectExit(2, /generation id/, newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, fx.head, "g 1;rm", { env: fx.env }));
-  await expectExit(2, /generation id/, newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, fx.head, "-x", { env: fx.env }));
-  await expectExit(2, /revision/, newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, "--help", "g-1", { env: fx.env }));
+  await expectExit(
+    2,
+    /fingerprint/,
+    newGeneration({ repoPath: fx.repo, genomeFp: "../evil" }, fx.head, "g-1", { env: fx.env }),
+  );
+  await expectExit(
+    2,
+    /generation id/,
+    newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, fx.head, "g 1;rm", { env: fx.env }),
+  );
+  await expectExit(
+    2,
+    /generation id/,
+    newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, fx.head, "-x", { env: fx.env }),
+  );
+  await expectExit(
+    2,
+    /revision/,
+    newGeneration({ repoPath: fx.repo, genomeFp: "ok" }, "--help", "g-1", { env: fx.env }),
+  );
 });
 
 async function readFileStr(p: string): Promise<string> {

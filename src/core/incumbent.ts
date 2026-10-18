@@ -7,8 +7,8 @@ import path from "node:path";
 
 import { blocked } from "../exit.js";
 import { tryGit } from "../util/git.js";
-import { gitOpts, requireSha } from "./genome-paths.js";
 import type { GenomeRef, WorktreeOptions } from "./genome-paths.js";
+import { gitOpts, requireSha } from "./genome-paths.js";
 
 /** Promotion branch — moved by fast-forward CAS only (todo 10), created if absent. */
 export const INCUMBENT_BRANCH = "abathur/incumbent";
@@ -67,9 +67,7 @@ export async function fastForwardIncumbent(
   // moved concurrently, update-ref exits non-zero instead of clobbering it.
   const moved = await tryGit(["update-ref", ref, sha, fromSha], gopts);
   if (!moved.ok) {
-    blocked(
-      `worktree: ${INCUMBENT_BRANCH} moved concurrently (expected ${fromSha}) — rerun the promotion`,
-    );
+    blocked(`worktree: ${INCUMBENT_BRANCH} moved concurrently (expected ${fromSha}) — rerun the promotion`);
   }
   return { branch: INCUMBENT_BRANCH, fromSha, toSha: sha };
 }

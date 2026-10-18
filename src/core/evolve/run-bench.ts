@@ -2,30 +2,31 @@
 // reset→seed→run→score matrix driver. Row schemas / resume readers: run-rows.ts.
 
 import path from "node:path";
-
+import type { BenchAdapter, BenchProvenance, ChildHandle } from "../../bench/adapter.js";
+import { FixtureScenariosAdapter } from "../../bench/fixture.js";
+import { ToyBenchAdapter } from "../../bench/toy.js";
+import type { ConfigEnv } from "../../config.js";
 import { cannotAnswer } from "../../exit.js";
+import type { WorktreeEnv } from "../genome-paths.js";
 import { runId } from "../ids.js";
 import { buildManifest, type ManifestEntry } from "../kernel.js";
 import type { GenomeSpec } from "../spec.js";
 import { effectiveRepoPath } from "../spec.js";
-import { budgetExhausted, type BudgetCaps, type BudgetCounters, type UnitReplicates } from "../stats.js";
-import { ToyBenchAdapter } from "../../bench/toy.js";
-import { FixtureScenariosAdapter } from "../../bench/fixture.js";
-import type { BenchAdapter, BenchProvenance, ChildHandle } from "../../bench/adapter.js";
+import { type BudgetCaps, type BudgetCounters, budgetExhausted, type UnitReplicates } from "../stats.js";
 import type { ChildTracker } from "./child-track.js";
-import type { ConfigEnv } from "../../config.js";
-import type { WorktreeEnv } from "../genome-paths.js";
-import { round3, unitMatrixRowSchema, type GenerationRowData, type UnitMatrixRow } from "./run-rows.js";
+import { type GenerationRowData, round3, type UnitMatrixRow, unitMatrixRowSchema } from "./run-rows.js";
 import { selfBench } from "./self-snapshot.js";
 
 export function cloneMatrixRow(u: UnitMatrixRow): UnitMatrixRow {
   return { unitId: u.unitId, split: u.split, scores: [...u.scores], runIds: [...u.runIds], failures: [...u.failures] };
 }
 
-type BenchProvenanceLike = GenerationRowData["benchProvenance"] | {
-  readonly benchType: "toy" | "opencode-fixture-scenarios";
-  readonly versions: readonly { readonly bin: string; readonly version: string }[];
-};
+type BenchProvenanceLike =
+  | GenerationRowData["benchProvenance"]
+  | {
+      readonly benchType: "toy" | "opencode-fixture-scenarios";
+      readonly versions: readonly { readonly bin: string; readonly version: string }[];
+    };
 
 export function copyProvenance(p: BenchProvenanceLike): GenerationRowData["benchProvenance"] {
   return { benchType: p.benchType, versions: p.versions.map((v) => ({ bin: v.bin, version: v.version })) };
@@ -39,7 +40,6 @@ export function asReplicates(rows: readonly UnitMatrixRow[]): UnitReplicates[] {
 }
 
 export * from "./run-rows.js";
-
 
 // ------------------------------------------------------------ adapter factory
 
@@ -135,13 +135,15 @@ export interface BenchTargetOptions {
    * the candidate is scored ONLY through the trusted overlay build, so the
    * adapter's sandbox paths and the literal repoPath never touch a child.
    */
-  readonly selfBench?: {
-    readonly genomeRepo: string;
-    readonly genomeFp: string;
-    readonly incumbentCommit: string;
-    readonly candidateCommit: string | null;
-    readonly env: WorktreeEnv;
-  } | undefined;
+  readonly selfBench?:
+    | {
+        readonly genomeRepo: string;
+        readonly genomeFp: string;
+        readonly incumbentCommit: string;
+        readonly candidateCommit: string | null;
+        readonly env: WorktreeEnv;
+      }
+    | undefined;
 }
 
 export interface BenchTargetOutcome {
@@ -183,7 +185,10 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
       failures: res.failures,
     };
   }
-  const rows = new Map<string, { unitId: string; split: "train" | "val"; scores: number[]; runIds: string[]; failures: string[] }>();
+  const rows = new Map<
+    string,
+    { unitId: string; split: "train" | "val"; scores: number[]; runIds: string[]; failures: string[] }
+  >();
   for (const unit of o.spec.bench.units) {
     rows.set(unit.id, { unitId: unit.id, split: unit.split, scores: [], runIds: [], failures: [] });
   }
@@ -232,7 +237,9 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
           // r21 injury ticket: a NaN/Inf score is a BROKEN RULER, not a number —
           // it must never become a replicate (vacuous aggregates minted bogus
           // nominations: stats saw finite-looking rows and judged on nothing).
-          row.failures.push(`${unit.id} rep ${String(rep)}: grader score not finite (${String(score.result.score)}) — ruler failure, never counts as evidence`);
+          row.failures.push(
+            `${unit.id} rep ${String(rep)}: grader score not finite (${String(score.result.score)}) — ruler failure, never counts as evidence`,
+          );
         } else if (score.kind === "scored") {
           row.scores.push(score.result.score);
           row.runIds.push(runId(o.genId, unit.id, rep));

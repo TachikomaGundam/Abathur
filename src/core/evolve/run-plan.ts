@@ -43,7 +43,9 @@ export function planLines(req: PlanRequest): readonly string[] {
     `  units: ${unitList}`,
     ...(req.requiresProbed === undefined
       ? []
-      : [`  requires probes: ${String(req.requiresProbed)}/${String(req.requiresProbed)} OK (prereq argv spawned; engine/mutator never spawned in dry-run)`]),
+      : [
+          `  requires probes: ${String(req.requiresProbed)}/${String(req.requiresProbed)} OK (prereq argv spawned; engine/mutator never spawned in dry-run)`,
+        ]),
     `  reps: ${String(req.reps)}`,
     `  budget caps: maxCandidates=${String(req.caps.maxCandidates)}${req.caps.maxCandidates < specMax ? ` (clamped from ${String(specMax)})` : ""} maxModelCalls=${String(req.caps.maxModelCalls)} maxTokens=${String(req.caps.maxTokens)} maxWallS=${String(req.caps.maxWallS)}`,
     peek.lastCompleteGenId === null

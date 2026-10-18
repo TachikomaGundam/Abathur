@@ -38,13 +38,13 @@
 // mark that a genome has earned lifetime history, so it is also the mark that
 // entitles the acceptance gate to override the proven legacy default.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
 import { LEDGER_KIND_GENERATION_COMPLETE, ledgerPath, ledgerRecordSchema } from "../ledger.js";
-import { generationRowDataSchema } from "./run-rows.js";
 import type { UnitBankStat } from "../stats.js";
+import { generationRowDataSchema } from "./run-rows.js";
 
 // ------------------------------------------------------------- bank epoch
 // Lineage-restart quarantine (institutional addition 2026-09-25, born of the
@@ -62,9 +62,7 @@ const BANK_EPOCH_FILE = "bank-epoch.json";
 
 const bankEpochSchema = z.record(
   z.string().min(1),
-  z
-    .object({ sinceIso: z.string().min(1), why: z.string().optional() })
-    .strict(),
+  z.object({ sinceIso: z.string().min(1), why: z.string().optional() }).strict(),
 );
 
 type BankEpoch = ReadonlyMap<string, { readonly sinceIso: string; readonly sinceMs: number; readonly why: string }>;
@@ -88,7 +86,9 @@ function loadBankEpoch(dir: string, note: (line: string) => void): BankEpoch | n
   }
   const parsed = bankEpochSchema.safeParse(doc);
   if (!parsed.success) {
-    note(`${BANK_EPOCH_FILE}: schema violation (${parsed.error.issues[0]?.message ?? "?"}) — bank disabled, legacy gate`);
+    note(
+      `${BANK_EPOCH_FILE}: schema violation (${parsed.error.issues[0]?.message ?? "?"}) — bank disabled, legacy gate`,
+    );
     return null;
   }
   const out = new Map<string, { sinceIso: string; sinceMs: number; why: string }>();
@@ -152,7 +152,9 @@ export interface ScoreBankOptions {
 const LIVE_LEDGER = "ledger.jsonl";
 
 function isRotatedArchive(name: string): boolean {
-  return name.startsWith("ledger.") && name.endsWith(".jsonl") && name !== LIVE_LEDGER && !name.startsWith("ledger.corrupt-");
+  return (
+    name.startsWith("ledger.") && name.endsWith(".jsonl") && name !== LIVE_LEDGER && !name.startsWith("ledger.corrupt-")
+  );
 }
 
 export function loadScoreBank(genomeRepo: string, opts: ScoreBankOptions = {}): ScoreBank | null {
@@ -218,7 +220,9 @@ export function loadScoreBank(genomeRepo: string, opts: ScoreBankOptions = {}): 
     });
   }
   for (const [unitId, rule] of [...(bankEpoch ?? new Map()).entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    note(`bank-epoch '${unitId}' since ${rule.sinceIso}: ${String(quarantined.get(unitId) ?? 0)} group(s) quarantined${rule.why === "" ? "" : ` — ${rule.why}`}`);
+    note(
+      `bank-epoch '${unitId}' since ${rule.sinceIso}: ${String(quarantined.get(unitId) ?? 0)} group(s) quarantined${rule.why === "" ? "" : ` — ${rule.why}`}`,
+    );
   }
 
   let totalDf = 0;

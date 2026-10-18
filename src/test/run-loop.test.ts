@@ -13,43 +13,24 @@
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-  chmodSync,
-} from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
+import { runChild } from "../bench/adapter.js";
+import { prepareToyGenome, ToyBenchAdapter } from "../bench/toy.js";
+import { runCommand } from "../commands/run.js";
 import { loadConfig } from "../config.js";
+import { activeChildrenPath, ChildTracker, readChildRecords, reapOrphans } from "../core/evolve/child-track.js";
+import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
+import { type RunLoopOutcome, runEvolution } from "../core/evolve/run-loop.js";
+import type { RegistryEntry } from "../core/genome.js";
 import { registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv } from "../core/genome-paths.js";
 import { Ledger, ledgerPath } from "../core/ledger.js";
 import type { GenomeSpec } from "../core/spec.js";
-import type { RegistryEntry } from "../core/genome.js";
-import type { WorktreeEnv } from "../core/genome-paths.js";
-import {
-  decodeGenerationRecord,
-  type GenerationRowData,
-} from "../core/evolve/run-bench.js";
-import {
-  runEvolution,
-  type RunLoopOutcome,
-} from "../core/evolve/run-loop.js";
-import {
-  activeChildrenPath,
-  readChildRecords,
-  reapOrphans,
-  ChildTracker,
-} from "../core/evolve/child-track.js";
-import { prepareToyGenome, ToyBenchAdapter } from "../bench/toy.js";
-import { runChild } from "../bench/adapter.js";
-import { runCommand } from "../commands/run.js";
+import { ExitSignal } from "../exit.js";
 
 // ------------------------------------------------------------------- stubs
 
@@ -100,10 +81,7 @@ interface LoopFixture {
 }
 
 /** Fresh tmp home: config dir + registered toy genome + stub mutator, all isolated. */
-async function loopFixture(
-  t: TestContext,
-  tune?: { readonly maxTokens?: number },
-): Promise<LoopFixture> {
+async function loopFixture(t: TestContext, tune?: { readonly maxTokens?: number }): Promise<LoopFixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), "abathur-runloop-"));
   t.after(() => {
     // worktree dirs are git-administered; plain recursive rm is enough here.
@@ -155,10 +133,7 @@ function candidateRows(f: LoopFixture): GenerationRowData[] {
 }
 
 function scoredSamples(rows: readonly GenerationRowData[]): number {
-  return rows.reduce(
-    (acc, d) => acc + d.units.reduce((a, u) => a + u.scores.length, 0),
-    0,
-  );
+  return rows.reduce((acc, d) => acc + d.units.reduce((a, u) => a + u.scores.length, 0), 0);
 }
 
 function spentTokens(rows: readonly GenerationRowData[]): number {
@@ -166,7 +141,9 @@ function spentTokens(rows: readonly GenerationRowData[]): number {
 }
 
 function truncateLastLine(filePath: string): void {
-  const lines = readFileSync(filePath, "utf8").split("\n").filter((l) => l.length > 0);
+  const lines = readFileSync(filePath, "utf8")
+    .split("\n")
+    .filter((l) => l.length > 0);
   lines.pop();
   writeFileSync(filePath, lines.length === 0 ? "" : `${lines.join("\n")}\n`, "utf8");
 }
@@ -190,8 +167,7 @@ function runEvolutionFor(
     readonly mutatorCommand?: string | null;
   } = {},
 ): Promise<RunLoopOutcome> {
-  const mutator =
-    opts.mutatorCommand === null ? undefined : opts.mutatorCommand ?? f.mutatorCommand;
+  const mutator = opts.mutatorCommand === null ? undefined : (opts.mutatorCommand ?? f.mutatorCommand);
   return runEvolution({
     entry: f.entry,
     configDir: f.configDir,
@@ -242,7 +218,10 @@ test("AC(a): toy run benches incumbent + 2 candidates, fix-add nominated, exit 0
     assert.equal(row.counters.candidates, 1);
     assert.equal(typeof row.treeSha, "string");
     assert.match(row.treeSha ?? "", /^[0-9a-f]{40}$/);
-    assert.ok(row.manifest.some((m) => m.path === "grader.mjs"), "kernel manifest in the record");
+    assert.ok(
+      row.manifest.some((m) => m.path === "grader.mjs"),
+      "kernel manifest in the record",
+    );
     assert.equal(row.benchProvenance.benchType, "toy");
     assert.ok(row.benchProvenance.versions.length > 0);
     assert.ok(
@@ -271,7 +250,10 @@ test("resume: truncated last row re-benches only the missing tree, counters neve
 
   // simulate SIGKILL after the annotate row committed but before the fix-add row:
   truncateLastLine(ledgerPath(f.repo));
-  assert.deepEqual(candidateRows(f).map((d) => d.candidateId), ["annotate-add"]);
+  assert.deepEqual(
+    candidateRows(f).map((d) => d.candidateId),
+    ["annotate-add"],
+  );
 
   const again = await runEvolutionFor(f);
   assert.equal(again.exitCode, 0, again.lines.join("\n"));
@@ -279,11 +261,7 @@ test("resume: truncated last row re-benches only the missing tree, counters neve
   const rows = generationRows(f);
   const cands = candidateRows(f);
   assert.equal(cands.length, 2, "exactly two candidate generations after resume");
-  assert.deepEqual(
-    new Set(cands.map((d) => d.candidateId)).size,
-    2,
-    "no duplicate candidate generations",
-  );
+  assert.deepEqual(new Set(cands.map((d) => d.candidateId)).size, 2, "no duplicate candidate generations");
   assert.equal(rows.filter((d) => d.source === "incumbent").length, 1, "incumbent not re-benched");
   assert.equal(scoredSamples(rows), cleanSamples, "score samples after resume == clean run");
   assert.equal(spentTokens(rows), cleanTokens, "budget counters never double");
@@ -384,7 +362,11 @@ test("cancellation: --max-candidates 1 benches exactly one candidate and finishe
 
 test("AC(e): tampered kernel file refuses the run at startup, exit 1, nothing exists", async (t) => {
   const f = await loopFixture(t);
-  writeFileSync(path.join(f.repo, "grader.mjs"), `${readFileSync(path.join(f.repo, "grader.mjs"), "utf8")}// tampered\n`, "utf8");
+  writeFileSync(
+    path.join(f.repo, "grader.mjs"),
+    `${readFileSync(path.join(f.repo, "grader.mjs"), "utf8")}// tampered\n`,
+    "utf8",
+  );
   await expectExitSignal(1, /kernel drift/i, runEvolutionFor(f));
   // refusal precedes every side effect: no ledger, no child log, no lock, no worktree.
   assert.equal(existsSync(ledgerPath(f.repo)), false);
@@ -412,21 +394,43 @@ test("reap: malformed, own-pid and dead-pid records are skipped/truncated withou
     mkdirSync(path.dirname(log), { recursive: true });
     writeFileSync(
       log,
-      [
+      `${[
         "this is not json {{{",
-        JSON.stringify({ pid: process.pid, pgid: process.pid, genId: "g-mine", kind: "bench-run", at: "2026-09-09T00:00:00.000Z" }),
-        JSON.stringify({ pid: 4_199_999, pgid: 4_199_999, genId: "g-dead", kind: "bench-run", at: "2026-09-09T00:00:00.000Z" }),
+        JSON.stringify({
+          pid: process.pid,
+          pgid: process.pid,
+          genId: "g-mine",
+          kind: "bench-run",
+          at: "2026-09-09T00:00:00.000Z",
+        }),
+        JSON.stringify({
+          pid: 4_199_999,
+          pgid: 4_199_999,
+          genId: "g-dead",
+          kind: "bench-run",
+          at: "2026-09-09T00:00:00.000Z",
+        }),
         JSON.stringify({ pid: -3, genId: "g-bogus" }),
-      ].join("\n") + "\n",
+      ].join("\n")}\n`,
       "utf8",
     );
     const report = reapOrphans(repo);
     // Both the unparseable line and the structurally invalid record (pid -3)
     // are malformed: the reaper refuses to interpret them, counts them, and moves on.
     assert.equal(report.malformed, 2, "unparseable + invalid-pid lines counted as malformed");
-    assert.ok(report.skipped.some((s) => s.includes("self")), "own pid skipped");
-    assert.equal(report.skipped.some((s) => s.includes("bogus")), false, "invalid records are malformed, never killed");
-    assert.ok(report.reaped.some((r) => r.pid === 4_199_999), "dead group still SIGKILLed (ESRCH no-op)");
+    assert.ok(
+      report.skipped.some((s) => s.includes("self")),
+      "own pid skipped",
+    );
+    assert.equal(
+      report.skipped.some((s) => s.includes("bogus")),
+      false,
+      "invalid records are malformed, never killed",
+    );
+    assert.ok(
+      report.reaped.some((r) => r.pid === 4_199_999),
+      "dead group still SIGKILLed (ESRCH no-op)",
+    );
     assert.equal(readFileSync(log, "utf8").length, 0, "log truncated after reap");
     process.kill(process.pid, 0); // still alive — the reap never touches unrecorded/self pids
   } finally {
@@ -436,10 +440,14 @@ test("reap: malformed, own-pid and dead-pid records are skipped/truncated withou
 
 test("reap: a live orphan process group from a dead run is SIGKILLed", async (t) => {
   const repo = mkdtempSync(path.join(os.tmpdir(), "abathur-reap-live-"));
-  const sleeper = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000); process.title = 'abathur-reap-e2e-sleeper';"], {
-    detached: true,
-    stdio: "ignore",
-  });
+  const sleeper = spawn(
+    process.execPath,
+    ["-e", "setInterval(() => {}, 1000); process.title = 'abathur-reap-e2e-sleeper';"],
+    {
+      detached: true,
+      stdio: "ignore",
+    },
+  );
   t.after(() => {
     try {
       if (sleeper.pid !== undefined) process.kill(-sleeper.pid, "SIGKILL");
@@ -540,10 +548,26 @@ test("CLI: run wiring — arg misuse is exit 2, help line preserved", async (t) 
   });
   const ctx = { loaded, args: [] as string[] };
   await expectExitSignal(2, /--genome/, Promise.resolve(runCommand.run(ctx)));
-  await expectExitSignal(2, /unknown flag --nope/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--nope"] })));
-  await expectExitSignal(2, /--reps/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--reps", "abc"] })));
-  await expectExitSignal(2, /--mutator/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--mutator", "--oops"] })));
-  await expectExitSignal(2, /no registered genome/, Promise.resolve(runCommand.run({ loaded, args: ["--genome", "ghost"] })));
+  await expectExitSignal(
+    2,
+    /unknown flag --nope/,
+    Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--nope"] })),
+  );
+  await expectExitSignal(
+    2,
+    /--reps/,
+    Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--reps", "abc"] })),
+  );
+  await expectExitSignal(
+    2,
+    /--mutator/,
+    Promise.resolve(runCommand.run({ loaded, args: ["--genome", "toy-smoke", "--mutator", "--oops"] })),
+  );
+  await expectExitSignal(
+    2,
+    /no registered genome/,
+    Promise.resolve(runCommand.run({ loaded, args: ["--genome", "ghost"] })),
+  );
   // --include-val parses, threads into the loop, and fails closed on the toy bench:
   await expectExitSignal(
     2,

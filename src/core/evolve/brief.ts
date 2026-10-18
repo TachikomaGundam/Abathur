@@ -26,11 +26,7 @@ function isFailing(u: BriefUnitEvidence): boolean {
  * Reflection brief from FAILED TRAIN units only. Val units never appear with
  * identity: count + opaque aliases, no ids, no paths, no scores, no content.
  */
-export function buildBrief(
-  spec: GenomeSpec,
-  units: readonly BriefUnitEvidence[],
-  counters: BudgetCounters,
-): string {
+export function buildBrief(spec: GenomeSpec, units: readonly BriefUnitEvidence[], counters: BudgetCounters): string {
   const failing = units.filter((u) => u.unit.split === "train" && isFailing(u));
   const valCount = units.filter((u) => u.unit.split === "val").length;
   const lines: string[] = [];
@@ -55,10 +51,15 @@ export function buildBrief(
     }
   }
   lines.push("", "Candidate contract: stdout JSON {candidates:[{id?,rationale,diffs:[unified-diff strings]}]}.");
-  lines.push("Deletions, renames and binary hunks are refused; any kernel-immutable or artifact path in a candidate rejects the WHOLE candidate.");
+  lines.push(
+    "Deletions, renames and binary hunks are refused; any kernel-immutable or artifact path in a candidate rejects the WHOLE candidate.",
+  );
   if (valCount > 0) {
     const aliases = Array.from({ length: valCount }, (_, k) => `val-${String(k + 1)}`).join(", ");
-    lines.push("", `Validation split: ${String(valCount)} held-out units (${aliases}). Their topics, file names, scores and content are withheld from you by policy.`);
+    lines.push(
+      "",
+      `Validation split: ${String(valCount)} held-out units (${aliases}). Their topics, file names, scores and content are withheld from you by policy.`,
+    );
   }
   return `${lines.join("\n")}\n`;
 }

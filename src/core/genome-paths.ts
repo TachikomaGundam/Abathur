@@ -10,8 +10,8 @@
 // option injection), or contain shell metacharacters (irrelevant to execFile
 // argv, but such paths break every downstream tool that does use a shell).
 
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 import { cannotAnswer } from "../exit.js";
 import type { GitRunOptions } from "../util/git.js";
@@ -69,9 +69,7 @@ export function requireSha(value: string, what = "commit sha"): string {
 /** Validate a revision spelling (sha or simple ref name) safe for argv. */
 export function requireRev(value: string): string {
   if (!REV.test(value)) {
-    cannotAnswer(
-      `worktree: unsafe parent revision "${value}" — expected a sha or plain ref name`,
-    );
+    cannotAnswer(`worktree: unsafe parent revision "${value}" — expected a sha or plain ref name`);
   }
   return value;
 }
@@ -84,9 +82,7 @@ function resolveHome(env: WorktreeEnv): string {
 export function cacheRoot(env: WorktreeEnv = process.env): string {
   const xdg = env.XDG_CACHE_HOME;
   const base =
-    xdg !== undefined && xdg.length > 0 && path.isAbsolute(xdg)
-      ? xdg
-      : path.join(resolveHome(env), ".cache");
+    xdg !== undefined && xdg.length > 0 && path.isAbsolute(xdg) ? xdg : path.join(resolveHome(env), ".cache");
   return path.join(base, "abathur", "worktrees");
 }
 

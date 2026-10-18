@@ -25,7 +25,9 @@ interface RowSpec {
 function generationLine(row: RowSpec): string {
   const data = {
     source: row.source,
-    ...(row.source === "candidate" ? { candidateId: `c-${row.tree}`, treeSha: row.tree, commitSha: row.tree ?? "c" } : {}),
+    ...(row.source === "candidate"
+      ? { candidateId: `c-${row.tree}`, treeSha: row.tree, commitSha: row.tree ?? "c" }
+      : {}),
     headCommit: row.head,
     complete: row.complete ?? true,
     reps: 2,
@@ -62,14 +64,28 @@ describe("loadScoreBank fail-closed activation", () => {
   it("live ledger only ⇒ null — rotation is the activation law", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.jsonl"), generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [0, 2, 1, 3] }] }));
+      writeFileSync(
+        path.join(dir, "ledger.jsonl"),
+        generationLine({
+          source: "incumbent",
+          head: "a".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [0, 2, 1, 3] }],
+        }),
+      );
       assert.equal(loadScoreBank(repo), null);
     });
   });
   it("ledger.corrupt-* is NOT a rotated archive; an empty dir ⇒ null", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.corrupt-20260924-9.jsonl"), generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [0, 2, 1, 3] }] }));
+      writeFileSync(
+        path.join(dir, "ledger.corrupt-20260924-9.jsonl"),
+        generationLine({
+          source: "incumbent",
+          head: "a".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [0, 2, 1, 3] }],
+        }),
+      );
       assert.equal(loadScoreBank(repo), null);
       rmSync(path.join(dir, "ledger.corrupt-20260924-9.jsonl"));
       writeFileSync(path.join(dir, "notes.txt"), "unrelated");
@@ -79,16 +95,43 @@ describe("loadScoreBank fail-closed activation", () => {
   it("archive + live load; totalDf=0 (only single-rep groups ever) ⇒ null", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.campaign1-x.jsonl"), generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [1] }, { unitId: "v", split: "val", scores: [0.5] }] }));
-      writeFileSync(path.join(dir, "ledger.jsonl"), generationLine({ source: "incumbent", head: "b".repeat(40), units: [{ unitId: "u", split: "train", scores: [2] }] }));
+      writeFileSync(
+        path.join(dir, "ledger.campaign1-x.jsonl"),
+        generationLine({
+          source: "incumbent",
+          head: "a".repeat(40),
+          units: [
+            { unitId: "u", split: "train", scores: [1] },
+            { unitId: "v", split: "val", scores: [0.5] },
+          ],
+        }),
+      );
+      writeFileSync(
+        path.join(dir, "ledger.jsonl"),
+        generationLine({
+          source: "incumbent",
+          head: "b".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [2] }],
+        }),
+      );
       assert.equal(loadScoreBank(repo), null);
     });
   });
 });
 
 describe("loadScoreBank arithmetic", () => {
-  const scatterRow = (head: string, tree: string | undefined, source: RowSpec["source"], scores: readonly number[]): string =>
-    generationLine({ source, head, ...(tree === undefined ? {} : { tree }), units: [{ unitId: "u", split: "train", scores }] });
+  const scatterRow = (
+    head: string,
+    tree: string | undefined,
+    source: RowSpec["source"],
+    scores: readonly number[],
+  ): string =>
+    generationLine({
+      source,
+      head,
+      ...(tree === undefined ? {} : { tree }),
+      units: [{ unitId: "u", split: "train", scores }],
+    });
 
   it("pools within-group SS across lineages; thin df floors σ at the quantum; df≥6 keeps the shrunk σ", () => {
     withRepo((repo) => {
@@ -100,7 +143,15 @@ describe("loadScoreBank arithmetic", () => {
           // group g2 (live): same unit, different lineage head, zero scatter
           scatterRow("b".repeat(40), undefined, "incumbent", [1, 1]),
       );
-      writeFileSync(path.join(dir, "ledger.jsonl"), generationLine({ source: "candidate", head: "b".repeat(40), tree: "t1", units: [{ unitId: "q", split: "train", scores: [1, 1, 1, 1] }] }));
+      writeFileSync(
+        path.join(dir, "ledger.jsonl"),
+        generationLine({
+          source: "candidate",
+          head: "b".repeat(40),
+          tree: "t1",
+          units: [{ unitId: "q", split: "train", scores: [1, 1, 1, 1] }],
+        }),
+      );
       const bank = loadScoreBank(repo);
       assert.ok(bank !== null);
       // totals: u groups df 1+1 (SS 2+0), q group df 3 (SS 0) ⇒ total df 5, prior σ² = 2/5.
@@ -121,8 +172,23 @@ describe("loadScoreBank arithmetic", () => {
   it("zero-scatter bank: thin units sit exactly on BANK_QUANTUM, proven-quiet units (df≥6) on their shrunk σ", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      const thin = generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "thin", split: "train", scores: [0.5, 0.5] }] });
-      const wide = generationLine({ source: "incumbent", head: "b".repeat(40), units: [{ unitId: "wide", split: "train", scores: [1, 1, 1, 1, 1, 1] }] }) + generationLine({ source: "candidate", head: "b".repeat(40), tree: "x", units: [{ unitId: "wide", split: "train", scores: [1, 1, 1] }] });
+      const thin = generationLine({
+        source: "incumbent",
+        head: "a".repeat(40),
+        units: [{ unitId: "thin", split: "train", scores: [0.5, 0.5] }],
+      });
+      const wide =
+        generationLine({
+          source: "incumbent",
+          head: "b".repeat(40),
+          units: [{ unitId: "wide", split: "train", scores: [1, 1, 1, 1, 1, 1] }],
+        }) +
+        generationLine({
+          source: "candidate",
+          head: "b".repeat(40),
+          tree: "x",
+          units: [{ unitId: "wide", split: "train", scores: [1, 1, 1] }],
+        });
       writeFileSync(path.join(dir, "ledger.campaign1-x.jsonl"), thin + wide);
       const bank = loadScoreBank(repo);
       assert.ok(bank !== null);
@@ -139,7 +205,11 @@ describe("loadScoreBank row hygiene", () => {
   it("corrupt JSON lines and schema-invalid rows are skipped with notices; valid rows still price", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      const good = generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [0, 2, 2, 0] }] });
+      const good = generationLine({
+        source: "incumbent",
+        head: "a".repeat(40),
+        units: [{ unitId: "u", split: "train", scores: [0, 2, 2, 0] }],
+      });
       writeFileSync(
         path.join(dir, "ledger.campaign1-x.jsonl"),
         `${good}{"v":1,"ts":"x\n${generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "bad", split: "nope", scores: [1, 2] }] })}`,
@@ -157,7 +227,16 @@ describe("loadScoreBank row hygiene", () => {
   it("budget-truncated rows (complete:false) still contribute their real replicate scores", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.campaign1-x.jsonl"), generationLine({ source: "candidate", head: "a".repeat(40), tree: "t", complete: false, units: [{ unitId: "u", split: "train", scores: [0, 2] }] }));
+      writeFileSync(
+        path.join(dir, "ledger.campaign1-x.jsonl"),
+        generationLine({
+          source: "candidate",
+          head: "a".repeat(40),
+          tree: "t",
+          complete: false,
+          units: [{ unitId: "u", split: "train", scores: [0, 2] }],
+        }),
+      );
       const bank = loadScoreBank(repo);
       assert.equal(bank?.units.get("u")?.df, 1);
     });
@@ -168,8 +247,17 @@ describe("loadScoreBank row hygiene", () => {
       const dir = stateDir(repo);
       writeFileSync(
         path.join(dir, "ledger.campaign1-x.jsonl"),
-        generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [0, 2] }] }) +
-          generationLine({ source: "candidate", head: "a".repeat(40), tree: "to-exclude", units: [{ unitId: "u", split: "train", scores: [4, 0] }] }),
+        generationLine({
+          source: "incumbent",
+          head: "a".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [0, 2] }],
+        }) +
+          generationLine({
+            source: "candidate",
+            head: "a".repeat(40),
+            tree: "to-exclude",
+            units: [{ unitId: "u", split: "train", scores: [4, 0] }],
+          }),
       );
       const withIt = loadScoreBank(repo);
       const without = loadScoreBank(repo, { excludeCandidateTrees: ["to-exclude"] });
@@ -185,17 +273,28 @@ describe("loadScoreBank row hygiene", () => {
       const dir = stateDir(repo);
       writeFileSync(
         path.join(dir, "ledger.campaign1-x.jsonl"),
-        generationLine({ source: "incumbent", head: "a".repeat(40), units: [{ unitId: "u", split: "train", scores: [0, 2, 2, 0] }] }),
+        generationLine({
+          source: "incumbent",
+          head: "a".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [0, 2, 2, 0] }],
+        }),
       );
       writeFileSync(
         path.join(dir, "ledger.campaign2-y.jsonl"),
-        generationLine({ source: "incumbent", head: "b".repeat(40), units: [{ unitId: "u", split: "train", scores: [1, 5] }] }),
+        generationLine({
+          source: "incumbent",
+          head: "b".repeat(40),
+          units: [{ unitId: "u", split: "train", scores: [1, 5] }],
+        }),
       );
       assert.equal(loadScoreBank(repo)?.units.get("u")?.df, 4);
       const hidden = loadScoreBank(repo, { excludeFiles: ["ledger.campaign2-y.jsonl"] });
       assert.equal(hidden?.units.get("u")?.df, 3);
       assert.equal(hidden?.totalDf, 3);
-      assert.equal(loadScoreBank(repo, { excludeFiles: ["ledger.campaign1-x.jsonl", "ledger.campaign2-y.jsonl"] }), null);
+      assert.equal(
+        loadScoreBank(repo, { excludeFiles: ["ledger.campaign1-x.jsonl", "ledger.campaign2-y.jsonl"] }),
+        null,
+      );
     });
   });
 });
@@ -217,16 +316,32 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
   it("groups with ts before the epoch are quarantined: df drops, notice names the count and why", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
-      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", why: "pin era voided" } }));
+      writeFileSync(
+        path.join(dir, "ledger.campaign1-2026-09-20.jsonl"),
+        generationLine(noisyOld) + generationLine(quietNew),
+      );
+      writeFileSync(
+        path.join(dir, "bank-epoch.json"),
+        JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", why: "pin era voided" } }),
+      );
       const bank = loadScoreBank(repo);
       assert.ok(bank !== null);
       const stat = bank.units.get("scenario-9");
       assert.ok(stat !== undefined);
       assert.equal(stat.df, 1); // only the quiet new group counts
       assert.ok(stat.sigma >= BANK_QUANTUM - 1e-12); // thin history floor holds the prior
-      assert.ok(bank.notices.some((n) => n.includes("bank-epoch 'scenario-9' since") && n.includes("1 group(s) quarantined") && n.includes("pin era voided")));
-      assert.ok(bank.notices.some((n) => n.includes("since 2026-09-24T00:00:00Z") && !n.includes("undefined")), "notice must print the ISO epoch, never undefined");
+      assert.ok(
+        bank.notices.some(
+          (n) =>
+            n.includes("bank-epoch 'scenario-9' since") &&
+            n.includes("1 group(s) quarantined") &&
+            n.includes("pin era voided"),
+        ),
+      );
+      assert.ok(
+        bank.notices.some((n) => n.includes("since 2026-09-24T00:00:00Z") && !n.includes("undefined")),
+        "notice must print the ISO epoch, never undefined",
+      );
     });
   });
 
@@ -234,7 +349,10 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
       writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld));
-      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }));
+      writeFileSync(
+        path.join(dir, "bank-epoch.json"),
+        JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }),
+      );
       assert.equal(loadScoreBank(repo), null);
     });
   });
@@ -242,12 +360,19 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
   it("unreadable row ts fails closed for quarantined units but leaves unruled units untouched", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      const ruled: RowSpec = { ...noisyOld, ts: "not-a-date", units: [
-        { unitId: "scenario-9", split: "val", scores: [0, 1] },
-        { unitId: "scenario-8", split: "val", scores: [1, 0] },
-      ] };
+      const ruled: RowSpec = {
+        ...noisyOld,
+        ts: "not-a-date",
+        units: [
+          { unitId: "scenario-9", split: "val", scores: [0, 1] },
+          { unitId: "scenario-8", split: "val", scores: [1, 0] },
+        ],
+      };
       writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(ruled));
-      writeFileSync(path.join(dir, "bank-epoch.json"), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }));
+      writeFileSync(
+        path.join(dir, "bank-epoch.json"),
+        JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z" } }),
+      );
       const bank = loadScoreBank(repo);
       assert.ok(bank !== null);
       assert.equal(bank.units.has("scenario-9"), false); // provably-at-or-after failed ⇒ quarantined
@@ -256,11 +381,19 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
   });
 
   it("malformed quarantine sidecars disable the WHOLE bank (never a silently ignored quarantine)", () => {
-    const bad: readonly string[] = ["{not json", JSON.stringify({ "scenario-9": { sinceIso: "not-a-date" } }), JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", extra: 1 } }), JSON.stringify(["scenario-9"])];
+    const bad: readonly string[] = [
+      "{not json",
+      JSON.stringify({ "scenario-9": { sinceIso: "not-a-date" } }),
+      JSON.stringify({ "scenario-9": { sinceIso: "2026-09-24T00:00:00Z", extra: 1 } }),
+      JSON.stringify(["scenario-9"]),
+    ];
     for (const body of bad) {
       withRepo((repo) => {
         const dir = stateDir(repo);
-        writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
+        writeFileSync(
+          path.join(dir, "ledger.campaign1-2026-09-20.jsonl"),
+          generationLine(noisyOld) + generationLine(quietNew),
+        );
         writeFileSync(path.join(dir, "bank-epoch.json"), body);
         assert.equal(loadScoreBank(repo), null, `sidecar must disable bank: ${body.slice(0, 24)}`);
       });
@@ -270,7 +403,10 @@ describe("loadScoreBank bank-epoch lineage quarantine", () => {
   it("absent sidecar = no quarantine, byte-identical legacy behavior", () => {
     withRepo((repo) => {
       const dir = stateDir(repo);
-      writeFileSync(path.join(dir, "ledger.campaign1-2026-09-20.jsonl"), generationLine(noisyOld) + generationLine(quietNew));
+      writeFileSync(
+        path.join(dir, "ledger.campaign1-2026-09-20.jsonl"),
+        generationLine(noisyOld) + generationLine(quietNew),
+      );
       const bank = loadScoreBank(repo);
       assert.ok(bank !== null);
       assert.equal(bank.units.get("scenario-9")?.df, 4); // 3 df old + 1 df new — nothing skipped

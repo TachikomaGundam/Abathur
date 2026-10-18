@@ -49,7 +49,14 @@ test("package surface: runtime dist is explicit and compiled tests are excluded"
 });
 
 test("package contract: runtime floor and optional plugin boundary match the verified closure", () => {
-  if (typeof manifest !== "object" || manifest === null || !("engines" in manifest) || !("dependencies" in manifest) || !("peerDependencies" in manifest) || !("peerDependenciesMeta" in manifest)) {
+  if (
+    typeof manifest !== "object" ||
+    manifest === null ||
+    !("engines" in manifest) ||
+    !("dependencies" in manifest) ||
+    !("peerDependencies" in manifest) ||
+    !("peerDependenciesMeta" in manifest)
+  ) {
     throw new Error("test package manifest has no runtime contract");
   }
   const { engines, dependencies, peerDependencies, peerDependenciesMeta } = manifest;
@@ -65,7 +72,9 @@ test("package contract: runtime floor and optional plugin boundary match the ver
     "^1.19.3",
   );
   assert.deepEqual(
-    typeof peerDependenciesMeta === "object" && peerDependenciesMeta !== null && "@opencode-ai/plugin" in peerDependenciesMeta
+    typeof peerDependenciesMeta === "object" &&
+      peerDependenciesMeta !== null &&
+      "@opencode-ai/plugin" in peerDependenciesMeta
       ? peerDependenciesMeta["@opencode-ai/plugin"]
       : undefined,
     { optional: true },
@@ -91,7 +100,10 @@ test("package contract: the plugin adapter is type-checked by a wired project", 
 test("package surface: core package excludes optional historian integration", () => {
   const root = fileURLToPath(new URL("../..", import.meta.url));
   const files = packageFiles().flatMap((entry) => listFiles(root, entry));
-  assert.deepEqual(files.filter((file) => file.startsWith("graders/historian/") || file === "config/genomes/historian.example.jsonc"), []);
+  assert.deepEqual(
+    files.filter((file) => file.startsWith("graders/historian/") || file === "config/genomes/historian.example.jsonc"),
+    [],
+  );
 });
 
 test("package surface: shipped toy genome requires an explicit toy workspace", () => {
@@ -122,8 +134,6 @@ function listFiles(root: string, packagePath: string): readonly string[] {
 
   return readdirSync(absolutePath, { withFileTypes: true }).flatMap((entry) => {
     const childPath = join(absolutePath, entry.name);
-    return entry.isDirectory()
-      ? listFiles(root, relative(root, childPath))
-      : [relative(root, childPath)];
+    return entry.isDirectory() ? listFiles(root, relative(root, childPath)) : [relative(root, childPath)];
   });
 }

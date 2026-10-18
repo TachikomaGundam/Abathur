@@ -12,26 +12,25 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { cannotAnswer } from "../exit.js";
 import { walkTree } from "../core/ids.js";
 import type { BenchUnit, GenomeSpec } from "../core/spec.js";
+import { cannotAnswer } from "../exit.js";
 import {
+  type BenchAdapter,
+  type BenchProvenance,
+  type ChildHandle,
   childStatus,
   firstLine,
   inconclusive,
   parseGraderLine,
+  type RunMetrics,
+  type RunResult,
   renderCommand,
   runChild,
+  type ScoreOutcome,
   sandboxVars,
   unitVars,
   ZERO_METRICS,
-  type BenchAdapter,
-  type BenchProvenance,
-  type ChildHandle,
-  type RunMetrics,
-  type RunResult,
-  type ScoreOutcome,
 } from "./adapter.js";
 
 /** Model-free token heuristic pinned by the grader too: 1 token ~ 4 source bytes. */
@@ -145,11 +144,7 @@ export class ToyBenchAdapter implements BenchAdapter {
   }
 
   /** seed/reset hooks are infrastructure: a failing hook is a tool error (exit 2). */
-  private async hook(
-    template: string | undefined,
-    sandboxDir: string,
-    label: string,
-  ): Promise<void> {
+  private async hook(template: string | undefined, sandboxDir: string, label: string): Promise<void> {
     if (template === undefined) return;
     const outcome = await runChild({
       argv: renderCommand(template, sandboxVars(sandboxDir, this.repoRoot)),
@@ -158,9 +153,7 @@ export class ToyBenchAdapter implements BenchAdapter {
       ...(this.opts.onChild === undefined ? {} : { onChild: this.opts.onChild }),
     });
     if (outcome.kind !== "exited" || outcome.exitCode !== 0) {
-      cannotAnswer(
-        `toy ${label} failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`,
-      );
+      cannotAnswer(`toy ${label} failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`);
     }
   }
 }
@@ -183,10 +176,7 @@ export function toyTemplateDir(): string {
  * Materialize an independent toy genome repo (git-initialized, repoPath rewritten)
  * by running the fixture's own init.mjs — one implementation, shell-usable too.
  */
-export async function prepareToyGenome(
-  destDir: string,
-  templateDir: string = toyTemplateDir(),
-): Promise<string> {
+export async function prepareToyGenome(destDir: string, templateDir: string = toyTemplateDir()): Promise<string> {
   const dest = path.resolve(destDir);
   // init.mjs runs with cwd = parent of dest; a missing cwd surfaces as a
   // misleading `spawn <bin> ENOENT`, so materialize the parent first.
@@ -197,9 +187,7 @@ export async function prepareToyGenome(
     timeoutS: HOOK_TIMEOUT_S,
   });
   if (outcome.kind !== "exited" || outcome.exitCode !== 0) {
-    cannotAnswer(
-      `toy fixture init failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`,
-    );
+    cannotAnswer(`toy fixture init failed (${outcome.reason}): ${firstLine(outcome.stderr) || "no output"}`);
   }
   return dest;
 }

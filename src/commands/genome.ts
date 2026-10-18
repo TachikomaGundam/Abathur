@@ -8,7 +8,7 @@ import type { CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
 import { readRegistry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
 import { ledgerPath } from "../core/ledger.js";
-import { EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../exit.js";
+import { blocked, cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
 import { resolveUniqueEntry } from "./run.js";
 
@@ -59,7 +59,7 @@ function genomeSeals(configDir: string, label: string): ExitCode {
   const scan = requireGenomesByLabel(configDir, label);
   for (const warning of scan.warnings) writeStdout(`warning: ${warning}`);
   for (const entry of scan.entries) {
-    writeStdout(`# effective seal globs for '${entry.label}' (${entry.fingerprint}) under ${entry.spec.repoPath}`);  // raw-repoPath: display string only; no FS access
+    writeStdout(`# effective seal globs for '${entry.label}' (${entry.fingerprint}) under ${entry.spec.repoPath}`); // raw-repoPath: display string only; no FS access
     for (const glob of entry.spec.kernel.immutableGlobs) writeStdout(glob);
   }
   return EXIT_OK;
@@ -67,7 +67,7 @@ function genomeSeals(configDir: string, label: string): ExitCode {
 
 function genomeRm(configDir: string, label: string): ExitCode {
   const entry = resolveUniqueEntry(configDir, label, "genome rm");
-  const file = ledgerPath(entry.spec.repoPath);  // raw-repoPath: ledgerPath() resolves env literals at the FS seam (ledger.ts)
+  const file = ledgerPath(entry.spec.repoPath); // raw-repoPath: ledgerPath() resolves env literals at the FS seam (ledger.ts)
   if (existsSync(file) && readFileSync(file, "utf8").trim().length > 0) {
     blocked(
       `genome rm refused: '${entry.label}' (${entry.fingerprint}) has ledger history — archive instead`,
@@ -75,7 +75,9 @@ function genomeRm(configDir: string, label: string): ExitCode {
     );
   }
   rmSync(entry.registryFile);
-  writeStdout(`unregistered genome '${entry.label}' (${entry.fingerprint}) — repo and kernel manifest left in place (cull ≠ delete)`);
+  writeStdout(
+    `unregistered genome '${entry.label}' (${entry.fingerprint}) — repo and kernel manifest left in place (cull ≠ delete)`,
+  );
   return EXIT_OK;
 }
 

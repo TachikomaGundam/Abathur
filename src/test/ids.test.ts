@@ -4,20 +4,12 @@
 
 import assert from "node:assert/strict";
 import { symlinkSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile, chmod, utimes } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import {
-  canonicalJson,
-  fileTreeDigest,
-  fingerprint,
-  genId,
-  runId,
-  treeDigestAt,
-  walkTree,
-} from "../core/ids.js";
+import { canonicalJson, fileTreeDigest, fingerprint, genId, runId, treeDigestAt, walkTree } from "../core/ids.js";
 
 async function freshRoot(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), `abathur-ids-${prefix}-`));

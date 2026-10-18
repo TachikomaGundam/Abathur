@@ -10,7 +10,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 
 import { blocked, cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
-import { fingerprint } from "./ids.js";
 import {
   benchDigestFor,
   bundleGenIds,
@@ -18,12 +17,13 @@ import {
   EVIDENCE_PREFIX,
   maskPlanFor,
   primaryGenId,
-  treeOf,
   sha256Hex,
+  treeOf,
 } from "./bundle-common.js";
 import { bundleManifestSchema, DIGEST_ALGO } from "./bundle-manifest.js";
 import { scanMemberLeaks } from "./bundle-mask.js";
 import { readTar, type TarMember } from "./bundle-tar.js";
+import { fingerprint } from "./ids.js";
 
 export interface BundleInspectRequest {
   readonly bundlePath: string;
@@ -43,7 +43,9 @@ function loadMembers(bundlePath: string): TarMember[] {
   try {
     return readTar(tarBytes);
   } catch (cause) {
-    return cannotAnswer(`bundle inspect: ${bundlePath} is not a readable tar: ${cause instanceof Error ? cause.message : String(cause)}`);
+    return cannotAnswer(
+      `bundle inspect: ${bundlePath} is not a readable tar: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
   }
 }
 
@@ -54,16 +56,23 @@ function parseManifest(members: readonly TarMember[]): ReturnType<typeof bundleM
   try {
     document = JSON.parse(new TextDecoder().decode(raw.content));
   } catch (cause) {
-    return cannotAnswer(`bundle inspect: manifest.json is not valid JSON: ${cause instanceof Error ? cause.message.split("\n")[0] : String(cause)}`);
+    return cannotAnswer(
+      `bundle inspect: manifest.json is not valid JSON: ${cause instanceof Error ? cause.message.split("\n")[0] : String(cause)}`,
+    );
   }
   const parsed = bundleManifestSchema.safeParse(document);
   if (!parsed.success) {
-    cannotAnswer(`bundle inspect: manifest.json failed schema v1: ${parsed.error.issues.map((i) => `${String(i.path.join("."))}: ${i.message}`).join("; ")}`);
+    cannotAnswer(
+      `bundle inspect: manifest.json failed schema v1: ${parsed.error.issues.map((i) => `${String(i.path.join("."))}: ${i.message}`).join("; ")}`,
+    );
   }
   return parsed.data;
 }
 
-function verifyPinnedMembers(members: readonly TarMember[], manifest: { files: { path: string; sha256: string; len: number }[] }): void {
+function verifyPinnedMembers(
+  members: readonly TarMember[],
+  manifest: { files: { path: string; sha256: string; len: number }[] },
+): void {
   const byPath = new Map(members.map((m) => [m.path, m]));
   const pinned = new Set<string>();
   for (const f of manifest.files) {
@@ -72,8 +81,12 @@ function verifyPinnedMembers(members: readonly TarMember[], manifest: { files: {
     const member = byPath.get(f.path);
     if (member === undefined) blocked(`bundle inspect: pinned member '${f.path}' is missing from the bundle`);
     const actualSha = sha256Hex(member.content);
-    if (actualSha !== f.sha256) blocked(`bundle inspect: ${f.path}: sha256 mismatch — expected ${f.sha256} actual ${actualSha}`);
-    if (member.content.length !== f.len) blocked(`bundle inspect: ${f.path}: length mismatch — expected ${String(f.len)} actual ${String(member.content.length)}`);
+    if (actualSha !== f.sha256)
+      blocked(`bundle inspect: ${f.path}: sha256 mismatch — expected ${f.sha256} actual ${actualSha}`);
+    if (member.content.length !== f.len)
+      blocked(
+        `bundle inspect: ${f.path}: length mismatch — expected ${String(f.len)} actual ${String(member.content.length)}`,
+      );
   }
   for (const m of members) {
     if (m.path === "manifest.json") continue;
@@ -81,7 +94,10 @@ function verifyPinnedMembers(members: readonly TarMember[], manifest: { files: {
   }
 }
 
-function verifyGenomes(members: readonly TarMember[], manifest: { genome: { label: string; fingerprint: string } }): string {
+function verifyGenomes(
+  members: readonly TarMember[],
+  manifest: { genome: { label: string; fingerprint: string } },
+): string {
   const genIds = bundleGenIds(members);
   if (genIds.length === 0) cannotAnswer("bundle inspect: bundle ships no trees/<genId>/ generation content");
   for (const genId of genIds) {
@@ -94,7 +110,9 @@ function verifyGenomes(members: readonly TarMember[], manifest: { genome: { labe
       );
     }
     if (spec.label !== manifest.genome.label) {
-      blocked(`bundle inspect: genome label mismatch in trees/${genId}/ — spec says '${spec.label}', manifest claims '${manifest.genome.label}'`);
+      blocked(
+        `bundle inspect: genome label mismatch in trees/${genId}/ — spec says '${spec.label}', manifest claims '${manifest.genome.label}'`,
+      );
     }
   }
   return primaryGenId(genIds);
@@ -105,19 +123,26 @@ function verifyBenchDigest(members: readonly TarMember[], manifest: { benchDiges
   const spec = containedSpec(tree, primary);
   const recomputed = benchDigestFor(spec, tree, primary);
   if (recomputed !== manifest.benchDigest) {
-    blocked(`bundle inspect: benchDigest mismatch — contained tree recomputes to ${recomputed}, manifest claims ${manifest.benchDigest}`);
+    blocked(
+      `bundle inspect: benchDigest mismatch — contained tree recomputes to ${recomputed}, manifest claims ${manifest.benchDigest}`,
+    );
   }
 }
 
 function verifyValExclusion(members: readonly TarMember[], primary: string): void {
   const spec = containedSpec(treeOf(members, primary), primary);
   const valIds = spec.bench.units.filter((u) => u.split === "val").map((u) => u.id);
-  const evidenceNames = members.filter((m) => m.path.startsWith(EVIDENCE_PREFIX)).map((m) => m.path.slice(m.path.lastIndexOf("/") + 1));
+  const evidenceNames = members
+    .filter((m) => m.path.startsWith(EVIDENCE_PREFIX))
+    .map((m) => m.path.slice(m.path.lastIndexOf("/") + 1));
   for (const valId of valIds) {
     const escaped = valId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const marker = new RegExp(`-${escaped}-\\d+\\.jsonl$`);
     const hit = evidenceNames.find((n) => marker.test(n));
-    if (hit !== undefined) blocked(`bundle inspect: evidence member '${hit}' derives from VAL unit '${valId}' — bundles carry train evidence only`);
+    if (hit !== undefined)
+      blocked(
+        `bundle inspect: evidence member '${hit}' derives from VAL unit '${valId}' — bundles carry train evidence only`,
+      );
   }
 }
 
@@ -128,16 +153,24 @@ function verifyMask(members: readonly TarMember[], home: string | null): void {
     const text = new TextDecoder().decode(m.content);
     for (const plan of plans) {
       const hit = scanMemberLeaks(text, plan, home);
-      if (hit !== null) blocked(`bundle inspect: leak in ${m.path}:${String(hit.line)} — "${hit.snippet}" (declared literals and machine-absolute paths must never survive in a bundle)`);
+      if (hit !== null)
+        blocked(
+          `bundle inspect: leak in ${m.path}:${String(hit.line)} — "${hit.snippet}" (declared literals and machine-absolute paths must never survive in a bundle)`,
+        );
     }
   }
 }
 
-export function inspectBundle(req: BundleInspectRequest): { readonly lines: readonly string[]; readonly exitCode: ExitCode } {
+export function inspectBundle(req: BundleInspectRequest): {
+  readonly lines: readonly string[];
+  readonly exitCode: ExitCode;
+} {
   const members = loadMembers(req.bundlePath);
   const manifest = parseManifest(members);
   if (manifest.digest_algo !== DIGEST_ALGO) {
-    cannotAnswer(`bundle inspect: unknown digest_algo '${manifest.digest_algo}' — this build understands '${DIGEST_ALGO}' only`);
+    cannotAnswer(
+      `bundle inspect: unknown digest_algo '${manifest.digest_algo}' — this build understands '${DIGEST_ALGO}' only`,
+    );
   }
   verifyPinnedMembers(members, manifest);
   if (!members.some((m) => m.path === "patch.diff")) blocked("bundle inspect: patch.diff missing from bundle");

@@ -15,11 +15,11 @@ import { z } from "zod";
 import type { ExitCode } from "../../exit.js";
 import {
   appendFriction,
-  LedgerError,
-  readFriction,
   type FrictionOptions,
+  LedgerError,
   type LedgerRecord,
   type LedgerRecordInput,
+  readFriction,
 } from "../ledger.js";
 export const FRICTION_KIND = "friction_digest";
 
@@ -34,7 +34,10 @@ const MAX_UNIT_ID_CHARS = 120;
 
 /** Printable-ASCII, single line, bounded — the queue never carries ANSI or newlines. */
 export function scrub(value: string, max = MAX_REASON_CHARS): string {
-  const one = value.replace(/[^ -~]/g, " ").replace(/\s+/g, " ").trim();
+  const one = value
+    .replace(/[^ -~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (one.length <= max) return one;
   return `${one.slice(0, Math.max(0, max - 3))}...`;
 }
@@ -135,7 +138,10 @@ export function buildRunFriction(input: RunFrictionInput): LedgerRecordInput {
       unitId: scrub(unit.unitId, MAX_UNIT_ID_CHARS),
       n: unit.scores.length,
       mean: Number(meanOf(unit.scores).toFixed(6)),
-      failures: unit.failures.map((f) => scrub(f)).filter((f) => f.length > 0).slice(0, MAX_FAILURES_PER_UNIT),
+      failures: unit.failures
+        .map((f) => scrub(f))
+        .filter((f) => f.length > 0)
+        .slice(0, MAX_FAILURES_PER_UNIT),
     });
   }
   const data: FrictionDigest = frictionDigestSchema.parse({
@@ -148,7 +154,13 @@ export function buildRunFriction(input: RunFrictionInput): LedgerRecordInput {
     stall: { budgetTruncated: input.stall.budgetTruncated, orphanGroups: input.stall.orphanGroups },
     train,
     val: { count: valCount, aliases: valAliases, samples: valSamples },
-    reasons: [...input.reasons.map((r) => scrub(r)).filter((r) => r.length > 0).slice(0, MAX_REASONS), ...unknownStages].slice(0, MAX_REASONS),
+    reasons: [
+      ...input.reasons
+        .map((r) => scrub(r))
+        .filter((r) => r.length > 0)
+        .slice(0, MAX_REASONS),
+      ...unknownStages,
+    ].slice(0, MAX_REASONS),
   });
   return input.runId === undefined
     ? { kind: FRICTION_KIND, data }
@@ -184,11 +196,17 @@ export function readFrictionDigests(configDir: string): FrictionRead {
   const digests: FrictionDigest[] = [];
   for (const [index, record] of records.entries()) {
     if (record.kind !== FRICTION_KIND) {
-      return { digests, error: `friction: line ${String(index + 1)} has kind '${record.kind}', expected '${FRICTION_KIND}'` };
+      return {
+        digests,
+        error: `friction: line ${String(index + 1)} has kind '${record.kind}', expected '${FRICTION_KIND}'`,
+      };
     }
     const parsed = frictionDigestSchema.safeParse(record.data);
     if (!parsed.success) {
-      return { digests, error: `friction: line ${String(index + 1)} failed ${FRICTION_KIND} schema: ${parsed.error.issues[0]?.message ?? "schema"}` };
+      return {
+        digests,
+        error: `friction: line ${String(index + 1)} failed ${FRICTION_KIND} schema: ${parsed.error.issues[0]?.message ?? "schema"}`,
+      };
     }
     digests.push(parsed.data);
   }

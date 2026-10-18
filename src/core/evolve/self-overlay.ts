@@ -6,25 +6,16 @@
 // the snapshot; trusted files (sealed globs, src/test/**, selfbench/**) always
 // come from the incumbent snapshot, never from the candidate tree.
 
-import {
-  cpSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { runChild, type ChildHandle, type ChildOutcome } from "../../bench/adapter.js";
+import { type ChildHandle, type ChildOutcome, runChild } from "../../bench/adapter.js";
 import { cannotAnswer } from "../../exit.js";
 import { thawTree } from "../../util/freeze.js";
-import { snapshotCommit } from "../worktree.js";
-import { compileGlob } from "../glob.js";
 import type { WorktreeEnv } from "../genome-paths.js";
+import { compileGlob } from "../glob.js";
 import type { GenomeSpec } from "../spec.js";
+import { snapshotCommit } from "../worktree.js";
 
 export type OverlayDropReason = "sealed" | "trusted-tests";
 
@@ -132,19 +123,34 @@ export interface BuildOutcome {
  * npm, never candidate-supplied scripts; copy-assets is itself sealed).
  * timeoutS bounds BOTH steps together.
  */
-export async function runBuild(buildDir: string, timeoutS: number, onChild?: (h: ChildHandle) => void): Promise<BuildOutcome> {
+export async function runBuild(
+  buildDir: string,
+  timeoutS: number,
+  onChild?: (h: ChildHandle) => void,
+): Promise<BuildOutcome> {
   const started = Date.now();
   const remaining = (): number => Math.max(5, timeoutS - Math.round((Date.now() - started) / 1000));
   const steps: { readonly label: string; readonly argv: readonly string[] }[] = [
-    { label: "tsc", argv: [process.execPath, path.join(buildDir, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"] },
+    {
+      label: "tsc",
+      argv: [process.execPath, path.join(buildDir, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+    },
     { label: "copy-assets", argv: [process.execPath, "scripts/copy-assets.mjs"] },
   ];
   for (const stepDef of steps) {
     const outcome = await step({ argv: stepDef.argv, cwd: buildDir, timeoutS: remaining() }, onChild);
-    if (outcome.kind === "timeout") return { status: "timeout", exit: null, note: `${stepDef.label}: ${outcome.reason}` };
-    if (outcome.kind === "spawn_failed") return { status: "failed", exit: null, note: `${stepDef.label}: ${outcome.reason}` };
+    if (outcome.kind === "timeout")
+      return { status: "timeout", exit: null, note: `${stepDef.label}: ${outcome.reason}` };
+    if (outcome.kind === "spawn_failed")
+      return { status: "failed", exit: null, note: `${stepDef.label}: ${outcome.reason}` };
     if (outcome.exitCode !== 0) {
-      const first = outcome.stdout.trim().split("\n").find((l) => l.length > 0) ?? outcome.stderr.trim().split("\n")[0] ?? "no output";
+      const first =
+        outcome.stdout
+          .trim()
+          .split("\n")
+          .find((l) => l.length > 0) ??
+        outcome.stderr.trim().split("\n")[0] ??
+        "no output";
       return { status: "failed", exit: outcome.exitCode, note: `${stepDef.label}: ${first}` };
     }
   }
@@ -158,19 +164,37 @@ export interface TapSummary {
 }
 
 /** node --test over the compiled suite (the plan's scoring surface). */
-export async function runSuite(buildDir: string, timeoutS: number, onChild?: (h: ChildHandle) => void): Promise<ChildOutcome> {
+export async function runSuite(
+  buildDir: string,
+  timeoutS: number,
+  onChild?: (h: ChildHandle) => void,
+): Promise<ChildOutcome> {
   return step(
-    { argv: [process.execPath, "--test", "dist/test/**/*.test.js"], cwd: buildDir, timeoutS, env: { NODE_TEST_CONTEXT: undefined } },
+    {
+      argv: [process.execPath, "--test", "dist/test/**/*.test.js"],
+      cwd: buildDir,
+      timeoutS,
+      env: { NODE_TEST_CONTEXT: undefined },
+    },
     onChild,
   );
 }
 
-export async function runReplay(buildDir: string, timeoutS: number, onChild?: (h: ChildHandle) => void): Promise<ChildOutcome> {
+export async function runReplay(
+  buildDir: string,
+  timeoutS: number,
+  onChild?: (h: ChildHandle) => void,
+): Promise<ChildOutcome> {
   return step({ argv: [process.execPath, "selfbench/replay.mjs"], cwd: buildDir, timeoutS }, onChild);
 }
 
 function step(
-  opts: { readonly argv: readonly string[]; readonly cwd: string; readonly timeoutS: number; readonly env?: Readonly<Record<string, string | undefined>> },
+  opts: {
+    readonly argv: readonly string[];
+    readonly cwd: string;
+    readonly timeoutS: number;
+    readonly env?: Readonly<Record<string, string | undefined>>;
+  },
   onChild?: (h: ChildHandle) => void,
 ): Promise<ChildOutcome> {
   return runChild(onChild === undefined ? opts : { ...opts, onChild });
@@ -211,7 +235,12 @@ export function parseReplayDigest(stdout: string): string | null {
   return null;
 }
 
-export async function incumbentSnapshot(genomeRepo: string, genomeFp: string, commitSha: string, env: WorktreeEnv): Promise<string> {
+export async function incumbentSnapshot(
+  genomeRepo: string,
+  genomeFp: string,
+  commitSha: string,
+  env: WorktreeEnv,
+): Promise<string> {
   const handle = await snapshotCommit({ repoPath: genomeRepo, genomeFp }, commitSha, { env });
   return handle.snapshotPath;
 }

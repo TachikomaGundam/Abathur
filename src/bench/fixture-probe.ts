@@ -4,19 +4,20 @@
 // argv spawn (PATH lookup, never a shell). Any failure is exit 2 BEFORE a unit
 // runs; every observed version string lands in the returned provenance list.
 
-import { cannotAnswer } from "../exit.js";
-import { loadConfig, type ConfigEnv } from "../config.js";
+import { type ConfigEnv, loadConfig } from "../config.js";
 import type { GenomeSpec } from "../core/spec.js";
-import { firstLine, runChild, type ChildHandle, type ProvenanceVersion } from "./adapter.js";
-import { compareSemver, parseSemver, semverFromText, type SemverVersion } from "./fixture-support.js";
+import { cannotAnswer } from "../exit.js";
+import { type ChildHandle, firstLine, type ProvenanceVersion, runChild } from "./adapter.js";
+import { compareSemver, parseSemver, type SemverVersion, semverFromText } from "./fixture-support.js";
 
 const PROBE_TIMEOUT_S = 30;
 
 type RequiredPrereq = NonNullable<GenomeSpec["requires"]>[number];
 
-export function resolveOpencodeBin(
-  opts: { readonly opencodeBin?: string | undefined; readonly env?: ConfigEnv | undefined },
-): string {
+export function resolveOpencodeBin(opts: {
+  readonly opencodeBin?: string | undefined;
+  readonly env?: ConfigEnv | undefined;
+}): string {
   if (opts.opencodeBin !== undefined) return opts.opencodeBin;
   return loadConfig(opts.env ?? process.env).config.opencodeBin ?? "opencode";
 }
@@ -111,11 +112,7 @@ export async function probeRequiresOnly(spec: GenomeSpec, repoRoot: string): Pro
   return reqs.length;
 }
 
-async function probeRequires(
-  req: RequiredPrereq,
-  cwd: string,
-  opts: ProbeOptions,
-): Promise<ProvenanceVersion> {
+async function probeRequires(req: RequiredPrereq, cwd: string, opts: ProbeOptions): Promise<ProvenanceVersion> {
   const outcome = await runChild({
     argv: [req.cmd, ...(req.args ?? ["--version"])],
     cwd,

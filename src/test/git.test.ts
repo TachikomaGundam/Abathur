@@ -2,7 +2,7 @@
 // timeout kill (fake binary proves the plumbing), error classification, tryGit.
 
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, chmod, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -25,17 +25,14 @@ test("git(): returns stdout/stderr for a successful run", async (t) => {
 test("git(): classifies a non-zero exit as kind=failed with code and stderr", async (t) => {
   const dir = await tmp();
   t.after(() => rm(dir, { recursive: true, force: true }));
-  await assert.rejects(
-    git(["rev-parse", "--verify", "refs/heads/nope"], { cwd: dir }),
-    (e: unknown) => {
-      assert.ok(e instanceof GitError);
-      assert.equal(e.kind, "failed");
-      assert.equal(typeof e.exitCode, "number");
-      assert.notEqual(e.exitCode, 0);
-      assert.ok(Array.isArray(e.args));
-      return true;
-    },
-  );
+  await assert.rejects(git(["rev-parse", "--verify", "refs/heads/nope"], { cwd: dir }), (e: unknown) => {
+    assert.ok(e instanceof GitError);
+    assert.equal(e.kind, "failed");
+    assert.equal(typeof e.exitCode, "number");
+    assert.notEqual(e.exitCode, 0);
+    assert.ok(Array.isArray(e.args));
+    return true;
+  });
 });
 
 test("tryGit(): plain non-zero exit becomes ok:false, not a rejection", async (t) => {

@@ -65,10 +65,11 @@ export interface BudgetCaps {
 }
 
 /** Per-unit replicate scores (train and val units alike). */
-import { studentTQuantile, normalCdf, normalQuantile } from "./stats-math.js";
-import { seededRandom, paretoFrontier } from "./stats-pareto.js";
-export { studentTQuantile, normalCdf, normalQuantile, seededRandom, paretoFrontier };
+import { normalCdf, normalQuantile, studentTQuantile } from "./stats-math.js";
+import { paretoFrontier, seededRandom } from "./stats-pareto.js";
+
 export type { ParetoPoint } from "./stats-pareto.js";
+export { normalCdf, normalQuantile, paretoFrontier, seededRandom, studentTQuantile };
 
 export interface UnitReplicates {
   readonly unitId: string;
@@ -182,7 +183,6 @@ export interface EvaluateInput {
   readonly bank?: ReadonlyMap<string, UnitBankStat> | null;
 }
 
-
 /** Family-wise alpha across finalist pairs (bonferroniAlpha divides it). */
 export const FAMILY_ALPHA = 0.05;
 
@@ -211,7 +211,14 @@ export function bonferroniAlpha(nPairs: number): number {
 export function summarizeUnit(scores: readonly number[], alpha: number = FAMILY_ALPHA): UnitStat {
   const n = scores.length;
   if (n < 2) {
-    return { n, mean: n === 1 ? (scores[0] as number) : Number.NaN, sampleVariance: Number.NaN, sem: Number.NaN, ciHalfWidth: Number.NaN, indeterminate: true };
+    return {
+      n,
+      mean: n === 1 ? (scores[0] as number) : Number.NaN,
+      sampleVariance: Number.NaN,
+      sem: Number.NaN,
+      ciHalfWidth: Number.NaN,
+      indeterminate: true,
+    };
   }
   let sum = 0;
   for (const s of scores) sum += s;
@@ -287,7 +294,14 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   // 1) Budget exhaustion short-circuits: inconclusive, excluded from the
   //    comparison series, never an implicit pass even when metrics look great.
   if (budgetExhausted(candidate.counters, budgetCaps)) {
-    return { ...base, verdict: "inconclusive", exitCode: needsExit("inconclusive"), gain: null, unitComparisons: [], failures: budgetFailureLines(candidate.counters, budgetCaps) };
+    return {
+      ...base,
+      verdict: "inconclusive",
+      exitCode: needsExit("inconclusive"),
+      gain: null,
+      unitComparisons: [],
+      failures: budgetFailureLines(candidate.counters, budgetCaps),
+    };
   }
 
   const candByUnit = new Map(candidate.units.map((u) => [u.unitId, u]));
@@ -307,10 +321,14 @@ export function evaluate(input: EvaluateInput): GateVerdict {
     const cn = candByUnit.get(unitId)?.scores.length ?? 0;
     const inn = incByUnit.get(unitId)?.scores.length ?? 0;
     if (cn >= 2 && inn < 2) {
-      failures.push(`n=${inn} on incumbent unit '${unitId}': baseline variance undefined — indeterminate, never nominated`);
+      failures.push(
+        `n=${inn} on incumbent unit '${unitId}': baseline variance undefined — indeterminate, never nominated`,
+      );
     } else if (inn >= 2 && cn < 2) {
       if (incByUnit.get(unitId)?.split === "val") {
-        failures.push(`no replicates for val unit '${unitId}' on candidate '${candidate.runId}' — variance undefined, never nominated`);
+        failures.push(
+          `no replicates for val unit '${unitId}' on candidate '${candidate.runId}' — variance undefined, never nominated`,
+        );
       } else {
         failures.push(`n=${cn} on unit '${unitId}': variance undefined — indeterminate, never nominated`);
       }
@@ -319,7 +337,14 @@ export function evaluate(input: EvaluateInput): GateVerdict {
     }
   }
   if (failures.length > 0) {
-    return { ...base, verdict: "indeterminate", exitCode: needsExit("indeterminate"), gain: null, unitComparisons: [], failures };
+    return {
+      ...base,
+      verdict: "indeterminate",
+      exitCode: needsExit("indeterminate"),
+      gain: null,
+      unitComparisons: [],
+      failures,
+    };
   }
   const candKept = candidate.units.filter((u) => !excluded.has(u.unitId));
   const incKept = incumbent.units.filter((u) => !excluded.has(u.unitId));
@@ -328,7 +353,16 @@ export function evaluate(input: EvaluateInput): GateVerdict {
   // downstream means of empty arrays are NaN, and a NaN gain must never reach
   // a nomination. This is a bench-health event, not a candidate verdict.
   if (candKept.length === 0 && incKept.length === 0) {
-    return { ...base, verdict: "inconclusive", exitCode: needsExit("inconclusive"), gain: null, unitComparisons: [], failures: ["no unit comparable on both arms (all excluded: infrastructure failures or missing replicates) — vacuous evidence, never nominated"] };
+    return {
+      ...base,
+      verdict: "inconclusive",
+      exitCode: needsExit("inconclusive"),
+      gain: null,
+      unitComparisons: [],
+      failures: [
+        "no unit comparable on both arms (all excluded: infrastructure failures or missing replicates) — vacuous evidence, never nominated",
+      ],
+    };
   }
   const candByUnitKept = new Map(candKept.map((u) => [u.unitId, u]));
 
@@ -363,7 +397,9 @@ export function evaluate(input: EvaluateInput): GateVerdict {
         failures.push(`CI half-width ${fmt(cs.ciHalfWidth)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}'`);
       }
       if (delta < -cs.ciHalfWidth) {
-        failures.push(`regression on unit '${unitId}': delta ${fmt(delta)} < ${fmt(-cs.ciHalfWidth)} (mean ${fmt(cs.mean)} < ${fmt(incumbentMean)} - ${fmt(cs.ciHalfWidth)})`);
+        failures.push(
+          `regression on unit '${unitId}': delta ${fmt(delta)} < ${fmt(-cs.ciHalfWidth)} (mean ${fmt(cs.mean)} < ${fmt(incumbentMean)} - ${fmt(cs.ciHalfWidth)})`,
+        );
       }
       continue;
     }
@@ -375,9 +411,13 @@ export function evaluate(input: EvaluateInput): GateVerdict {
     unitComparisons.push({ unitId, candidateMean: cs.mean, incumbentMean, ciHalfWidth: band, delta, ciPasses, passes });
     acceptanceUnits.push({ unitId, sigma: banked.sigma, df: banked.df, delta, se, band, pRegression });
     if (!ciPasses) {
-      failures.push(`acceptance band ${fmt(band)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}' (bank sigma ${fmt(banked.sigma)}, df ${String(banked.df)})`);
+      failures.push(
+        `acceptance band ${fmt(band)} > halfWidth ${fmt(stats.halfWidth)} on unit '${unitId}' (bank sigma ${fmt(banked.sigma)}, df ${String(banked.df)})`,
+      );
     } else if (!passes) {
-      failures.push(`regression on unit '${unitId}': delta ${fmt(delta)} — P(Δ ≤ −${fmt(stats.halfWidth)}) = ${fmt(pRegression)} ≥ q ${fmt(qPair)} (bank sigma ${fmt(banked.sigma)})`);
+      failures.push(
+        `regression on unit '${unitId}': delta ${fmt(delta)} — P(Δ ≤ −${fmt(stats.halfWidth)}) = ${fmt(pRegression)} ≥ q ${fmt(qPair)} (bank sigma ${fmt(banked.sigma)})`,
+      );
     }
   }
 
@@ -402,18 +442,28 @@ export function evaluate(input: EvaluateInput): GateVerdict {
       let variance = 0;
       pool.forEach((u, index) => {
         const s = priced[index] as UnitBankStat;
-        variance += ((s.sigma * s.sigma) * (1 / u.scores.length + 1 / (incCounts.get(u.unitId) ?? 0))) / (k * k);
+        variance += (s.sigma * s.sigma * (1 / u.scores.length + 1 / (incCounts.get(u.unitId) ?? 0))) / (k * k);
       });
       gainSe = Math.sqrt(variance);
       pShift = gainSe === 0 ? (gain > 0 ? 1 : 0) : normalCdf(gain / gainSe);
       if (pShift < qPair) {
-        failures.push(`acceptance: P(gain shift > 0) = ${fmt(pShift)} < q ${fmt(qPair)} (se ${fmt(gainSe)}, gain ${fmt(gain)})`);
+        failures.push(
+          `acceptance: P(gain shift > 0) = ${fmt(pShift)} < q ${fmt(qPair)} (se ${fmt(gainSe)}, gain ${fmt(gain)})`,
+        );
       }
     }
   }
 
   const verdict: Verdict = failures.length === 0 ? "nominated" : "culled";
-  const acceptance: AcceptanceReport | undefined = bank === null ? undefined : { q: qPair, gainSe, pShift, units: acceptanceUnits };
-  return { ...base, verdict, exitCode: needsExit(verdict), gain, unitComparisons, failures, ...(acceptance === undefined ? {} : { acceptance }) };
+  const acceptance: AcceptanceReport | undefined =
+    bank === null ? undefined : { q: qPair, gainSe, pShift, units: acceptanceUnits };
+  return {
+    ...base,
+    verdict,
+    exitCode: needsExit(verdict),
+    gain,
+    unitComparisons,
+    failures,
+    ...(acceptance === undefined ? {} : { acceptance }),
+  };
 }
-

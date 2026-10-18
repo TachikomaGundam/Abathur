@@ -9,30 +9,29 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
+import type { BenchStats } from "../core/spec.js";
 import {
-  FAMILY_ALPHA,
-  VERDICT_EXIT,
   aggregateScore,
+  type BudgetCaps,
+  type BudgetCounters,
   bonferroniAlpha,
   budgetExhausted,
+  type CandidateResult,
   clampReps,
   evaluate,
+  FAMILY_ALPHA,
+  type GateVerdict,
+  type IncumbentResult,
   needsExit,
+  type ParetoPoint,
   paretoFrontier,
   seededRandom,
   studentTQuantile,
   summarizeUnit,
-  type BudgetCaps,
-  type BudgetCounters,
-  type CandidateResult,
-  type GateVerdict,
-  type IncumbentResult,
-  type ParetoPoint,
   type UnitReplicates,
+  VERDICT_EXIT,
   type Verdict,
 } from "../core/stats.js";
-import type { BenchStats } from "../core/spec.js";
 
 // ---------------------------------------------------------------------------
 // Fixture builders (engineered replicate arrays with EXACT sample variance).
@@ -59,7 +58,11 @@ function tieIncumbentValMean(candidateMean: number, variance: number, alpha: num
   return candidateMean + studentTQuantile(alpha, 4) * Math.sqrt(variance / 5);
 }
 
-function candidate(runId: string, units: readonly UnitReplicates[], counters: BudgetCounters = IDLE_COUNTERS): CandidateResult {
+function candidate(
+  runId: string,
+  units: readonly UnitReplicates[],
+  counters: BudgetCounters = IDLE_COUNTERS,
+): CandidateResult {
   return { runId, units, counters };
 }
 function incumbent(units: readonly UnitReplicates[]): IncumbentResult {
@@ -254,8 +257,20 @@ describe("evaluate: Bonferroni alpha correction (plan AC)", () => {
   });
   it("two candidates vs one incumbent: Bonferroni correction flips A to culled, B still nominated", () => {
     const inc = incumbent(trainValUnits(0.7, 0.8, 0));
-    const va = evaluate({ candidate: candidate("g-A", aUnits()), incumbent: inc, stats: STATS, budgetCaps: CAPS, nPairs: 2 });
-    const vb = evaluate({ candidate: candidate("g-B", bUnits()), incumbent: inc, stats: STATS, budgetCaps: CAPS, nPairs: 2 });
+    const va = evaluate({
+      candidate: candidate("g-A", aUnits()),
+      incumbent: inc,
+      stats: STATS,
+      budgetCaps: CAPS,
+      nPairs: 2,
+    });
+    const vb = evaluate({
+      candidate: candidate("g-B", bUnits()),
+      incumbent: inc,
+      stats: STATS,
+      budgetCaps: CAPS,
+      nPairs: 2,
+    });
     assert.equal(va.effectiveAlpha, 0.025);
     assert.equal(va.verdict, "culled", summaryOf(va)); // flip: winner at 0.05 fails at 0.025
     assert.equal(vb.verdict, "nominated", summaryOf(vb)); // control survives the correction
@@ -270,7 +285,10 @@ describe("evaluate: Bonferroni alpha correction (plan AC)", () => {
 describe("evaluate: n=1 ⇒ indeterminate, never nominated", () => {
   it("one val unit measured once ⇒ indeterminate even though other gates pass", () => {
     const v = evaluate({
-      candidate: candidate("g-n1", [unit("u-train", "train", 0.85, 0.001), { unitId: "u-val", split: "val", scores: [0.9] }]),
+      candidate: candidate("g-n1", [
+        unit("u-train", "train", 0.85, 0.001),
+        { unitId: "u-val", split: "val", scores: [0.9] },
+      ]),
       incumbent: incumbent(trainValUnits(0.7, 0.8, 0)),
       stats: STATS,
       budgetCaps: CAPS,
@@ -286,10 +304,12 @@ describe("evaluate: n=1 ⇒ indeterminate, never nominated", () => {
         { unitId: "u-train", split: "train", scores: [0.8333333, 0.8333333] },
         { unitId: "u-val", split: "val", scores: [1, 1] },
       ]),
-      incumbent: { units: [
-        { unitId: "u-train", split: "train", scores: [] },
-        { unitId: "u-val", split: "val", scores: [0.875, 1] },
-      ] },
+      incumbent: {
+        units: [
+          { unitId: "u-train", split: "train", scores: [] },
+          { unitId: "u-val", split: "val", scores: [0.875, 1] },
+        ],
+      },
       stats: STATS,
       budgetCaps: CAPS,
       nPairs: 1,
@@ -345,7 +365,7 @@ describe("evaluate: nomination happy path", () => {
     assert.equal(v.failures.length, 0);
     assert.equal(v.unitComparisons.length, 1);
     const comp = v.unitComparisons[0];
-    assert.ok(comp !== undefined && comp.passes);
+    assert.ok(comp?.passes);
   });
   it("regression floor allows an exact tie (mean delta === −CI)", () => {
     const candMean = 0.8;
@@ -410,7 +430,10 @@ describe("paretoFrontier", () => {
   });
   it("budget-truncated generations never enter the Pareto set", () => {
     const ranked = paretoFrontier(
-      [{ id: "T", trainScore: 1.0, tokens: 10, wallS: 1, complete: false }, { id: "OK", trainScore: 0.6, tokens: 40, wallS: 5, complete: true }],
+      [
+        { id: "T", trainScore: 1.0, tokens: 10, wallS: 1, complete: false },
+        { id: "OK", trainScore: 0.6, tokens: 40, wallS: 5, complete: true },
+      ],
       1,
     );
     assert.deepEqual(ranked, ["OK"]);
@@ -431,16 +454,25 @@ describe("paretoFrontier", () => {
 describe("seeded synthetic replay (plan AC: deterministic verdict table)", () => {
   const SEED = 42;
 
-  function noisyUnit(unitId: string, split: "train" | "val", mean: number, variance: number, rng: () => number): UnitReplicates {
+  function noisyUnit(
+    unitId: string,
+    split: "train" | "val",
+    mean: number,
+    variance: number,
+    rng: () => number,
+  ): UnitReplicates {
     return { unitId, split, scores: devs(variance).map((d) => mean + d + (rng() - 0.5) * 0.01) };
   }
 
   it("reproduces the exact verdict for every row of the decision table", () => {
-    const inc = incumbent([
-      unit("u-train", "train", 0.7, 0),
-      unit("u-val", "val", 0.8, 0),
-    ]);
-    const rows: Array<{ name: string; candUnits: readonly UnitReplicates[]; caps: BudgetCaps; nPairs: number; expected: Verdict }> = [];
+    const inc = incumbent([unit("u-train", "train", 0.7, 0), unit("u-val", "val", 0.8, 0)]);
+    const rows: Array<{
+      name: string;
+      candUnits: readonly UnitReplicates[];
+      caps: BudgetCaps;
+      nPairs: number;
+      expected: Verdict;
+    }> = [];
 
     const rngA = seededRandom(SEED);
     const rngB = seededRandom(SEED + 1);
@@ -472,7 +504,10 @@ describe("seeded synthetic replay (plan AC: deterministic verdict table)", () =>
       },
       {
         name: "single measurement (indeterminate)",
-        candUnits: [noisyUnit("u-train", "train", 0.85, 0.0004, rngD), { unitId: "u-val", split: "val", scores: [0.88] }],
+        candUnits: [
+          noisyUnit("u-train", "train", 0.85, 0.0004, rngD),
+          { unitId: "u-val", split: "val", scores: [0.88] },
+        ],
         caps: CAPS,
         nPairs: 1,
         expected: "indeterminate",
@@ -497,13 +532,17 @@ describe("seeded synthetic replay (plan AC: deterministic verdict table)", () =>
       return `${row.name.padEnd(28)} → ${summaryOf(v)}`;
     });
     for (const [i, row] of rows.entries()) {
-      assert.equal(evaluate({
-        candidate: candidate(`g-${row.name.replace(/\W+/g, "-")}`, row.candUnits),
-        incumbent: inc,
-        stats: STATS,
-        budgetCaps: row.caps,
-        nPairs: row.nPairs,
-      }).verdict, row.expected, table[i]);
+      assert.equal(
+        evaluate({
+          candidate: candidate(`g-${row.name.replace(/\W+/g, "-")}`, row.candUnits),
+          incumbent: inc,
+          stats: STATS,
+          budgetCaps: row.caps,
+          nPairs: row.nPairs,
+        }).verdict,
+        row.expected,
+        table[i],
+      );
     }
   });
 });
@@ -513,7 +552,15 @@ describe("seeded synthetic replay (plan AC: deterministic verdict table)", () =>
 describe("evaluate: vacuous pool is inconclusive, never nominated", () => {
   it("single-replicate arms on both sides ⇒ inconclusive with the vacuous failure line", () => {
     const v = evaluate({
-      candidate: { runId: "g-vacuous", units: [{ unitId: "u1", split: "val", scores: [] }], counters: CAPS, caps: CAPS, minEffect: 0.1, effectiveAlpha: 0.05, nPairs: 1 },
+      candidate: {
+        runId: "g-vacuous",
+        units: [{ unitId: "u1", split: "val", scores: [] }],
+        counters: CAPS,
+        caps: CAPS,
+        minEffect: 0.1,
+        effectiveAlpha: 0.05,
+        nPairs: 1,
+      },
       incumbent: { units: [{ unitId: "u1", split: "val", scores: [0.8] }] },
       stats: STATS,
       budgetCaps: CAPS,

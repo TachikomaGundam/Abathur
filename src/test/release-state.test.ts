@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  ReleaseIdentityInputError,
-  assessReleaseIdentity,
-} from "../release-state.js";
+import { assessReleaseIdentity, ReleaseIdentityInputError } from "../release-state.js";
 
 test("release identity: all observed released sources with one version are aligned", () => {
   const report = assessReleaseIdentity([
@@ -108,10 +105,11 @@ test("release identity: complete contradictory evidence is diverged with source 
 
 test("release identity: duplicate and malformed observations have named input errors", () => {
   assert.throws(
-    () => assessReleaseIdentity([
-      { source: "runtime", kind: "observed", version: "0.2.9", released: true },
-      { source: "runtime", kind: "observed", version: "0.2.10", released: true },
-    ]),
+    () =>
+      assessReleaseIdentity([
+        { source: "runtime", kind: "observed", version: "0.2.9", released: true },
+        { source: "runtime", kind: "observed", version: "0.2.10", released: true },
+      ]),
     /duplicate release observation: runtime/,
   );
   assert.throws(

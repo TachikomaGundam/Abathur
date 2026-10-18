@@ -3,10 +3,9 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import type { BenchUnit } from "../core/spec.js";
 import { renderCommand, sandboxVars, unitVars } from "../bench/adapter.js";
+import type { BenchUnit } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 function expectExit2(action: () => unknown, ...needles: string[]): void {
   try {
@@ -65,8 +64,5 @@ test("{repoRoot} unthreaded ⇒ fail-closed exit 2 (unknown placeholder behavior
   const unit: BenchUnit = { id: "u1", path: "p", split: "train" };
   expectExit2(() => renderCommand("node x {repoRoot}", unitVars(unit, "/s")), "unknown placeholder");
   expectExit2(() => renderCommand("node x {repoRoot}", sandboxVars("/s")), "unknown placeholder");
-  expectExit2(
-    () => renderCommand("node x {repoRoot}", { worktree: "/w", brief: "/b" }),
-    "unknown placeholder",
-  );
+  expectExit2(() => renderCommand("node x {repoRoot}", { worktree: "/w", brief: "/b" }), "unknown placeholder");
 });

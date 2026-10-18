@@ -5,12 +5,12 @@
 // WHOLE-CANDIDATE REJECTION is the rule: any single violating path rejects the
 // entire candidate — there is no partial-apply path through this module.
 
-import { z } from "zod";
 import path from "node:path";
+import { z } from "zod";
 
 import { compileGlob } from "../glob.js";
 import { formatZodIssues } from "../spec.js";
-import { parseUnifiedDiff, type FileChange } from "./udiff.js";
+import { type FileChange, parseUnifiedDiff } from "./udiff.js";
 
 /**
  * Build/hidden state that evolution must never write. Plan wording:
@@ -75,7 +75,12 @@ export interface PathPolicy {
 export type RejectionStage = "schema" | "syntax" | "path";
 
 export type CandidateValidation =
-  | { readonly ok: true; readonly candidateId: string; readonly rationale: string; readonly changes: readonly FileChange[] }
+  | {
+      readonly ok: true;
+      readonly candidateId: string;
+      readonly rationale: string;
+      readonly changes: readonly FileChange[];
+    }
   | { readonly ok: false; readonly stage: RejectionStage; readonly reason: string };
 
 /** Candidate ids are attacker-influenced; the fallback keeps ledger rows stable. */
@@ -134,11 +139,19 @@ export function validateCandidate(raw: unknown, policy: PathPolicy, fallbackId =
     if (unsafe !== null) return { ok: false, stage: "path", reason: `refused path (${unsafe}): ${c.path}` };
     const sealed = policyHit(c.path, policy.immutableGlobs);
     if (sealed !== null) {
-      return { ok: false, stage: "path", reason: `path '${c.path}' touches kernel-immutable glob '${sealed}' — whole candidate rejected` };
+      return {
+        ok: false,
+        stage: "path",
+        reason: `path '${c.path}' touches kernel-immutable glob '${sealed}' — whole candidate rejected`,
+      };
     }
     const artifact = policyHit(c.path, policy.artifactGlobs);
     if (artifact !== null) {
-      return { ok: false, stage: "path", reason: `path '${c.path}' touches artifact glob '${artifact}' — whole candidate rejected` };
+      return {
+        ok: false,
+        stage: "path",
+        reason: `path '${c.path}' touches artifact glob '${artifact}' — whole candidate rejected`,
+      };
     }
   }
   return { ok: true, candidateId: parsed.data.id ?? fallbackId, rationale: parsed.data.rationale, changes };

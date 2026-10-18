@@ -5,19 +5,19 @@
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { canonicalJson } from "../core/ids.js";
 import {
-  LEDGER_KIND_LOCK_TAKEOVER,
-  Ledger,
   acquireGenomeLock,
   acquireLock,
   appendFriction,
   frictionQueuePath,
+  LEDGER_KIND_LOCK_TAKEOVER,
+  Ledger,
   lockDirFor,
   readFriction,
 } from "../core/ledger.js";
@@ -89,7 +89,10 @@ test("friction queue lives under config home and validates every append", async 
   assert.equal(frictionQueuePath(config), path.join(config, "friction.jsonl"));
   const rec = appendFriction(config, { kind: "friction", data: { genome: "g1", note: "slow" } }, FIXED_CLOCK);
   assert.equal(rec.kind, "friction");
-  assert.deepEqual(readFriction(config).map((r) => canonicalJson(r)), [canonicalJson(rec)]);
+  assert.deepEqual(
+    readFriction(config).map((r) => canonicalJson(r)),
+    [canonicalJson(rec)],
+  );
   assert.throws(() => appendFriction(config, { kind: "" }, FIXED_CLOCK), Error);
   assert.equal(rawLines(frictionQueuePath(config)).length, 1, "failed append wrote nothing");
 });
@@ -113,7 +116,11 @@ test("two genomes append 200 friction records each concurrently: 400 clean zod-v
       .filter((r) => r.data.source === source)
       .map((r) => Number(r.data.seq))
       .sort((x, y) => x - y);
-    assert.deepEqual(seqs, Array.from({ length: 200 }, (_, i) => i), `${source}: all records intact`);
+    assert.deepEqual(
+      seqs,
+      Array.from({ length: 200 }, (_, i) => i),
+      `${source}: all records intact`,
+    );
   }
 });
 

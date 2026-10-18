@@ -2,18 +2,19 @@
 // (plan Must NOT: no auto-promote path importable by evolve modules). No --force:
 // every refusal is a bug report, not a flag.
 
-import { resolveConfigDir } from "../config.js";
-import { EXIT_OK, cannotAnswer, type ExitCode } from "../exit.js";
-import { promoteGeneration } from "../core/promote.js";
-import { writeStdout } from "../out.js";
 import type { CommandSpec } from "../cli.js";
+import { resolveConfigDir } from "../config.js";
+import { promoteGeneration } from "../core/promote.js";
+import { cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
+import { writeStdout } from "../out.js";
 import { resolveUniqueEntry } from "./run.js";
 
 const USAGE = "usage: abathur promote <label> <genId>";
 
 async function runPromote(args: readonly string[]): Promise<ExitCode> {
   const [label, genId] = args;
-  if (label === undefined || genId === undefined || args.length !== 2) cannotAnswer(`promote: expected exactly <label> <genId>`, USAGE);
+  if (label === undefined || genId === undefined || args.length !== 2)
+    cannotAnswer(`promote: expected exactly <label> <genId>`, USAGE);
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "promote");
   const outcome = await promoteGeneration({ entry, configDir, genId });

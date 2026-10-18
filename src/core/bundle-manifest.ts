@@ -3,9 +3,8 @@
 // and tests pin the field list verbatim.
 
 import { z } from "zod";
-
+import { type GenerationRowData, unitMatrixRowSchema } from "./evolve/run-rows.js";
 import { ADAPTER_IFACE_VERSION, fingerprint } from "./ids.js";
-import { unitMatrixRowSchema, type GenerationRowData } from "./evolve/run-rows.js";
 import type { GenomeSpec } from "./spec.js";
 
 export const DIGEST_ALGO = "sha256-canonical-v1";
@@ -43,13 +42,15 @@ export const bundleManifestSchema = z.strictObject({
     verdict: nullable(z.enum(["nominated", "culled", "indeterminate", "inconclusive"])),
   }),
   sealedGlobs: z.array(z.string()),
-  files: z.array(
-    z.strictObject({
-      path: z.string().min(1),
-      sha256: z.string().regex(/^[0-9a-f]{64}$/),
-      len: z.number().int().nonnegative(),
-    }),
-  ).min(1),
+  files: z
+    .array(
+      z.strictObject({
+        path: z.string().min(1),
+        sha256: z.string().regex(/^[0-9a-f]{64}$/),
+        len: z.number().int().nonnegative(),
+      }),
+    )
+    .min(1),
   rationale: z.string(),
   frictionDigests: z.array(z.string()),
 });
@@ -72,8 +73,7 @@ export interface BundleProvenance {
 export function deriveBenchProvenance(row: GenerationRowData, spec: GenomeSpec): BundleProvenance {
   const bench = spec.bench;
   return {
-    opencodeVersion:
-      row.benchProvenance.versions.find((v) => v.bin === "opencode")?.version ?? null,
+    opencodeVersion: row.benchProvenance.versions.find((v) => v.bin === "opencode")?.version ?? null,
     agentModel: bench.agentModel ?? null,
     adapterConfigDigest: fingerprint({
       adapterIface: ADAPTER_IFACE_VERSION,

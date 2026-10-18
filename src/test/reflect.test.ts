@@ -8,31 +8,30 @@
 //      moves 0→1, rejections land in the ledger, malformed stdout is a clean error.
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
+import { prepareToyGenome, ToyBenchAdapter } from "../bench/toy.js";
 import {
   ARTIFACT_GLOBS,
   artifactGlobsFromGitignore,
+  type BriefUnitEvidence,
   buildBrief,
+  type MutatorSessionResult,
   runMutatorSession,
   validateCandidate,
-  type BriefUnitEvidence,
-  type MutatorSessionResult,
 } from "../core/evolve/reflect.js";
-import { applyChanges, parseUnifiedDiff } from "../core/evolve/udiff.js";
 import { scriptedPatches } from "../core/evolve/stub-mutators.mjs";
-import { Ledger, ledgerPath } from "../core/ledger.js";
+import { applyChanges, parseUnifiedDiff } from "../core/evolve/udiff.js";
 import { fingerprint16 } from "../core/genome.js";
-import { loadGenomeSpecFile, type GenomeSpec } from "../core/spec.js";
-import { sealGeneration } from "../core/worktree.js";
 import type { GenomeRef, WorktreeEnv } from "../core/genome-paths.js";
+import { Ledger, ledgerPath } from "../core/ledger.js";
+import { type GenomeSpec, loadGenomeSpecFile } from "../core/spec.js";
 import { aggregateScore, type BudgetCounters, type UnitReplicates } from "../core/stats.js";
-import { prepareToyGenome, ToyBenchAdapter } from "../bench/toy.js";
+import { sealGeneration } from "../core/worktree.js";
+import { ExitSignal } from "../exit.js";
 import { gitIn } from "./fixtures-wt.js";
 
 // ------------------------------------------------------------------ fixtures
@@ -160,7 +159,16 @@ async function sessionFixture(t: TestContext): Promise<Session> {
   // plant the canary in the VAL unit and commit it, so it rides into worktrees
   const sub = path.join(repo, "units", "sub.mjs");
   writeFileSync(sub, `${readFileSync(sub, "utf8")}\n// ${CANARY}\n`, "utf8");
-  await gitIn(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-aqm", "plant val canary");
+  await gitIn(
+    repo,
+    "-c",
+    "user.name=abathur",
+    "-c",
+    "user.email=agent@host.example",
+    "commit",
+    "-aqm",
+    "plant val canary",
+  );
   const spec = loadGenomeSpecFile(path.join(repo, "genome.jsonc"));
   const env: WorktreeEnv = {
     XDG_CACHE_HOME: path.join(root, "xdg-cache"),
@@ -175,8 +183,7 @@ async function sessionFixture(t: TestContext): Promise<Session> {
     capture,
     genome,
     run(mutatorMode: string, brief: string = "(brief withheld in this session)") {
-      const command =
-        `node ${stub} --mode ${mutatorMode} --dir {worktree} --brief {brief} --capture ${capture}`;
+      const command = `node ${stub} --mode ${mutatorMode} --dir {worktree} --brief {brief} --capture ${capture}`;
       return runMutatorSession({ spec, brief, mutatorCommand: command, env });
     },
   };
@@ -240,7 +247,11 @@ async function trainAggregate(spec: GenomeSpec, sandboxRoot: string, reps: numbe
 // ------------------------------------------------------------------ buildBrief
 
 test("buildBrief: failed train units in, with assertion diffs + budget counters", () => {
-  const passing: BriefUnitEvidence = { unit: { id: "mul", path: "units/mul.mjs", split: "train" }, scores: [1, 1], failures: [] };
+  const passing: BriefUnitEvidence = {
+    unit: { id: "mul", path: "units/mul.mjs", split: "train" },
+    scores: [1, 1],
+    failures: [],
+  };
   const brief = buildBrief(MIN_SPEC, [trainFail(), passing, valEvidence()], COUNTERS);
   assert.match(brief, /units\/add\.mjs/);
   assert.match(brief, /expected add\(2,3\)===5, got -1/);
@@ -252,7 +263,11 @@ test("buildBrief: failed train units in, with assertion diffs + budget counters"
 });
 
 test("buildBrief: val units are OPAQUE aliases only — no id, path, score or content", () => {
-  const val2: BriefUnitEvidence = { unit: { id: "organize-mess", path: "scenarios/04-organize-mess.md", split: "val" }, scores: [0], failures: [] };
+  const val2: BriefUnitEvidence = {
+    unit: { id: "organize-mess", path: "scenarios/04-organize-mess.md", split: "val" },
+    scores: [0],
+    failures: [],
+  };
   const brief = buildBrief(MIN_SPEC, [trainFail(), valEvidence(), val2], COUNTERS);
   assert.match(brief, /val-1/);
   assert.match(brief, /val-2/);
@@ -298,17 +313,25 @@ test("udiff: parses modify hunk and applies it atomically in memory", () => {
 test("udiff: create-from-/dev/null allowed; delete, rename, binary refused as candidate ops", () => {
   assert.ok(parseUnifiedDiff("--- /dev/null\n+++ b/n/new.mjs\n@@ -0,0 +1,1 @@\n+hi\n").ok);
   assert.match(parseErrors("--- a/x.mjs\n+++ /dev/null\n@@ -1,1 +0,0 @@\n-hi\n"), /delete/i);
-  assert.match(parseErrors("diff --git a/x.mjs b/y.mjs\nsimilarity index 90%\nrename from x.mjs\nrename to y.mjs\n"), /rename/i);
+  assert.match(
+    parseErrors("diff --git a/x.mjs b/y.mjs\nsimilarity index 90%\nrename from x.mjs\nrename to y.mjs\n"),
+    /rename/i,
+  );
   assert.match(parseErrors("--- a/x.bin\n+++ b/x.bin\nBinary files a/x.bin and b/x.bin differ\n"), /binary/i);
   assert.match(parseErrors("--- a/x.mjs\n+++ b/x.mjs\nGIT binary patch\nliteral 42\n"), /binary/i);
-  assert.match(parseErrors("--- a/x.mjs\n+++ b/x.mjs\n@@ -1,1 +1,1 @@\n-\x00\x01\x7fELFgarbage\n+x\n"), /control characters/i);
+  assert.match(
+    parseErrors("--- a/x.mjs\n+++ b/x.mjs\n@@ -1,1 +1,1 @@\n-\x00\x01\x7fELFgarbage\n+x\n"),
+    /control characters/i,
+  );
 });
 
 test("udiff: hunk position or context mismatch (drifted worktree) → apply refuses, writes nothing", () => {
   const parsed = parseUnifiedDiff(FIX_ADD_DIFF);
   if (!parsed.ok) assert.fail(parsed.error);
   // one inserted line shifts the target from line 10 to line 11: positional apply refuses
-  const applied = applyChanges(parsed.changes, (rel) => (rel === "units/add.mjs" ? `// drift notice\n${ADD_MJS}` : null));
+  const applied = applyChanges(parsed.changes, (rel) =>
+    rel === "units/add.mjs" ? `// drift notice\n${ADD_MJS}` : null,
+  );
   assert.equal(applied.ok, false);
   assert.match(applied.ok ? "" : applied.reason, /mismatch/i);
 });
@@ -320,7 +343,10 @@ const POLICY = { immutableGlobs: ["grader.mjs"], artifactGlobs: ARTIFACT_GLOBS }
 test("validateCandidate: clean candidate passes with parsed changes", () => {
   const v = validateCandidate({ id: "fix", rationale: "fix add()", diffs: [FIX_ADD_DIFF] }, POLICY);
   assert.ok(v.ok, v.ok ? "" : `${v.stage}: ${v.reason}`);
-  assert.deepEqual(v.changes.map((c) => c.path), ["units/add.mjs"]);
+  assert.deepEqual(
+    v.changes.map((c) => c.path),
+    ["units/add.mjs"],
+  );
 });
 
 test("validateCandidate: kernel-immutable AND artifact paths reject the WHOLE candidate", () => {
@@ -341,8 +367,18 @@ test("validateCandidate: kernel-immutable AND artifact paths reject the WHOLE ca
 });
 
 test("validateCandidate: traversal, .git, and hidden-state paths are refused by the path policy", () => {
-  for (const bad of ["../../etc/passwd", "/etc/passwd", ".git/config", ".state/x.jsonc", "config.local.jsonc", "a/../../b/x.mjs"]) {
-    const v = validateCandidate({ rationale: "r", diffs: [`--- /dev/null\n+++ b/${bad}\n@@ -0,0 +1,1 @@\n+x\n`] }, POLICY);
+  for (const bad of [
+    "../../etc/passwd",
+    "/etc/passwd",
+    ".git/config",
+    ".state/x.jsonc",
+    "config.local.jsonc",
+    "a/../../b/x.mjs",
+  ]) {
+    const v = validateCandidate(
+      { rationale: "r", diffs: [`--- /dev/null\n+++ b/${bad}\n@@ -0,0 +1,1 @@\n+x\n`] },
+      POLICY,
+    );
     assert.equal(v.ok, false, `must refuse ${bad}`);
   }
 });
@@ -368,7 +404,11 @@ test("artifactGlobsFromGitignore: directories, root-anchored, and negation skipp
   assert.ok(globs.includes("build/**"));
   assert.ok(globs.includes("**/build/**"));
   assert.ok(globs.includes("only-root.txt"));
-  assert.equal(globs.some((g) => g.includes("keep")), false, "negations are skipped (fail-closed broadening)");
+  assert.equal(
+    globs.some((g) => g.includes("keep")),
+    false,
+    "negations are skipped (fail-closed broadening)",
+  );
 });
 
 // --------------------------------------------------------- runMutatorSession AC
@@ -388,7 +428,11 @@ test("session AC: stub emits 3 candidates — clean seal, kernel-touch rejected+
 
   // rejections are booked in the genome ledger
   assert.deepEqual(rejectionRecords(fx.spec.repoPath), [{ candidateId: "touch-kernel", stage: "path" }]);
-  assert.ok(Ledger.open(fx.spec.repoPath).readAll().some((r) => r.kind === "candidate_rejected"));
+  assert.ok(
+    Ledger.open(fx.spec.repoPath)
+      .readAll()
+      .some((r) => r.kind === "candidate_rejected"),
+  );
 
   // sealed generations are real worktrees with real commits
   for (const applied of result.applied) {
@@ -438,7 +482,11 @@ test("session canary: val scenario string absent from every mutator-facing artif
 test("session: missing mutator binary → clean exit 2 BEFORE spawn, nothing materialized", async (t) => {
   const fx = await sessionFixture(t);
   const command = `${path.join(fx.root, "no-such-mutator")} --dir {worktree} --brief {brief}`;
-  await expectExit(2, /not found|not executable/i, runMutatorSession({ spec: fx.spec, brief: "b", mutatorCommand: command, env: fx.env }));
+  await expectExit(
+    2,
+    /not found|not executable/i,
+    runMutatorSession({ spec: fx.spec, brief: "b", mutatorCommand: command, env: fx.env }),
+  );
   // opencodeBin set to a dead path → same clean exit 2 for an 'opencode run …' template
   await expectExit(
     2,

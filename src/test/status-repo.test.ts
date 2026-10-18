@@ -10,16 +10,14 @@
 //  (3) concrete repoPath keeps working unchanged (regression guard).
 
 import assert from "node:assert/strict";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { mkdtempSync, rmSync } from "node:fs";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
+import { type TestContext, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { test, type TestContext } from "node:test";
-
-import { registerGenome } from "../core/genome.js";
 import { prepareToyGenome } from "../bench/toy.js";
+import { registerGenome } from "../core/genome.js";
 
 const CLI = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const LIT_VAR = "ABATHUR_SEAM_STATUS_REPO";
@@ -53,11 +51,7 @@ async function fixture(t: TestContext, label: string): Promise<SeamStatusFixture
   return { root, configDir, repo };
 }
 
-function cli(
-  f: SeamStatusFixture,
-  label: string,
-  env: Record<string, string | undefined>,
-): SpawnSyncReturns<string> {
+function cli(f: SeamStatusFixture, label: string, env: Record<string, string | undefined>): SpawnSyncReturns<string> {
   return spawnSync(process.execPath, [CLI, "status", label], {
     encoding: "utf8",
     cwd: f.root,

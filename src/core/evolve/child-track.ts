@@ -20,9 +20,8 @@
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-
-import { canonicalJson } from "../ids.js";
 import type { ChildHandle } from "../../bench/adapter.js";
+import { canonicalJson } from "../ids.js";
 
 export interface ChildRecord {
   readonly v: 1;

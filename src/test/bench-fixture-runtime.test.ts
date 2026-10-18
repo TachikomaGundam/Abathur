@@ -3,10 +3,9 @@ import { spawnSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-
-import { ExitSignal } from "../exit.js";
+import { compareSemver, FixtureScenariosAdapter, parseSemver } from "../bench/fixture.js";
 import type { BenchUnit } from "../core/spec.js";
-import { compareSemver, parseSemver } from "../bench/fixture.js";
+import type { ExitSignal } from "../exit.js";
 import {
   adapterFixture,
   BIN_GARBAGE_RUN,
@@ -20,7 +19,6 @@ import {
   TRAIN_UNITS,
   writeScript,
 } from "./fixtures-bench-fixture.js";
-import { FixtureScenariosAdapter } from "../bench/fixture.js";
 
 test("(E) hanging unit: group kill at timeoutS, zero orphans", async (t) => {
   const f = await adapterFixture(t, BIN_HANG, { timeoutS: 1 }, {}, "oc-fake-runtime");
@@ -37,7 +35,13 @@ test("(E) hanging unit: group kill at timeoutS, zero orphans", async (t) => {
 });
 
 test("(F) infra_failed is recorded with a distinct status/note, never a silent 0", async (t) => {
-  const f = await adapterFixture(t, BIN_GOOD, { runCommand: "abathur-no-such-bin run {unit.path}" }, {}, "oc-fake-runtime");
+  const f = await adapterFixture(
+    t,
+    BIN_GOOD,
+    { runCommand: "abathur-no-such-bin run {unit.path}" },
+    {},
+    "oc-fake-runtime",
+  );
   await f.adapter.reset(f.sandbox);
   await f.adapter.seed(f.sandbox);
   const run = await f.adapter.run(TRAIN_UNITS[0] as BenchUnit, f.sandbox, 5);
@@ -74,12 +78,20 @@ test("fixture hook: an omitted integration asset is an actionable exit 2", async
   const genDir = await fixtureGenome(t);
   const home = await fakeHome(t);
   const spec = fixtureSpec(genDir, binPath, { seedCommand: `${genDir}/missing-integration-hook.sh {sandbox}` });
-  const adapter = new FixtureScenariosAdapter(spec, { env: { HOME: home }, home, configDir: path.join(home, ".config", "abathur"), opencodeBin: binPath });
+  const adapter = new FixtureScenariosAdapter(spec, {
+    env: { HOME: home },
+    home,
+    configDir: path.join(home, ".config", "abathur"),
+    opencodeBin: binPath,
+  });
   const sandbox = path.join(await freshDir(t, "fixsbx"), "sb");
   await adapter.reset(sandbox);
   await assert.rejects(
     () => adapter.seed(sandbox),
-    (cause: unknown) => isExit2(cause) && /fixture seedCommand failed/.test((cause as ExitSignal).message) && /missing-integration-hook\.sh/.test((cause as ExitSignal).message),
+    (cause: unknown) =>
+      isExit2(cause) &&
+      /fixture seedCommand failed/.test((cause as ExitSignal).message) &&
+      /missing-integration-hook\.sh/.test((cause as ExitSignal).message),
   );
   adapter.release();
 });

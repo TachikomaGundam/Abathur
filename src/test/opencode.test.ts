@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { test, type TestContext } from "node:test";
+import { type TestContext, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
@@ -44,10 +44,7 @@ async function makeEnv(t: TestContext): Promise<{ home: string; env: NodeJS.Proc
   return { home, env: { ...process.env, ABATHUR_CONFIG: configPath, HOME: home } };
 }
 
-function abathur(
-  env: NodeJS.ProcessEnv,
-  ...args: string[]
-): { status: number; stdout: string; stderr: string } {
+function abathur(env: NodeJS.ProcessEnv, ...args: string[]): { status: number; stdout: string; stderr: string } {
   const run = spawnSync(process.execPath, [cliPath, ...args], { env, encoding: "utf8" });
   return { status: run.status ?? -1, stdout: run.stdout, stderr: run.stderr };
 }
@@ -258,7 +255,6 @@ test("uninstall: refuses foreign file and leaves the sibling of ours in place", 
   assert.ok((await readFile(pluginTs, "utf8")).startsWith(PLUGIN_MARKER));
   assert.ok((await readFile(commandMd, "utf8")).includes("hijacked"));
 });
-
 
 test("CLI help: opencode is a registered top-level command", async (t) => {
   const { env } = await makeEnv(t);

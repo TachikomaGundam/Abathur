@@ -11,10 +11,10 @@ import path from "node:path";
 import { z } from "zod";
 
 import { canonicalJson, compactUtc } from "./ids.js";
-import { effectiveRepoPath } from "./spec.js";
 import { acquireLock, type LockLease } from "./locks.js";
+import { effectiveRepoPath } from "./spec.js";
 
-export { acquireLock, lockDirFor, type LockLease, type LockOptions } from "./locks.js";
+export { acquireLock, type LockLease, type LockOptions, lockDirFor } from "./locks.js";
 
 export const LEDGER_KIND_LOCK_TAKEOVER = "lock_takeover";
 export const LEDGER_KIND_GENERATION_COMPLETE = "generation_complete";
@@ -90,10 +90,7 @@ function parseLine(line: string, filePath: string, lineNo: number): LedgerRecord
   try {
     json = JSON.parse(line);
   } catch (error) {
-    throw new LedgerError(
-      "integrity",
-      `${filePath}: line ${lineNo} is not valid JSON: ${(error as Error).message}`,
-    );
+    throw new LedgerError("integrity", `${filePath}: line ${lineNo} is not valid JSON: ${(error as Error).message}`);
   }
   const parsed = ledgerRecordSchema.safeParse(json);
   if (!parsed.success) {
@@ -222,11 +219,7 @@ export function frictionQueuePath(configDir: string): string {
 }
 
 /** Guarded by .locks/friction.lock; every genome can append without corrupting another's line. */
-export function appendFriction(
-  configDir: string,
-  input: LedgerRecordInput,
-  opts: FrictionOptions = {},
-): LedgerRecord {
+export function appendFriction(configDir: string, input: LedgerRecordInput, opts: FrictionOptions = {}): LedgerRecord {
   const now = opts.now ?? (() => new Date());
   const record = buildRecord(input, now);
   const lease = acquireLock({

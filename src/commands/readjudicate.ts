@@ -3,18 +3,19 @@
 // flips by hand; promote continues to read the LAST row. See core/readjudicate.ts for
 // the replay contract (counters minus own slot, bank excludes this candidate's trees).
 
-import { resolveConfigDir } from "../config.js";
-import { EXIT_OK, EXIT_CANNOT_ANSWER, cannotAnswer, type ExitCode } from "../exit.js";
-import { readjudicateGeneration } from "../core/readjudicate.js";
-import { writeStdout } from "../out.js";
 import type { CommandSpec } from "../cli.js";
+import { resolveConfigDir } from "../config.js";
+import { readjudicateGeneration } from "../core/readjudicate.js";
+import { cannotAnswer, EXIT_CANNOT_ANSWER, EXIT_OK, type ExitCode } from "../exit.js";
+import { writeStdout } from "../out.js";
 import { resolveUniqueEntry } from "./run.js";
 
 const USAGE = "usage: abathur re-adjudicate <label> <genId>";
 
 function runReadjudicate(args: readonly string[]): ExitCode {
   const [label, genId] = args;
-  if (label === undefined || genId === undefined || args.length !== 2) cannotAnswer(`re-adjudicate: expected exactly <label> <genId>`, USAGE);
+  if (label === undefined || genId === undefined || args.length !== 2)
+    cannotAnswer(`re-adjudicate: expected exactly <label> <genId>`, USAGE);
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "re-adjudicate");
   const outcome = readjudicateGeneration({ entry, configDir, genId, now: () => new Date() });
@@ -26,6 +27,7 @@ function runReadjudicate(args: readonly string[]): ExitCode {
 
 export const readjudicateCommand: CommandSpec = {
   name: "re-adjudicate",
-  summary: "replay the current gate over a gen's archived rows; append corrected verdict + provenance (files stay immutable)",
+  summary:
+    "replay the current gate over a gen's archived rows; append corrected verdict + provenance (files stay immutable)",
   run: ({ args }) => Promise.resolve(runReadjudicate(args)),
 };

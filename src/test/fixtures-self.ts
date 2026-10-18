@@ -7,11 +7,20 @@
 // harness install (exactly what self-snapshot does for the toolchain).
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { TestContext } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import type { WorktreeEnv } from "../core/genome-paths.js";
 
@@ -125,8 +134,6 @@ export function makeSelfHarness(t: TestContext): SelfHarness {
   };
 }
 
-
-
 /** Capture the golden replay digest against a fresh build of the CURRENT tree. */
 export function captureReplayDigest(repo: string): string {
   execFileSync(process.execPath, [path.join(repo, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"], {
@@ -174,5 +181,3 @@ export function editFile(repo: string, rel: string, mutate: (text: string) => st
   const abs = path.join(repo, rel);
   writeFileSync(abs, mutate(readFileSync(abs, "utf8")), "utf8");
 }
-
-

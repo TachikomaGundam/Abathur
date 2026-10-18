@@ -21,7 +21,7 @@
 //     on disk, the config hook below self-registers the command instead.
 
 import { execFile } from "node:child_process";
-import { tool, type Config } from "@opencode-ai/plugin";
+import { type Config, tool } from "@opencode-ai/plugin";
 
 /** Spawn cap: a CLI call that outlives this is killed and reported, never awaited forever. */
 const TIMEOUT_MS = 120_000;
@@ -116,7 +116,6 @@ function runCli(bin: string, argv: readonly string[]): Promise<CliResult> {
   });
 }
 
-
 /**
  * /abathur slash-command template, injected into cfg.command.abathur by the
  * config hook for installs without a commands/abathur.md on disk (Route B).
@@ -171,9 +170,7 @@ export default {
           "and UX, not capability. `promote`, `tombstone` and `retract` are deliberately NOT " +
           "reachable here: they are human gates, run in a terminal.",
         args: {
-          command: tool.schema
-            .string()
-            .describe("top-level abathur command, e.g. 'genome' or 'status' or '--help'"),
+          command: tool.schema.string().describe("top-level abathur command, e.g. 'genome' or 'status' or '--help'"),
           extra: tool.schema
             .array(tool.schema.string())
             .optional()
@@ -192,10 +189,7 @@ export default {
           context.metadata({ title: `abathur ${argv.join(" ")}` });
           const bin = resolveBin();
           const result = await runCli(bin, argv);
-          const sections = [
-            `$ abathur ${argv.join(" ")}`,
-            `exit: ${String(result.status)}`,
-          ];
+          const sections = [`$ abathur ${argv.join(" ")}`, `exit: ${String(result.status)}`];
           if (result.note.length > 0) sections.push(`note: ${result.note}`);
           sections.push(`--- stdout ---\n${result.stdout.length === 0 ? "(empty)" : result.stdout}`);
           sections.push(`--- stderr ---\n${result.stderr.length === 0 ? "(empty)" : result.stderr}`);

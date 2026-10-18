@@ -25,34 +25,33 @@
 // next real feature.
 
 import path from "node:path";
-
-import { EXIT_BLOCKED, EXIT_CANNOT_ANSWER, EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../../exit.js";
 import { probeRequiresOnly } from "../../bench/fixture-probe.js";
 import type { ConfigEnv } from "../../config.js";
+import { blocked, cannotAnswer, EXIT_BLOCKED, EXIT_CANNOT_ANSWER, EXIT_OK, type ExitCode } from "../../exit.js";
 import { fingerprint16, type RegistryEntry } from "../genome.js";
-import { auditKernel } from "../kernel.js";
-import { compactUtc, fingerprint, genId } from "../ids.js";
-import { LEDGER_KIND_GENERATION_COMPLETE, acquireGenomeLock, Ledger } from "../ledger.js";
 import type { WorktreeEnv } from "../genome-paths.js";
-import { openGenome } from "../worktree.js";
-import { clampReps, evaluate, needsExit, type BudgetCaps, type BudgetCounters } from "../stats.js";
+import { compactUtc, fingerprint, genId } from "../ids.js";
+import { auditKernel } from "../kernel.js";
+import { acquireGenomeLock, LEDGER_KIND_GENERATION_COMPLETE, Ledger } from "../ledger.js";
 import { effectiveRepoPath, envRepoName, isEnvRepoLiteral } from "../spec.js";
-import { ChildTracker, reapOrphans } from "./child-track.js";
+import { type BudgetCaps, type BudgetCounters, clampReps, evaluate, needsExit } from "../stats.js";
+import { openGenome } from "../worktree.js";
 import { buildBrief } from "./brief.js";
+import { ChildTracker, reapOrphans } from "./child-track.js";
 import type { RunFrictionInput } from "./friction.js";
-import { startRunFriction } from "./run-friction.js";
 import { runMutatorSession } from "./reflect.js";
 import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./run-bench.js";
-import { loadScoreBank } from "./score-bank.js";
-import { selfGuardVerdict } from "./self-snapshot.js";
+import { startRunFriction } from "./run-friction.js";
 import { effectiveCaps, planLines } from "./run-plan.js";
 import {
   addCounters,
-  readResume,
   type GenerationRowData,
   type GenerationVerdict,
+  readResume,
   type UnitMatrixRow,
 } from "./run-rows.js";
+import { loadScoreBank } from "./score-bank.js";
+import { selfGuardVerdict } from "./self-snapshot.js";
 
 export interface RunLoopOptions {
   readonly entry: RegistryEntry;
@@ -87,7 +86,6 @@ export interface RunLoopOutcome {
   readonly lines: readonly string[];
 }
 
-
 /** Run exit over candidate verdicts: any nomination wins; else inconclusive ⇒ 2, else 1. */
 export function runExitCode(verdicts: readonly GenerationVerdict[]): ExitCode {
   if (verdicts.includes("nominated")) return EXIT_OK;
@@ -120,7 +118,8 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
   }
   if (opts.dryRun === true) {
     const reqs = spec.requires ?? [];
-    const requiresProbed = reqs.length > 0 ? await probeRequiresOnly(spec, effectiveRepoPath(spec.repoPath)) : undefined;
+    const requiresProbed =
+      reqs.length > 0 ? await probeRequiresOnly(spec, effectiveRepoPath(spec.repoPath)) : undefined;
     return {
       exitCode: EXIT_OK,
       lines: planLines({
@@ -186,7 +185,11 @@ async function evolve(
     );
   }
 
-  const opened = await openGenome(genomeRepo, spec.bench.units.map((u) => u.path), { env });
+  const opened = await openGenome(
+    genomeRepo,
+    spec.bench.units.map((u) => u.path),
+    { env },
+  );
   const resume = readResume(ledger);
   const genomeFp = fingerprint16(spec);
   const invId = `a-${compactUtc(now())}-${genomeFp.slice(0, 8)}`;
@@ -202,7 +205,9 @@ async function evolve(
   if (storedInc !== undefined) {
     incUnits = storedInc.units;
     fric?.noteUnits(incUnits);
-    lines.push(`resume: incumbent baseline @ ${opened.headCommit.slice(0, 8)} already benched — reusing ${String(incUnits.length)} unit rows`);
+    lines.push(
+      `resume: incumbent baseline @ ${opened.headCommit.slice(0, 8)} already benched — reusing ${String(incUnits.length)} unit rows`,
+    );
   } else {
     const gen = genId(fingerprint({ incumbent: opened.headCommit, at: now().getTime() }), now());
     const out = await benchTarget({
@@ -230,11 +235,15 @@ async function evolve(
       counters: out.spent,
       manifest: out.manifest.map((m) => ({ glob: m.glob, path: m.path, sha256: m.sha256 })),
       benchProvenance: copyProvenance(out.provenance),
-      ...(opened.dirtyWorktree.length === 0 ? {} : { dirtyWorktree: opened.dirtyWorktree.map((d) => ({ xy: d.xy, file: d.file })) }),
+      ...(opened.dirtyWorktree.length === 0
+        ? {}
+        : { dirtyWorktree: opened.dirtyWorktree.map((d) => ({ xy: d.xy, file: d.file })) }),
     };
     ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, genId: gen, runId: invId, data });
     incUnits = out.units;
-    lines.push(`incumbent baseline: ${String(out.units.length)} units x ${String(reps)} reps${out.complete ? "" : " (BUDGET-TRUNCATED)"}`);
+    lines.push(
+      `incumbent baseline: ${String(out.units.length)} units x ${String(reps)} reps${out.complete ? "" : " (BUDGET-TRUNCATED)"}`,
+    );
   }
 
   // ---- score bank for acceptance-semantics gates (loaded after the incumbent
@@ -254,7 +263,9 @@ async function evolve(
   const remaining = caps.maxCandidates - counters.candidates;
   const considered: GenerationVerdict[] = [];
   if (remaining <= 0) {
-    lines.push(`budget: candidate cap ${String(caps.maxCandidates)} already spent — resume reports stored verdicts, no new candidates`);
+    lines.push(
+      `budget: candidate cap ${String(caps.maxCandidates)} already spent — resume reports stored verdicts, no new candidates`,
+    );
     for (const row of resume.candidatesByTree.values()) {
       if (row.headCommit !== opened.headCommit) continue; // verdicts for other heads are history, not this run's outcome
       if (row.verdict !== undefined) considered.push(row.verdict);
@@ -279,7 +290,8 @@ async function evolve(
     });
     fric?.noteSession(session.rejected, session.applied.length);
     for (const r of session.rejected) lines.push(`candidate ${r.candidateId} rejected (${r.stage}): ${r.reason}`);
-    if (session.applied.length === 0 && session.rejected.length === 0) lines.push("mutator session produced no candidates");
+    if (session.applied.length === 0 && session.rejected.length === 0)
+      lines.push("mutator session produced no candidates");
     const nPairs = Math.max(1, session.applied.length);
     // Trees this session re-delivered; anything recorded earlier against this
     // head that the slice could NOT re-deliver (remaining < batch size on a
@@ -292,7 +304,9 @@ async function evolve(
         const verdict: GenerationVerdict = prior.verdict ?? "indeterminate";
         considered.push(verdict);
         reported.add(c.treeSha);
-        lines.push(`candidate ${c.candidateId}: tree ${c.treeSha.slice(0, 12)} already in ledger — resume reuses verdict '${verdict}', no re-bench, no double spend`);
+        lines.push(
+          `candidate ${c.candidateId}: tree ${c.treeSha.slice(0, 12)} already in ledger — resume reuses verdict '${verdict}', no re-bench, no double spend`,
+        );
         continue;
       }
       const out = await benchTarget({
@@ -326,7 +340,11 @@ async function evolve(
       const guarded = selfMode ? selfGuardVerdict(out.failures, verdict.verdict) : verdict.verdict;
       const finalVerdict = guarded;
       const finalExit = guarded === verdict.verdict ? verdict.exitCode : needsExit(guarded);
-      fric?.noteCandidate(c.candidateId, verdict.failures, guarded === verdict.verdict ? null : `${verdict.verdict} -> ${guarded}`);
+      fric?.noteCandidate(
+        c.candidateId,
+        verdict.failures,
+        guarded === verdict.verdict ? null : `${verdict.verdict} -> ${guarded}`,
+      );
       considered.push(finalVerdict);
       const data: GenerationRowData = {
         source: "candidate",
@@ -349,14 +367,18 @@ async function evolve(
       ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, genId: c.genId, runId: invId, data });
       reported.add(c.treeSha);
       const gain = verdict.gain === null ? "n/a (truncated)" : verdict.gain.toFixed(4);
-      lines.push(`candidate ${c.candidateId} [tree ${c.treeSha.slice(0, 12)}]: ${finalVerdict} (gain ${gain}, reps ${String(reps)}${out.complete ? "" : ", BUDGET-TRUNCATED"})`);
+      lines.push(
+        `candidate ${c.candidateId} [tree ${c.treeSha.slice(0, 12)}]: ${finalVerdict} (gain ${gain}, reps ${String(reps)}${out.complete ? "" : ", BUDGET-TRUNCATED"})`,
+      );
       for (const f of verdict.failures) lines.push(`  gate: ${f}`);
     }
 
     for (const [tree, row] of resume.candidatesByTree) {
       if (reported.has(tree) || row.headCommit !== opened.headCommit || row.verdict === undefined) continue;
       considered.push(row.verdict);
-      lines.push(`candidate ${row.candidateId ?? tree.slice(0, 12)}: recorded earlier against this head — verdict '${row.verdict}' carried into this run's exit status`);
+      lines.push(
+        `candidate ${row.candidateId ?? tree.slice(0, 12)}: recorded earlier against this head — verdict '${row.verdict}' carried into this run's exit status`,
+      );
     }
   }
 
@@ -368,4 +390,3 @@ async function evolve(
   fric?.emit({ genomeFp, runId: invId, exit, considered, orphanGroups: reap.reaped.length });
   return { exitCode: exit, lines };
 }
-

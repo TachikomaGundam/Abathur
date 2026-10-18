@@ -93,18 +93,10 @@ function readJsoncDocument(filePath: string): Record<string, unknown> {
   try {
     parsed = parseJsonc(text);
   } catch (cause) {
-    throw new ConfigError(
-      "malformed",
-      `config: malformed JSONC in ${filePath}: ${errorMessage(cause)}`,
-      filePath,
-    );
+    throw new ConfigError("malformed", `config: malformed JSONC in ${filePath}: ${errorMessage(cause)}`, filePath);
   }
   if (!isPlainObject(parsed)) {
-    throw new ConfigError(
-      "malformed",
-      `config: expected a top-level object in ${filePath}`,
-      filePath,
-    );
+    throw new ConfigError("malformed", `config: expected a top-level object in ${filePath}`, filePath);
   }
   return parsed;
 }
@@ -119,8 +111,7 @@ export function deepMerge(
   const out: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(overlay)) {
     const existing = out[key];
-    out[key] =
-      isPlainObject(existing) && isPlainObject(value) ? deepMerge(existing, value) : value;
+    out[key] = isPlainObject(existing) && isPlainObject(value) ? deepMerge(existing, value) : value;
   }
   return out;
 }
@@ -149,14 +140,9 @@ function validateConfig(doc: Record<string, unknown>, origin: string): AbathurCo
     }
   }
   const [first] = result.error.issues;
-  const where =
-    first === undefined || first.path.length === 0 ? "<root>" : first.path.join(".");
+  const where = first === undefined || first.path.length === 0 ? "<root>" : first.path.join(".");
   const why = first === undefined ? "schema rejected the document" : first.message;
-  throw new ConfigError(
-    "invalid-value",
-    `config: invalid value for "${where}" in ${origin}: ${why}`,
-    origin,
-  );
+  throw new ConfigError("invalid-value", `config: invalid value for "${where}" in ${origin}: ${why}`, origin);
 }
 
 // ------------------------------------------------------------------ resolution
@@ -172,11 +158,7 @@ export function resolveConfigPath(env: ConfigEnv = process.env): string | null {
       throw new ConfigError("unreadable", "config: $ABATHUR_CONFIG is set but empty", raw);
     }
     if (!isReadableFile(raw)) {
-      throw new ConfigError(
-        "unreadable",
-        `config: $ABATHUR_CONFIG points to an unreadable file: ${raw}`,
-        raw,
-      );
+      throw new ConfigError("unreadable", `config: $ABATHUR_CONFIG points to an unreadable file: ${raw}`, raw);
     }
     return raw;
   }
@@ -199,9 +181,7 @@ export function resolveConfigDir(env: ConfigEnv = process.env): string {
 }
 
 function overlayPathFor(basePath: string): string {
-  return basePath.endsWith(".jsonc")
-    ? `${basePath.slice(0, -".jsonc".length)}.local.jsonc`
-    : `${basePath}.local.jsonc`;
+  return basePath.endsWith(".jsonc") ? `${basePath.slice(0, -".jsonc".length)}.local.jsonc` : `${basePath}.local.jsonc`;
 }
 
 /** Read base + `*.local.jsonc` overlay, deep-merge, JSONC-parse, zod-strict-validate. Throws ConfigError (→ exit 2). */

@@ -10,9 +10,8 @@
 //                 excluded from score distributions (hr discipline), not zeroed.
 
 import { spawn } from "node:child_process";
-
-import { cannotAnswer } from "../exit.js";
 import type { BenchSpec, BenchUnit } from "../core/spec.js";
+import { cannotAnswer } from "../exit.js";
 
 export interface RunMetrics {
   readonly tokensEst: number;
@@ -223,10 +222,7 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
       cwd: opts.cwd,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env:
-        opts.env === undefined
-          ? { ...process.env, LC_ALL: "C" }
-          : { ...process.env, ...opts.env, LC_ALL: "C" },
+      env: opts.env === undefined ? { ...process.env, LC_ALL: "C" } : { ...process.env, ...opts.env, LC_ALL: "C" },
     });
     let stdout = "";
     let stderr = "";
@@ -247,10 +243,13 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
     child.stderr?.on("data", (chunk: Buffer) => {
       stderr = cap(stderr, chunk);
     });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      killGroup(child.pid);
-    }, Math.round(opts.timeoutS * 1000));
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        killGroup(child.pid);
+      },
+      Math.round(opts.timeoutS * 1000),
+    );
     // Node emits 'close' after a failed spawn too (code null), so one resolve site.
     child.on("error", (cause: NodeJS.ErrnoException) => {
       spawnError = cause.message;
@@ -258,8 +257,7 @@ export function runChild(opts: ChildOptions): Promise<ChildOutcome> {
     child.on("close", (code) => {
       clearTimeout(timer);
       notifyExit();
-      const kind: ChildKind =
-        spawnError !== null ? "spawn_failed" : timedOut ? "timeout" : "exited";
+      const kind: ChildKind = spawnError !== null ? "spawn_failed" : timedOut ? "timeout" : "exited";
       const reason =
         spawnError !== null
           ? `spawn failed: ${spawnError}`

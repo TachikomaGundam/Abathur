@@ -9,24 +9,24 @@ import path from "node:path";
 
 import { blocked, cannotAnswer } from "../exit.js";
 import { parseJsonc } from "../jsonc.js";
-import { canonicalJson, fingerprint } from "./ids.js";
 import { filesMatching } from "./glob.js";
+import { canonicalJson, fingerprint } from "./ids.js";
 import {
   buildManifest,
   compareManifest,
+  type ManifestEntry,
   manifestPathFor,
   parseManifestText,
   readManifestFile,
   serializeManifest,
-  type ManifestEntry,
 } from "./kernel.js";
 import {
   effectiveRepoPath,
   errorText,
   formatZodIssues,
+  type GenomeSpec,
   genomeSpecSchema,
   loadGenomeSpecFile,
-  type GenomeSpec,
 } from "./spec.js";
 
 export interface RegistryEntry {
@@ -120,12 +120,7 @@ function enforceGlobSuperset(configDir: string, spec: GenomeSpec, repoRoot: stri
  * NEVER writes — tampering is resolved only at promote (todo 10), never by
  * resealing through `genome add`.
  */
-function refuseReseal(
-  configDir: string,
-  fp: string,
-  spec: GenomeSpec,
-  freshManifestText: string,
-): void {
+function refuseReseal(configDir: string, fp: string, spec: GenomeSpec, freshManifestText: string): void {
   const filePath = manifestPathFor(configDir, fp);
   let saved: ManifestEntry[];
   try {

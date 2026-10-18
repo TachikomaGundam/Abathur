@@ -15,20 +15,13 @@ import { kernelCommand } from "./commands/kernel.js";
 import { opencodeCommand } from "./commands/opencode.js";
 import { promoteCommand } from "./commands/promote.js";
 import { readjudicateCommand } from "./commands/readjudicate.js";
+import { retractCommand } from "./commands/retract.js";
 import { runCommand } from "./commands/run.js";
 import { selfEvalCommand } from "./commands/self-eval.js";
 import { statusCommand } from "./commands/status.js";
 import { tombstoneCommand } from "./commands/tombstone.js";
-import { retractCommand } from "./commands/retract.js";
-import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
-import {
-  EXIT_CANNOT_ANSWER,
-  EXIT_OK,
-  ExitSignal,
-  cannotAnswer,
-  renderExitSignal,
-  type ExitCode,
-} from "./exit.js";
+import { ConfigError, type LoadedConfig, loadConfig } from "./config.js";
+import { cannotAnswer, EXIT_CANNOT_ANSWER, EXIT_OK, type ExitCode, ExitSignal, renderExitSignal } from "./exit.js";
 import { runtimeVersion } from "./version.js";
 
 export interface CommandContext {
@@ -137,8 +130,7 @@ async function main(argv: readonly string[]): Promise<void> {
 let invokedDirectly = false;
 try {
   invokedDirectly =
-    process.argv[1] !== undefined &&
-    realpathSync(path.resolve(process.argv[1])) === fileURLToPath(import.meta.url);
+    process.argv[1] !== undefined && realpathSync(path.resolve(process.argv[1])) === fileURLToPath(import.meta.url);
 } catch {
   invokedDirectly = false;
 }

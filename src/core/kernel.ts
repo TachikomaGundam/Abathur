@@ -98,10 +98,7 @@ export function readManifestFile(filePath: string): ManifestEntry[] {
 }
 
 /** Set-diff of two manifests → deterministic drift list (sorted by path, then kind). */
-export function compareManifest(
-  saved: readonly ManifestEntry[],
-  fresh: readonly ManifestEntry[],
-): DriftedFile[] {
+export function compareManifest(saved: readonly ManifestEntry[], fresh: readonly ManifestEntry[]): DriftedFile[] {
   const savedByPath = new Map(saved.map((entry) => [entry.path, entry]));
   const freshByPath = new Map(fresh.map((entry) => [entry.path, entry]));
   const drifted: DriftedFile[] = [];
@@ -131,9 +128,7 @@ export function auditKernel(entry: RegistryEntry, configDir: string): KernelAudi
   try {
     saved = readManifestFile(filePath);
   } catch (cause) {
-    return cannotAnswer(
-      `kernel audit: ${errorText(cause)} — genome '${entry.spec.label}' (${entry.fingerprint})`,
-    );
+    return cannotAnswer(`kernel audit: ${errorText(cause)} — genome '${entry.spec.label}' (${entry.fingerprint})`);
   }
   const fresh = buildManifest(effectiveRepoPath(entry.spec.repoPath), entry.spec.kernel.immutableGlobs);
   const drifted = compareManifest(saved, fresh);

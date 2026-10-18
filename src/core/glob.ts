@@ -55,9 +55,12 @@ export function compileGlob(glob: string): RegExp {
     const segment = segments[i] as string;
     const isLast = i === segments.length - 1;
     if (segment === "**") {
-      if (segments.length === 1) source += ".*"; // bare ** matches every path
-      else if (i === 0) source += "(?:[^/]+/)*"; // **/x ⇒ x, a/x, a/b/x
-      else if (isLast) source += "/.*"; // x/** ⇒ everything strictly under x/
+      if (segments.length === 1)
+        source += ".*"; // bare ** matches every path
+      else if (i === 0)
+        source += "(?:[^/]+/)*"; // **/x ⇒ x, a/x, a/b/x
+      else if (isLast)
+        source += "/.*"; // x/** ⇒ everything strictly under x/
       else source += "/(?:[^/]+/)*"; // x/**/y ⇒ x/y, x/a/y, x/a/b/y
       continue; // each ** branch already consumed its leading separator
     }

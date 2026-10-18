@@ -101,10 +101,7 @@ function classify(args: readonly string[], cause: unknown): GitError {
   return new GitError("spawn", args, null, "", `${describe(args)} failed to run: ${why}`);
 }
 
-async function spawnGit(
-  args: readonly string[],
-  opts: GitRunOptions,
-): Promise<GitResult> {
+async function spawnGit(args: readonly string[], opts: GitRunOptions): Promise<GitResult> {
   try {
     const { stdout, stderr } = await execFileAsync(opts.bin ?? "git", [...args], {
       ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
@@ -120,10 +117,7 @@ async function spawnGit(
 }
 
 /** Run git; reject with GitError on non-zero exit, timeout, or spawn failure. */
-export async function git(
-  args: readonly string[],
-  opts: GitRunOptions = {},
-): Promise<GitResult> {
+export async function git(args: readonly string[], opts: GitRunOptions = {}): Promise<GitResult> {
   return spawnGit(args, opts);
 }
 
@@ -132,10 +126,7 @@ export async function git(
  * rejection — for predicates like `merge-base --is-ancestor`. Timeouts and
  * spawn failures still reject (they are not answers, only missing ones).
  */
-export async function tryGit(
-  args: readonly string[],
-  opts: GitRunOptions = {},
-): Promise<GitAttempt> {
+export async function tryGit(args: readonly string[], opts: GitRunOptions = {}): Promise<GitAttempt> {
   try {
     const result = await spawnGit(args, opts);
     return { ok: true, ...result };

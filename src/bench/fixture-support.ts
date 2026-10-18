@@ -5,11 +5,10 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-
-import { cannotAnswer } from "../exit.js";
 import { canonicalJson } from "../core/ids.js";
-import { parseJsonc } from "../jsonc.js";
 import type { BenchUnit } from "../core/spec.js";
+import { cannotAnswer } from "../exit.js";
+import { parseJsonc } from "../jsonc.js";
 import type { RunMetrics } from "./adapter.js";
 
 // ------------------------------------------------------------------ semver
@@ -125,11 +124,7 @@ export function mirrorSandboxHome(home: string, sandboxDir: string, agentModel: 
   mkdirSync(dstCfg, { recursive: true });
   const jsonFile = path.join(dstCfg, "opencode.json");
   const jsoncFile = path.join(dstCfg, "opencode.jsonc");
-  const base = existsSync(jsonFile)
-    ? readConfigBase(jsonFile)
-    : existsSync(jsoncFile)
-      ? readConfigBase(jsoncFile)
-      : {};
+  const base = existsSync(jsonFile) ? readConfigBase(jsonFile) : existsSync(jsoncFile) ? readConfigBase(jsoncFile) : {};
   base["model"] = agentModel;
   writeFileSync(jsonFile, `${canonicalJson(base)}\n`, "utf8");
 }

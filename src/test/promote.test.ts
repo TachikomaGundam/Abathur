@@ -11,26 +11,25 @@
 // real seals via todo-3 worktree APIs, commands driven through the real CLI.
 
 import assert from "node:assert/strict";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
-
-import { acquireGenomeLock, acquireLock, Ledger } from "../core/ledger.js";
-import type { LedgerRecord } from "../core/ledger.js";
-import { fingerprint, genId } from "../core/ids.js";
-import { newGeneration, openGenome, sealGeneration } from "../core/worktree.js";
-import type { WorktreeEnv, WorktreeOptions } from "../core/genome-paths.js";
-import { manifestPathFor, readManifestFile } from "../core/kernel.js";
-import { registerGenome, requireGenomesByLabel, readRegistry } from "../core/genome.js";
-import type { RegistryEntry } from "../core/genome.js";
-import { INCUMBENT_BRANCH } from "../core/incumbent.js";
+import { fileURLToPath } from "node:url";
+import { prepareToyGenome } from "../bench/toy.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
-import { prepareToyGenome } from "../bench/toy.js";
+import type { RegistryEntry } from "../core/genome.js";
+import { readRegistry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv, WorktreeOptions } from "../core/genome-paths.js";
+import { fingerprint, genId } from "../core/ids.js";
+import { INCUMBENT_BRANCH } from "../core/incumbent.js";
+import { manifestPathFor, readManifestFile } from "../core/kernel.js";
+import type { LedgerRecord } from "../core/ledger.js";
+import { acquireGenomeLock, acquireLock, Ledger } from "../core/ledger.js";
+import { newGeneration, openGenome, sealGeneration } from "../core/worktree.js";
 
 const CLI = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -201,7 +200,9 @@ const CLEAN_MUTATION = { file: "units/mul.mjs", append: "\n// hand-sealed clean 
 const SEALED_MUTATION = { file: "grader.mjs", append: "\n// tampered grader\n" };
 
 function incumbentSha(f: GateFixture): string | null {
-  const run = spawnSync("git", ["-C", f.repo, "rev-parse", "--verify", "-q", `refs/heads/${INCUMBENT_BRANCH}`], { encoding: "utf8" });
+  const run = spawnSync("git", ["-C", f.repo, "rev-parse", "--verify", "-q", `refs/heads/${INCUMBENT_BRANCH}`], {
+    encoding: "utf8",
+  });
   return run.status === 0 ? run.stdout.trim() : null;
 }
 
@@ -350,7 +351,9 @@ test("AC(c): tombstone records culled lineage, keeps commits and every byte of s
   assert.deepEqual(data, { genId: culled.genId, reason: "sibling of fix-add, no val gain", actor: "cli" });
 
   // cull ≠ delete: the sealed commit stays reachable-by-object and history files only grow
-  const cat = spawnSync("git", ["-C", f.repo, "cat-file", "-e", `${culled.data.commitSha}^{commit}`], { encoding: "utf8" });
+  const cat = spawnSync("git", ["-C", f.repo, "cat-file", "-e", `${culled.data.commitSha}^{commit}`], {
+    encoding: "utf8",
+  });
   assert.equal(cat.status, 0, "gen commit object preserved after tombstone");
   const after = readFileSync(path.join(f.repo, ".state", "abathur", "ledger.jsonl"), "utf8");
   assert.ok(after.startsWith(before), "ledger stays append-only");
@@ -533,7 +536,11 @@ test("retract echo hygiene: control bytes never reach stdout or the ledger file"
 test("gate locks: a live genome-lock holder blocks promote with a named pid (exit 2)", async (t) => {
   const f = await gateFixture(t);
   const gen = await handSeal(f, "lock-holder", CLEAN_MUTATION, "nominated");
-  const lease = acquireGenomeLock({ ledger: Ledger.open(f.repo), configDir: f.configDir, genomeFp: f.entry.fingerprint });
+  const lease = acquireGenomeLock({
+    ledger: Ledger.open(f.repo),
+    configDir: f.configDir,
+    genomeFp: f.entry.fingerprint,
+  });
   t.after(() => lease.release());
   const run = cli(f, "promote", "toy-smoke", gen.genId);
   assert.equal(run.status, 2, `promote while locked: ${run.stderr}`);
@@ -701,7 +708,8 @@ test("structural: promote/retract cores are CLI-only; no auto-gate import path; 
         if (ent.name !== "node_modules") scanRetract(p);
       } else if (ent.name.endsWith(".ts")) {
         const src = readFileSync(p, "utf8");
-        if (/(?:from\s+|import\(\s*)["'](?:[^"']*\/)?core\/retract\.js["']|from\s+["']\.\/retract\.js["']/.test(src)) retractImporters.push(p);
+        if (/(?:from\s+|import\(\s*)["'](?:[^"']*\/)?core\/retract\.js["']|from\s+["']\.\/retract\.js["']/.test(src))
+          retractImporters.push(p);
       }
     }
   };
@@ -709,11 +717,23 @@ test("structural: promote/retract cores are CLI-only; no auto-gate import path; 
   const relRetract = retractImporters.map((p) => path.relative(REPO_ROOT, p).split(path.sep).join("/")).sort();
   assert.deepEqual(relRetract, ["src/commands/retract.ts"], "core/retract imported ONLY by commands/retract");
   for (const rel of ["src/core/evolve/run-loop.ts", "src/core/evolve/reflect.ts", "src/core/evolve/candidate.ts"]) {
-    assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, rel), "utf8"), /from\s+"[^"]*promote\.js"/, `${rel} must not import promote`);
-    assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, rel), "utf8"), /from\s+"[^"]*retract\.js"/, `${rel} must not import retract`);
+    assert.doesNotMatch(
+      readFileSync(path.join(REPO_ROOT, rel), "utf8"),
+      /from\s+"[^"]*promote\.js"/,
+      `${rel} must not import promote`,
+    );
+    assert.doesNotMatch(
+      readFileSync(path.join(REPO_ROOT, rel), "utf8"),
+      /from\s+"[^"]*retract\.js"/,
+      `${rel} must not import retract`,
+    );
   }
   for (const gateFile of ["src/core/promote.ts", "src/core/retract.ts"]) {
-    assert.doesNotMatch(readFileSync(path.join(REPO_ROOT, gateFile), "utf8"), /--force/, `no force flag in ${gateFile}`);
+    assert.doesNotMatch(
+      readFileSync(path.join(REPO_ROOT, gateFile), "utf8"),
+      /--force/,
+      `no force flag in ${gateFile}`,
+    );
   }
   // the plugin tool allowlist must never grow a human gate (terminal-only class)
   const pluginSrc = readFileSync(path.join(REPO_ROOT, "plugin", "abathur.ts"), "utf8");

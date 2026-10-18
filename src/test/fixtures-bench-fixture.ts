@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { chmodSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { parseGenomeSpecDocument, type GenomeSpec } from "../core/spec.js";
 import type { ScoreOutcome } from "../bench/adapter.js";
-import { FixtureScenariosAdapter, type FixtureAdapterOptions } from "../bench/fixture.js";
+import { type FixtureAdapterOptions, FixtureScenariosAdapter } from "../bench/fixture.js";
+import { type GenomeSpec, parseGenomeSpecDocument } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 export function keep(t: TestContext, dir: string): string {
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -74,12 +73,19 @@ export async function fixtureGenome(t: TestContext): Promise<string> {
   await writeFile(path.join(genDir, "scenarios-two.md"), "beta train scenario\n", "utf8");
   await writeFile(path.join(genDir, "scenarios-poison.md"), "gamma state-mutating train scenario\n", "utf8");
   await writeFile(path.join(genDir, "scenarios-val-canary-ZZHIDDEN.md"), "holdout val scenario ZZHIDDEN\n", "utf8");
-  await writeScript(genDir, "reset.sh", `#!/usr/bin/env bash
+  await writeScript(
+    genDir,
+    "reset.sh",
+    `#!/usr/bin/env bash
 set -euo pipefail
 rm -rf "\${1:?sandbox}"
 mkdir -p "\${1:?sandbox}"
-`);
-  await writeScript(genDir, "seed.sh", `#!/usr/bin/env bash
+`,
+  );
+  await writeScript(
+    genDir,
+    "seed.sh",
+    `#!/usr/bin/env bash
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 sandbox="\${1:?sandbox}"
@@ -87,8 +93,11 @@ mkdir -p "$sandbox/scenarios"
 cp "$here"/scenarios-*.md "$sandbox/scenarios/"
 cp "$here"/grader.mjs "$sandbox/grader.mjs"
 touch "$sandbox/seeded.flag"
-`);
-  await writeFile(path.join(genDir, "grader.mjs"), `const [unitId] = process.argv.slice(2);
+`,
+  );
+  await writeFile(
+    path.join(genDir, "grader.mjs"),
+    `const [unitId] = process.argv.slice(2);
 const table = {
   one: { score: 1, pass: true },
   two: { score: 0.5, pass: false },
@@ -98,11 +107,17 @@ const table = {
 const row = table[unitId];
 if (!row) { console.error("unknown unit " + unitId); process.exit(1); }
 console.log(JSON.stringify({ unit: unitId, score: row.score, pass: row.pass, metrics: { tokensEst: 42, turns: 2 } }));
-`, "utf8");
-  await writeScript(genDir, "capture-opencode-bin.sh", `#!/usr/bin/env bash
+`,
+    "utf8",
+  );
+  await writeScript(
+    genDir,
+    "capture-opencode-bin.sh",
+    `#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "\${ABATHUR_OPENCODE_BIN:?missing ABATHUR_OPENCODE_BIN}" > opencode-bin.txt
-`);
+`,
+  );
   return genDir;
 }
 
@@ -123,32 +138,46 @@ export interface SpecOverrides {
 }
 
 export function fixtureSpec(genDir: string, binPath: string, over: SpecOverrides = {}): GenomeSpec {
-  return parseGenomeSpecDocument({
-    label: "fixture-germ",
-    repoPath: genDir,
-    bench: {
-      type: "opencode-fixture-scenarios",
-      units: [...TRAIN_UNITS, VAL_UNIT],
-      runCommand: over.captureOpencodeBin === true ? `${genDir}/capture-opencode-bin.sh` : over.runCommand ?? `${binPath} run {unit.path}`,
-      seedCommand: over.seedCommand ?? `${genDir}/seed.sh {sandbox}`,
-      resetCommand: `${genDir}/reset.sh {sandbox}`,
-      graderCommand: "node grader.mjs {unit.id}",
-      judgeCommand: "node judge.mjs {unit.id}",
-      judgeModel: "test/judge",
-      agentModel: "test/agent",
-      timeoutS: over.timeoutS ?? 5,
-      stats: { halfWidth: 0.1, minEffect: 0.05, nReps: { initial: 1, max: 2 } },
+  return parseGenomeSpecDocument(
+    {
+      label: "fixture-germ",
+      repoPath: genDir,
+      bench: {
+        type: "opencode-fixture-scenarios",
+        units: [...TRAIN_UNITS, VAL_UNIT],
+        runCommand:
+          over.captureOpencodeBin === true
+            ? `${genDir}/capture-opencode-bin.sh`
+            : (over.runCommand ?? `${binPath} run {unit.path}`),
+        seedCommand: over.seedCommand ?? `${genDir}/seed.sh {sandbox}`,
+        resetCommand: `${genDir}/reset.sh {sandbox}`,
+        graderCommand: "node grader.mjs {unit.id}",
+        judgeCommand: "node judge.mjs {unit.id}",
+        judgeModel: "test/judge",
+        agentModel: "test/agent",
+        timeoutS: over.timeoutS ?? 5,
+        stats: { halfWidth: 0.1, minEffect: 0.05, nReps: { initial: 1, max: 2 } },
+      },
+      budget: { maxCandidates: 2, maxModelCalls: 10, maxTokens: 1000, maxWallS: 60 },
+      kernel: { immutableGlobs: [] },
+      requires: over.requires ?? [{ cmd: "node", args: ["--version"], probeExit: 0 }],
+      opencodeBinVersion: { minVersion: over.minVersion ?? "1.0.0" },
     },
-    budget: { maxCandidates: 2, maxModelCalls: 10, maxTokens: 1000, maxWallS: 60 },
-    kernel: { immutableGlobs: [] },
-    requires: over.requires ?? [{ cmd: "node", args: ["--version"], probeExit: 0 }],
-    opencodeBinVersion: { minVersion: over.minVersion ?? "1.0.0" },
-  }, "<test>");
+    "<test>",
+  );
 }
 
 export async function fakeHome(t: TestContext): Promise<string> {
   const home = await freshDir(t, "fixhome");
-  for (const rel of [".opencode/plugin/x.js", ".opencode/skills/s.md", ".opencode/node_modules/m/package.json", ".opencode/secrets.txt", ".bashrc", ".config/opencode/opencode.json", ".config/opencode/prompts/p.md"]) {
+  for (const rel of [
+    ".opencode/plugin/x.js",
+    ".opencode/skills/s.md",
+    ".opencode/node_modules/m/package.json",
+    ".opencode/secrets.txt",
+    ".bashrc",
+    ".config/opencode/opencode.json",
+    ".config/opencode/prompts/p.md",
+  ]) {
     const p = path.join(home, rel);
     await mkdir(path.dirname(p), { recursive: true });
     await writeFile(p, rel === ".config/opencode/opencode.json" ? '{"theme":"dark"}\n' : `${rel}\n`, "utf8");
@@ -165,7 +194,13 @@ export interface AdapterFixture {
   readonly opencodeBin: string;
 }
 
-export async function adapterFixture(t: TestContext, body: string = BIN_GOOD, over: SpecOverrides = {}, opts: FixtureAdapterOptions = {}, binName = "oc-fake"): Promise<AdapterFixture> {
+export async function adapterFixture(
+  t: TestContext,
+  body: string = BIN_GOOD,
+  over: SpecOverrides = {},
+  opts: FixtureAdapterOptions = {},
+  binName = "oc-fake",
+): Promise<AdapterFixture> {
   const binDir = await freshDir(t, "fixbin");
   const binPath = await writeScript(binDir, binName, body);
   const genDir = await fixtureGenome(t);
@@ -173,7 +208,13 @@ export async function adapterFixture(t: TestContext, body: string = BIN_GOOD, ov
   const configDir = path.join(home, ".config", "abathur");
   const spec = fixtureSpec(genDir, binPath, over);
   const sandbox = path.join(await freshDir(t, "fixsbx"), "sb");
-  const adapter = new FixtureScenariosAdapter(spec, { env: { HOME: home }, home, configDir, opencodeBin: binPath, ...opts });
+  const adapter = new FixtureScenariosAdapter(spec, {
+    env: { HOME: home },
+    home,
+    configDir,
+    opencodeBin: binPath,
+    ...opts,
+  });
   return { adapter, spec, sandbox, home, configDir, opencodeBin: binPath };
 }
 

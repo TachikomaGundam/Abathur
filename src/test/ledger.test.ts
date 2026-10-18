@@ -2,7 +2,7 @@
 // Lock/friction pins live in ledger-lock.test.ts. TDD RED first.
 
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
@@ -98,10 +98,7 @@ test("malformed line in the MIDDLE is an integrity failure, never silently skipp
   const l1 = canonicalJson({ v: 1, ts: "t", kind: "a", data: {} });
   const l3 = canonicalJson({ v: 1, ts: "t", kind: "c", data: {} });
   seedLedgerFile(genome, `${l1}\n{"v":1,"ts":oops}\n${l3}\n`);
-  for (const attempt of [
-    () => Ledger.open(genome, FIXED_CLOCK),
-    () => Ledger.open(genome).readAll(),
-  ]) {
+  for (const attempt of [() => Ledger.open(genome, FIXED_CLOCK), () => Ledger.open(genome).readAll()]) {
     assert.throws(
       attempt,
       (e: unknown) => e instanceof LedgerError && /line 2/.test(e.message),

@@ -25,34 +25,34 @@
 
 import path from "node:path";
 
-import { EXIT_BLOCKED, EXIT_CANNOT_ANSWER, ExitSignal, type ExitCode } from "../exit.js";
-import { inspectBundle } from "./bundle-inspect.js";
+import { EXIT_BLOCKED, EXIT_CANNOT_ANSWER, type ExitCode, ExitSignal } from "../exit.js";
 import { bundleGenIds, primaryGenId, sha256Hex, treeOf } from "./bundle-common.js";
+import { inspectBundle } from "./bundle-inspect.js";
 import type { BundleManifest } from "./bundle-manifest.js";
 import { fingerprint16 } from "./genome.js";
-import { fingerprint } from "./ids.js";
-import { acquireGenomeLock, Ledger } from "./ledger.js";
-import {
-  LEDGER_KIND_GRAFT_IMPORT,
-  echo,
-  peerClaimFromManifest,
-  removeGraftQueueEntry,
-  sha12,
-  writeGraftQueueEntry,
-  type GraftDecision,
-} from "./graft-support.js";
 import {
   assertNotGrafted,
   bestEffortClaim,
+  type GraftOutcome,
+  type GraftRequest,
   localBenchDigest,
   parseBundleBytes,
   probeGraftPrerequisites,
   provenanceGateFailures,
   readBundleBytes,
-  type GraftOutcome,
-  type GraftRequest,
 } from "./graft-gates.js";
 import { graftAndBench } from "./graft-rebench.js";
+import {
+  echo,
+  type GraftDecision,
+  LEDGER_KIND_GRAFT_IMPORT,
+  peerClaimFromManifest,
+  removeGraftQueueEntry,
+  sha12,
+  writeGraftQueueEntry,
+} from "./graft-support.js";
+import { fingerprint } from "./ids.js";
+import { acquireGenomeLock, Ledger } from "./ledger.js";
 
 export type { GraftOutcome, GraftRequest } from "./graft-gates.js";
 
@@ -99,20 +99,38 @@ export async function graftBundle(req: GraftRequest): Promise<GraftOutcome> {
   // ---- STEP 3: the byte-exact gates; any miss quarantines before state or spawns.
   const localFingerprint = fingerprint(spec);
   if (localFingerprint !== manifest.genome.fingerprint) {
-    return quarantineLedger(ledger, req, bundleSha256, bundlePath, manifest,
-      `genome fingerprint mismatch — local spec fingerprints to ${localFingerprint}, bundle claims ${manifest.genome.fingerprint}`);
+    return quarantineLedger(
+      ledger,
+      req,
+      bundleSha256,
+      bundlePath,
+      manifest,
+      `genome fingerprint mismatch — local spec fingerprints to ${localFingerprint}, bundle claims ${manifest.genome.fingerprint}`,
+    );
   }
   const primary = primaryGenId(bundleGenIds(members));
   const tree = treeOf(members, primary);
   const digest = localBenchDigest(spec, tree, primary);
   if (digest !== manifest.benchDigest) {
-    return quarantineLedger(ledger, req, bundleSha256, bundlePath, manifest,
-      `benchDigest mismatch — recomputed from the contained tree under the LOCAL spec: local ${digest}, bundle claims ${manifest.benchDigest}`);
+    return quarantineLedger(
+      ledger,
+      req,
+      bundleSha256,
+      bundlePath,
+      manifest,
+      `benchDigest mismatch — recomputed from the contained tree under the LOCAL spec: local ${digest}, bundle claims ${manifest.benchDigest}`,
+    );
   }
   const provenanceFailures = provenanceGateFailures(manifest, spec, tree, primary, ledger);
   if (provenanceFailures.length > 0) {
-    return quarantineLedger(ledger, req, bundleSha256, bundlePath, manifest,
-      `scoring provenance not comparable — ${provenanceFailures.join("; ")}`);
+    return quarantineLedger(
+      ledger,
+      req,
+      bundleSha256,
+      bundlePath,
+      manifest,
+      `scoring provenance not comparable — ${provenanceFailures.join("; ")}`,
+    );
   }
 
   // ---- STEP 4: requires[] probes BEFORE any worktree or bench (todo-6 machinery).
@@ -218,7 +236,11 @@ function quarantine(
   reason: string,
 ): GraftOutcome {
   if (req.entry === null) {
-    throw new ExitSignal(EXIT_BLOCKED, `graft: quarantined — ${reason}`, "nothing was applied or benched; 'abathur bundle inspect' names the failing member");
+    throw new ExitSignal(
+      EXIT_BLOCKED,
+      `graft: quarantined — ${reason}`,
+      "nothing was applied or benched; 'abathur bundle inspect' names the failing member",
+    );
   }
   const ledger = Ledger.open(req.entry.spec.repoPath);
   assertNotGrafted(ledger, bundleSha256, req.genomeLabel);
@@ -270,7 +292,13 @@ function quarantineOutcome(req: GraftRequest, bundleSha256: string, reason: stri
   };
 }
 
-function pendingOutcome(req: GraftRequest, bundleSha256: string, reason: string, queueFile: string, exitCode: ExitCode): GraftOutcome {
+function pendingOutcome(
+  req: GraftRequest,
+  bundleSha256: string,
+  reason: string,
+  queueFile: string,
+  exitCode: ExitCode,
+): GraftOutcome {
   return {
     exitCode,
     lines: [

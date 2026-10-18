@@ -6,30 +6,23 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { test, type TestContext } from "node:test";
+import { type TestContext, test } from "node:test";
 import { fileURLToPath } from "node:url";
-
-import { ExitSignal } from "../exit.js";
-import { canonicalJson, fingerprint } from "../core/ids.js"; // todo 2 owns canonical JSON
 import {
   fingerprint16,
+  type RegistryEntry,
   readRegistry,
   registerGenome,
   requireGenomesByLabel,
-  type RegistryEntry,
 } from "../core/genome.js";
-import {
-  auditKernel,
-  buildManifest,
-  compareManifest,
-  serializeManifest,
-  type ManifestEntry,
-} from "../core/kernel.js";
-import { loadGenomeSpecFile } from "../core/spec.js";
 import { compileGlob, filesMatching, listFiles } from "../core/glob.js";
+import { canonicalJson, fingerprint } from "../core/ids.js"; // todo 2 owns canonical JSON
+import { auditKernel, buildManifest, compareManifest, type ManifestEntry, serializeManifest } from "../core/kernel.js";
+import { loadGenomeSpecFile } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 
@@ -87,11 +80,7 @@ function baseSpec(repoRoot: string): Record<string, unknown> {
   };
 }
 
-async function writeSpec(
-  t: TestContext,
-  name: string,
-  spec: Record<string, unknown>,
-): Promise<string> {
+async function writeSpec(t: TestContext, name: string, spec: Record<string, unknown>): Promise<string> {
   const dir = keep(t, await freshDir("specs"));
   const file = path.join(dir, name);
   await writeFile(file, JSON.stringify(spec, null, 2), "utf8");
@@ -105,19 +94,12 @@ async function writeSpecText(t: TestContext, name: string, text: string): Promis
   return file;
 }
 
-function abathur(
-  env: NodeJS.ProcessEnv,
-  ...args: string[]
-): { status: number; stdout: string; stderr: string } {
+function abathur(env: NodeJS.ProcessEnv, ...args: string[]): { status: number; stdout: string; stderr: string } {
   const run = spawnSync(process.execPath, [cliPath, ...args], { env, encoding: "utf8" });
   return { status: run.status ?? -1, stdout: run.stdout, stderr: run.stderr };
 }
 
-async function expectExit(
-  action: () => unknown,
-  code: 1 | 2,
-  ...needles: string[]
-): Promise<ExitSignal> {
+async function expectExit(action: () => unknown, code: 1 | 2, ...needles: string[]): Promise<ExitSignal> {
   let signal: ExitSignal | undefined;
   try {
     await action();
@@ -128,10 +110,7 @@ async function expectExit(
   assert.ok(signal instanceof ExitSignal, `expected ExitSignal(code ${code}), got none`);
   assert.equal(signal.code, code, `wrong exit code — message: ${signal.message}`);
   for (const needle of needles) {
-    assert.ok(
-      signal.message.includes(needle),
-      `message must contain '${needle}' — got: ${signal.message}`,
-    );
+    assert.ok(signal.message.includes(needle), `message must contain '${needle}' — got: ${signal.message}`);
   }
   return signal;
 }
@@ -146,7 +125,7 @@ function entryByFingerprint(entries: readonly RegistryEntry[], fp: string): Regi
 
 test("canonicalJson: recursively sorts keys, compact separators", () => {
   assert.equal(canonicalJson({ b: 1, a: [{ d: 2, c: 3 }] }), '{"a":[{"c":3,"d":2}],"b":1}');
-  assert.equal(canonicalJson([2, [3, { z: 1, a: 2 }]]), "[2,[3,{\"a\":2,\"z\":1}]]");
+  assert.equal(canonicalJson([2, [3, { z: 1, a: 2 }]]), '[2,[3,{"a":2,"z":1}]]');
 });
 
 test("fingerprint: invariant to key insertion order", () => {
@@ -193,10 +172,7 @@ test("listFiles/filesMatching: sorted working-tree paths, .git skipped", async (
   const repo = await makeRepo(t);
   const files = listFiles(repo);
   assert.deepEqual(files, ["README.md", "evolve/hot.ts", "kernel.mjs", "secrets/key.pem"]);
-  assert.deepEqual(filesMatching(repo, ["secrets/**", "kernel.mjs"]), [
-    "kernel.mjs",
-    "secrets/key.pem",
-  ]);
+  assert.deepEqual(filesMatching(repo, ["secrets/**", "kernel.mjs"]), ["kernel.mjs", "secrets/key.pem"]);
 });
 
 // ----------------------------------------------------------------- validation
@@ -220,9 +196,7 @@ test("validation: unknown bench.type fails exit 2 naming bench.type", async (t) 
 test("validation: zero val units rejected exit 2", async (t) => {
   const repo = await makeRepo(t);
   const spec = baseSpec(repo);
-  (spec.bench as Record<string, unknown>).units = [
-    { id: "t1", path: "bench/t1.json", split: "train" },
-  ];
+  (spec.bench as Record<string, unknown>).units = [{ id: "t1", path: "bench/t1.json", split: "train" }];
   const file = await writeSpec(t, "noval.jsonc", spec);
   await expectExit(() => loadGenomeSpecFile(file), 2, "val");
 });
@@ -421,11 +395,7 @@ test("new fingerprint, same repoPath, superset globs ⇒ registered", async (t) 
   registerGenome(configDir, await writeSpec(t, "a.jsonc", baseSpec(repo)));
   const wider = baseSpec(repo);
   wider.label = "fixture-genome-wide";
-  (wider.kernel as Record<string, unknown>).immutableGlobs = [
-    "kernel.mjs",
-    "secrets/**",
-    "README.md",
-  ];
+  (wider.kernel as Record<string, unknown>).immutableGlobs = ["kernel.mjs", "secrets/**", "README.md"];
   const result = registerGenome(configDir, await writeSpec(t, "wider.jsonc", wider));
   assert.equal(result.kind, "registered");
 });
@@ -456,9 +426,7 @@ test("readRegistry: corrupt registry file degrades to a warning, never a crash",
   const repo = await makeRepo(t);
   const { configDir } = await makeEnv(t);
   registerGenome(configDir, await writeSpec(t, "ok.jsonc", baseSpec(repo)));
-  const genomeFiles = (await readdir(path.join(configDir, "genomes"))).filter((f) =>
-    f.endsWith(".jsonc"),
-  );
+  const genomeFiles = (await readdir(path.join(configDir, "genomes"))).filter((f) => f.endsWith(".jsonc"));
   assert.equal(genomeFiles.length, 1);
   await writeFile(path.join(configDir, "genomes", "deadbeefdeadbeef.jsonc"), "{{{ nope", "utf8");
 
@@ -493,7 +461,12 @@ test("CLI: add → list → show → seals round-trip; kernel audit passes then 
 
   const show = abathur(env, "genome", "show", "fixture-genome");
   assert.equal(show.status, 0, show.stderr);
-  const shown = JSON.parse(show.stdout.split("\n").filter((l) => !l.startsWith("#")).join("\n"));
+  const shown = JSON.parse(
+    show.stdout
+      .split("\n")
+      .filter((l) => !l.startsWith("#"))
+      .join("\n"),
+  );
   assert.equal(shown.bench.stats.halfWidth, 0.05);
 
   const seals = abathur(env, "genome", "seals", "fixture-genome");
@@ -527,25 +500,17 @@ test("CLI: absent glob / zero val / missing threshold / garbage spec all exit 2 
   assert.equal(badGlob.status, 2, badGlob.stdout + badGlob.stderr);
 
   const noVal = baseSpec(repo);
-  (noVal.bench as Record<string, unknown>).units = [
-    { id: "t1", path: "b/t1.json", split: "train" },
-  ];
+  (noVal.bench as Record<string, unknown>).units = [{ id: "t1", path: "b/t1.json", split: "train" }];
   const badVal = abathur(env, "genome", "add", await writeSpec(t, "v.jsonc", noVal));
   assert.equal(badVal.status, 2, badVal.stdout + badVal.stderr);
 
   const noThresh = baseSpec(repo);
-  delete (noThresh.bench as Record<string, unknown> & { stats: Record<string, unknown> }).stats
-    .halfWidth;
+  delete (noThresh.bench as Record<string, unknown> & { stats: Record<string, unknown> }).stats.halfWidth;
   const badThresh = abathur(env, "genome", "add", await writeSpec(t, "h.jsonc", noThresh));
   assert.equal(badThresh.status, 2, badThresh.stdout + badThresh.stderr);
   assert.ok(`${badThresh.stdout}${badThresh.stderr}`.includes("bench.stats.halfWidth"));
 
-  const garbage = abathur(
-    env,
-    "genome",
-    "add",
-    await writeSpecText(t, "garbage.jsonc", "NOT JSON AT ALL {{{"),
-  );
+  const garbage = abathur(env, "genome", "add", await writeSpecText(t, "garbage.jsonc", "NOT JSON AT ALL {{{"));
   assert.equal(garbage.status, 2);
   const combined = `${garbage.stdout}${garbage.stderr}`;
   assert.ok(!combined.includes("\n    at "), `stack leaked into output: ${combined}`);

@@ -18,15 +18,17 @@ import { fileURLToPath } from "node:url";
 
 import type { BenchProvenance, ChildHandle } from "../../bench/adapter.js";
 import { cannotAnswer } from "../../exit.js";
-import { runId } from "../ids.js";
 import { genomeDir, type WorktreeEnv } from "../genome-paths.js";
+import { runId } from "../ids.js";
 import type { GenomeSpec } from "../spec.js";
 import type { BudgetCounters } from "../stats.js";
-import { round3, unitMatrixRowSchema, type GenerationVerdict, type UnitMatrixRow } from "./run-rows.js";
+import { type GenerationVerdict, round3, type UnitMatrixRow, unitMatrixRowSchema } from "./run-rows.js";
 import {
+  type BuildStatus,
   candidateSrcFiles,
   cloneSnapshot,
   incumbentSnapshot,
+  type OverlayDropReason,
   parseReplayDigest,
   parseTapSummary,
   planOverlay,
@@ -35,10 +37,8 @@ import {
   runBuild,
   runReplay,
   runSuite,
-  writeOverlay,
-  type BuildStatus,
-  type OverlayDropReason,
   type TapSummary,
+  writeOverlay,
 } from "./self-overlay.js";
 
 export const DEFAULT_BUILD_TIMEOUT_S = 180;
@@ -101,7 +101,9 @@ function specUnits(spec: GenomeSpec): { readonly trainId: string; readonly valId
 
 function tscVersion(nodeModules: string): string {
   try {
-    const parsed = JSON.parse(readFileSync(path.join(nodeModules, "typescript", "package.json"), "utf8")) as { version?: unknown };
+    const parsed = JSON.parse(readFileSync(path.join(nodeModules, "typescript", "package.json"), "utf8")) as {
+      version?: unknown;
+    };
     return typeof parsed.version === "string" ? parsed.version : "unknown";
   } catch {
     return "unknown";
@@ -117,9 +119,15 @@ export async function selfBench(req: SelfBenchRequest): Promise<SelfBenchResult>
   const decision =
     req.candidateCommit === null
       ? { overlay: [], dropped: [] }
-      : planOverlay(candidateSrcFiles(baseSnapshot), candidateSrcFiles(await incumbentSnapshot(req.genomeRepo, req.genomeFp, req.candidateCommit, req.env)), req.spec);
+      : planOverlay(
+          candidateSrcFiles(baseSnapshot),
+          candidateSrcFiles(await incumbentSnapshot(req.genomeRepo, req.genomeFp, req.candidateCommit, req.env)),
+          req.spec,
+        );
 
-  const buildDir = mkdtempSync(path.join(genomeDir(req.env, { repoPath: req.genomeRepo, genomeFp: req.genomeFp }), `selfbench-${req.genId}-`));
+  const buildDir = mkdtempSync(
+    path.join(genomeDir(req.env, { repoPath: req.genomeRepo, genomeFp: req.genomeFp }), `selfbench-${req.genId}-`),
+  );
   const suiteRow: MutableUnitRow = { unitId: trainId, split: "train", scores: [], runIds: [], failures: [] };
   const replayRow: MutableUnitRow = { unitId: valId, split: "val", scores: [], runIds: [], failures: [] };
   let buildStatus: BuildStatus = "ok";
@@ -139,12 +147,16 @@ export async function selfBench(req: SelfBenchRequest): Promise<SelfBenchResult>
 
     if (build.status === "timeout") {
       complete = false;
-      suiteRow.failures.push(`${SELF_BUILD_TIMEOUT}: tsc killed after ${String(buildTimeoutS)}s (hung build is cannot-answer, never a zero)`);
+      suiteRow.failures.push(
+        `${SELF_BUILD_TIMEOUT}: tsc killed after ${String(buildTimeoutS)}s (hung build is cannot-answer, never a zero)`,
+      );
     } else if (build.status === "failed") {
       for (let rep = 0; rep < req.reps; rep += 1) {
         suiteRow.scores.push(0);
         suiteRow.runIds.push(runId(req.genId, trainId, rep));
-        suiteRow.failures.push(`${trainId} rep ${String(rep)}: run build_failed: tsc exit ${String(build.exit ?? "spawn")}`);
+        suiteRow.failures.push(
+          `${trainId} rep ${String(rep)}: run build_failed: tsc exit ${String(build.exit ?? "spawn")}`,
+        );
         replayRow.scores.push(0);
         replayRow.runIds.push(runId(req.genId, valId, rep));
         replayRow.failures.push(`${valId} rep ${String(rep)}: run build_failed: replay skipped (build broken)`);
@@ -156,36 +168,52 @@ export async function selfBench(req: SelfBenchRequest): Promise<SelfBenchResult>
         const suite = await runSuite(buildDir, testTimeoutS, req.onChild);
         if (suite.kind !== "exited") {
           complete = false;
-          suiteRow.failures.push(`${trainId} rep ${String(rep)}: run ${suite.kind === "timeout" ? "timeout" : "infra_failed"}: ${suite.reason}`);
+          suiteRow.failures.push(
+            `${trainId} rep ${String(rep)}: run ${suite.kind === "timeout" ? "timeout" : "infra_failed"}: ${suite.reason}`,
+          );
         } else {
           const summary = parseTapSummary(suite.stdout);
           if (summary === null || summary.tests === 0) {
-            suiteRow.failures.push(`${trainId} rep ${String(rep)}: grader inconclusive: no usable TAP summary from node --test`);
+            suiteRow.failures.push(
+              `${trainId} rep ${String(rep)}: grader inconclusive: no usable TAP summary from node --test`,
+            );
           } else {
             suiteRuns.push(summary);
             suiteRow.scores.push(summary.fail === 0 ? 1 : summary.pass / summary.tests);
             suiteRow.runIds.push(runId(req.genId, trainId, rep));
-            if (summary.fail > 0) suiteRow.failures.push(`${trainId} rep ${String(rep)}: scored ${(summary.pass / summary.tests).toFixed(4)} (${String(summary.fail)} failing trusted tests, not passing)`);
+            if (summary.fail > 0)
+              suiteRow.failures.push(
+                `${trainId} rep ${String(rep)}: scored ${(summary.pass / summary.tests).toFixed(4)} (${String(summary.fail)} failing trusted tests, not passing)`,
+              );
           }
         }
         const replay = await runReplay(buildDir, replayTimeoutS, req.onChild);
         if (replay.kind !== "exited") {
           complete = false;
-          replayRow.failures.push(`${valId} rep ${String(rep)}: run ${replay.kind === "timeout" ? "timeout" : "infra_failed"}: ${replay.reason}`);
+          replayRow.failures.push(
+            `${valId} rep ${String(rep)}: run ${replay.kind === "timeout" ? "timeout" : "infra_failed"}: ${replay.reason}`,
+          );
         } else {
           const digest = parseReplayDigest(replay.stdout);
           if (digest === null) {
-            replayRow.failures.push(`${valId} rep ${String(rep)}: grader inconclusive: replay printed no 64-hex digest (exit ${String(replay.exitCode)})`);
+            replayRow.failures.push(
+              `${valId} rep ${String(rep)}: grader inconclusive: replay printed no 64-hex digest (exit ${String(replay.exitCode)})`,
+            );
           } else {
             replayDigest ??= digest;
             replayRow.scores.push(digest === replayExpected ? 1 : 0);
             replayRow.runIds.push(runId(req.genId, valId, rep));
-            if (digest !== replayExpected) replayRow.failures.push(`${valId} rep ${String(rep)}: scored 0 (golden-replay digest mismatch — behavior moved)`);
+            if (digest !== replayExpected)
+              replayRow.failures.push(
+                `${valId} rep ${String(rep)}: scored 0 (golden-replay digest mismatch — behavior moved)`,
+              );
           }
         }
       }
       if (req.candidateCommit !== null && decision.overlay.length === 0 && decision.dropped.length > 0) {
-        suiteRow.failures.push(`${SELF_OVERLAY_EMPTY}: every candidate src change matched a seal or the trusted-test rule — score equals the incumbent by construction, no nomination without scored change`);
+        suiteRow.failures.push(
+          `${SELF_OVERLAY_EMPTY}: every candidate src change matched a seal or the trusted-test rule — score equals the incumbent by construction, no nomination without scored change`,
+        );
       }
     }
   } finally {
@@ -195,7 +223,12 @@ export async function selfBench(req: SelfBenchRequest): Promise<SelfBenchResult>
   const failures = [...suiteRow.failures, ...replayRow.failures];
   return {
     units: [unitMatrixRowSchema.parse(suiteRow), unitMatrixRowSchema.parse(replayRow)],
-    spent: { candidates: req.candidateCommit === null ? 0 : 1, modelCalls: 0, tokens: 0, wallS: round3((Date.now() - started) / 1000) },
+    spent: {
+      candidates: req.candidateCommit === null ? 0 : 1,
+      modelCalls: 0,
+      tokens: 0,
+      wallS: round3((Date.now() - started) / 1000),
+    },
     provenance: {
       benchType: req.spec.bench.type,
       versions: [
@@ -225,7 +258,11 @@ export async function selfBench(req: SelfBenchRequest): Promise<SelfBenchResult>
  * through to evaluate's verdict.
  */
 export function selfGuardVerdict(failures: readonly string[], base: GenerationVerdict): GenerationVerdict {
-  if (failures.some((f) => f.startsWith(SELF_BUILD_TIMEOUT) || f.includes(": run timeout") || f.includes(": run infra_failed"))) {
+  if (
+    failures.some(
+      (f) => f.startsWith(SELF_BUILD_TIMEOUT) || f.includes(": run timeout") || f.includes(": run infra_failed"),
+    )
+  ) {
     return "inconclusive";
   }
   if (failures.some((f) => f.startsWith(SELF_OVERLAY_EMPTY)) && base === "nominated") return "indeterminate";

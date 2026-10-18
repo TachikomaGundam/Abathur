@@ -8,23 +8,22 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-
-import { cannotAnswer } from "../exit.js";
 import type { ConfigEnv } from "../config.js";
+import { cannotAnswer } from "../exit.js";
+import { git, tryGit } from "../util/git.js";
+import type { BundleManifest } from "./bundle-manifest.js";
+import { ChildTracker, reapOrphans } from "./evolve/child-track.js";
+import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./evolve/run-bench.js";
+import { addCounters, type GenerationRowData, readResume, type UnitMatrixRow } from "./evolve/run-rows.js";
+import { loadScoreBank } from "./evolve/score-bank.js";
+import type { GenomeRef } from "./genome-paths.js";
+import type { GraftOutcome, GraftRequest } from "./graft-gates.js";
+import { echo, sha12 } from "./graft-support.js";
 import { compactUtc, fingerprint, genId } from "./ids.js";
 import { LEDGER_KIND_GENERATION_COMPLETE, type Ledger } from "./ledger.js";
-import type { GenomeRef } from "./genome-paths.js";
-import { newGeneration, openGenome, sealGeneration, snapshotCommit } from "./worktree.js";
-import { git, tryGit } from "../util/git.js";
-import { asReplicates, benchTarget, cloneMatrixRow, copyProvenance } from "./evolve/run-bench.js";
-import { loadScoreBank } from "./evolve/score-bank.js";
-import { addCounters, readResume, type GenerationRowData, type UnitMatrixRow } from "./evolve/run-rows.js";
-import { ChildTracker, reapOrphans } from "./evolve/child-track.js";
-import { clampReps, evaluate, VERDICT_EXIT, type BudgetCaps, type BudgetCounters, type Verdict } from "./stats.js";
-import type { BundleManifest } from "./bundle-manifest.js";
 import type { GenomeSpec } from "./spec.js";
-import { echo, sha12 } from "./graft-support.js";
-import type { GraftOutcome, GraftRequest } from "./graft-gates.js";
+import { type BudgetCaps, type BudgetCounters, clampReps, evaluate, VERDICT_EXIT, type Verdict } from "./stats.js";
+import { newGeneration, openGenome, sealGeneration, snapshotCommit } from "./worktree.js";
 
 export interface RebenchContext {
   readonly ledger: Ledger;
@@ -47,14 +46,21 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
   reapOrphans(spec.repoPath);
   const opened = await openGenome(spec.repoPath, [], { env });
   if (opened.dirtyWorktree.length > 0) {
-    lines.push(`notice: ${String(opened.dirtyWorktree.length)} unrelated dirty path(s) in the genome repo — graft benches the SEALED bundle tree only`);
+    lines.push(
+      `notice: ${String(opened.dirtyWorktree.length)} unrelated dirty path(s) in the genome repo — graft benches the SEALED bundle tree only`,
+    );
   }
   const genome: GenomeRef = { repoPath: spec.repoPath, genomeFp: ctx.genomeFp };
-  const graftGenId = genId(fingerprint({ graft: bundleSha256, sourceGenome: manifest.genome.fingerprint, parent: opened.headCommit }), now());
+  const graftGenId = genId(
+    fingerprint({ graft: bundleSha256, sourceGenome: manifest.genome.fingerprint, parent: opened.headCommit }),
+    now(),
+  );
   const gen = await newGeneration(genome, opened.headCommit, graftGenId, { env });
   await applyBundleTree(gen.worktreePath, tree);
   const sealed = await sealGraftedTree(genome, graftGenId, gen.worktreePath, opened.headCommit, bundleSha256, env);
-  lines.push(`graft applied: bundle ${sha12(bundleSha256)} → fresh worktree ${graftGenId} (commit ${sealed.commitSha.slice(0, 12)}, tree ${sealed.treeSha.slice(0, 12)})`);
+  lines.push(
+    `graft applied: bundle ${sha12(bundleSha256)} → fresh worktree ${graftGenId} (commit ${sealed.commitSha.slice(0, 12)}, tree ${sealed.treeSha.slice(0, 12)})`,
+  );
 
   const reps = clampReps(undefined, spec.bench.stats.nReps); // LOCAL initial — bundle reps are peerClaim only
   const caps: BudgetCaps = {
@@ -74,7 +80,9 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
   let incUnits: readonly UnitMatrixRow[];
   if (storedInc !== undefined) {
     incUnits = storedInc.units;
-    lines.push(`incumbent baseline @ ${opened.headCommit.slice(0, 12)} already benched — reusing ${String(incUnits.length)} unit rows`);
+    lines.push(
+      `incumbent baseline @ ${opened.headCommit.slice(0, 12)} already benched — reusing ${String(incUnits.length)} unit rows`,
+    );
   } else {
     // committed bytes of the incumbent HEAD, never the possibly-dirty worktree
     const snap = await snapshotCommit(genome, opened.headCommit, { env });
@@ -101,7 +109,9 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
       counters: out.spent,
       manifest: out.manifest.map((m) => ({ glob: m.glob, path: m.path, sha256: m.sha256 })),
       benchProvenance: copyProvenance(out.provenance),
-      ...(opened.dirtyWorktree.length === 0 ? {} : { dirtyWorktree: opened.dirtyWorktree.map((d) => ({ xy: d.xy, file: d.file })) }),
+      ...(opened.dirtyWorktree.length === 0
+        ? {}
+        : { dirtyWorktree: opened.dirtyWorktree.map((d) => ({ xy: d.xy, file: d.file })) }),
     };
     ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, genId: incGen, data });
     incUnits = out.units;
@@ -157,10 +167,14 @@ export async function graftAndBench(req: GraftRequest, ctx: RebenchContext): Pro
   await tracker.drain();
 
   const gain = gate.gain === null ? "n/a (truncated)" : gate.gain.toFixed(4);
-  lines.push(`graft ${gate.verdict}: local score is authoritative (gain ${gain}, reps ${String(reps)}, LOCAL thresholds) — peer claimed ${manifest.stats.verdict ?? "n/a"} @ nRepeats ${String(manifest.benchProvenance.nRepeats ?? "?")}; imported:true + source ${manifest.genome.fingerprint.slice(0, 16)}… booked`);
+  lines.push(
+    `graft ${gate.verdict}: local score is authoritative (gain ${gain}, reps ${String(reps)}, LOCAL thresholds) — peer claimed ${manifest.stats.verdict ?? "n/a"} @ nRepeats ${String(manifest.benchProvenance.nRepeats ?? "?")}; imported:true + source ${manifest.genome.fingerprint.slice(0, 16)}… booked`,
+  );
   for (const failure of gate.failures) lines.push(`  gate: ${echo(failure)}`);
   if (gate.verdict === "nominated") {
-    lines.push(`  human gate: 'abathur promote ${echo(req.genomeLabel, 80)} ${graftGenId}' — graft itself never promotes`);
+    lines.push(
+      `  human gate: 'abathur promote ${echo(req.genomeLabel, 80)} ${graftGenId}' — graft itself never promotes`,
+    );
   }
   return { exitCode: VERDICT_EXIT[gate.verdict], lines };
 }
@@ -169,7 +183,10 @@ function localScoreReason(gate: ReturnType<typeof evaluate>, manifest: BundleMan
   return `local re-bench: verdict ${gate.verdict}, gain ${gate.gain === null ? "n/a" : gate.gain.toFixed(4)}, reps ${String(reps)} (LOCAL spec) — peer claimed ${manifest.stats.verdict ?? "n/a"} @ nRepeats ${String(manifest.benchProvenance.nRepeats ?? "?")}`;
 }
 
-function withClock(req: GraftRequest, ctx: RebenchContext): RebenchContext & { readonly now: () => Date; readonly env: NodeJS.ProcessEnv } {
+function withClock(
+  req: GraftRequest,
+  ctx: RebenchContext,
+): RebenchContext & { readonly now: () => Date; readonly env: NodeJS.ProcessEnv } {
   return {
     ...ctx,
     now: req.now ?? (() => new Date()),
@@ -219,5 +236,10 @@ async function sealGraftedTree(
     return { commitSha: headCommit, treeSha: tree.stdout.trim() };
   }
   // harness-authored message + fixed committer identity (todo-3 sealGeneration)
-  return sealGeneration(genome, graftGenId, `graft: import crystallization from bundle ${sha12(bundleSha256)} (see docs/federation.md)`, { env });
+  return sealGeneration(
+    genome,
+    graftGenId,
+    `graft: import crystallization from bundle ${sha12(bundleSha256)} (see docs/federation.md)`,
+    { env },
+  );
 }

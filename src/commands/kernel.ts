@@ -6,7 +6,7 @@ import type { CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
 import { requireGenomesByLabel } from "../core/genome.js";
 import { auditKernel } from "../core/kernel.js";
-import { EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../exit.js";
+import { blocked, cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
 
 function kernelAudit(configDir: string, args: readonly string[]): ExitCode {
@@ -22,9 +22,7 @@ function kernelAudit(configDir: string, args: readonly string[]): ExitCode {
     if (audit.ok) {
       writeStdout(`sealed clean: '${entry.label}' (${entry.fingerprint})`);
     } else {
-      failures.push(
-        ...audit.drifted.map((d) => `${entry.label} (${entry.fingerprint}): ${d.path} ${d.kind}`),
-      );
+      failures.push(...audit.drifted.map((d) => `${entry.label} (${entry.fingerprint}): ${d.path} ${d.kind}`));
     }
   }
   if (failures.length > 0) {

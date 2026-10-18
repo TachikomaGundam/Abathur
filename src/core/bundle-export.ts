@@ -7,16 +7,11 @@
 // passes the whole-bundle leak scan; the write itself is tmp-file + rename.
 
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { blocked, cannotAnswer } from "../exit.js";
 import { tryGit } from "../util/git.js";
-import { Ledger } from "./ledger.js";
-import { decodeGenerationRecord, type GenerationRowData } from "./evolve/run-rows.js";
-import { LEDGER_KIND_GENERATION_COMPLETE } from "./ledger.js";
-import type { RegistryEntry } from "./genome.js";
-import { fingerprint } from "./ids.js";
 import {
   benchDigestFor,
   containedSpec,
@@ -26,12 +21,22 @@ import {
   PATH_SAFE,
   primaryGenId,
   repOfRunId,
-
   sha256Hex,
 } from "./bundle-common.js";
-import { lineageEntry, renderReadme, deriveBenchProvenance, DIGEST_ALGO, BUNDLE_SCHEMA_VERSION, type BundleManifest } from "./bundle-manifest.js";
-import { scanMemberLeaks, type LeakHit, type MaskPlan } from "./bundle-mask.js";
-import { readTar, writeTar, type TarMember } from "./bundle-tar.js";
+import {
+  BUNDLE_SCHEMA_VERSION,
+  type BundleManifest,
+  DIGEST_ALGO,
+  deriveBenchProvenance,
+  lineageEntry,
+  renderReadme,
+} from "./bundle-manifest.js";
+import { type LeakHit, type MaskPlan, scanMemberLeaks } from "./bundle-mask.js";
+import { readTar, type TarMember, writeTar } from "./bundle-tar.js";
+import { decodeGenerationRecord, type GenerationRowData } from "./evolve/run-rows.js";
+import type { RegistryEntry } from "./genome.js";
+import { fingerprint } from "./ids.js";
+import { LEDGER_KIND_GENERATION_COMPLETE, Ledger } from "./ledger.js";
 
 const COMMIT_RE = /^[0-9a-f]{7,64}$/;
 
@@ -71,30 +76,44 @@ function selectGens(rows: readonly GenRow[], select: BundleExportRequest["select
     for (const id of select.genIds) {
       const row = byId.get(id);
       if (row === undefined) {
-        cannotAnswer(`bundle export: no candidate generation_complete row for genId '${id}' in this ledger`, "list history with 'abathur status'");
+        cannotAnswer(
+          `bundle export: no candidate generation_complete row for genId '${id}' in this ledger`,
+          "list history with 'abathur status'",
+        );
       }
       if (!picked.some((r) => r.genId === id)) picked.push(row);
     }
     return picked;
   }
-  if (!Number.isInteger(select.last) || select.last < 1) cannotAnswer(`bundle export: --last must be a positive integer, got ${String(select.last)}`);
+  if (!Number.isInteger(select.last) || select.last < 1)
+    cannotAnswer(`bundle export: --last must be a positive integer, got ${String(select.last)}`);
   return rows.slice(-select.last);
 }
 
 /** Generation tree bytes via `git archive` — stdout is binary, so util/git's
  *  string contract does not apply; same argv-only + timeout + LC_ALL=C guards. */
 async function gitTree(repoPath: string, genId: string, commit: string): Promise<Map<string, Uint8Array>> {
-  if (!COMMIT_RE.test(commit)) cannotAnswer(`bundle export: ledger gen ${genId} carries a non-commit value '${commit}'`);
+  if (!COMMIT_RE.test(commit))
+    cannotAnswer(`bundle export: ledger gen ${genId} carries a non-commit value '${commit}'`);
   const bytes = await new Promise<Uint8Array>((resolve, reject) => {
     execFile(
       "git",
       ["-C", repoPath, "archive", "--format=tar", commit],
-      { timeout: 30_000, killSignal: "SIGKILL", maxBuffer: 64 * 1024 * 1024, encoding: "buffer", env: { ...process.env, LC_ALL: "C" } },
+      {
+        timeout: 30_000,
+        killSignal: "SIGKILL",
+        maxBuffer: 64 * 1024 * 1024,
+        encoding: "buffer",
+        env: { ...process.env, LC_ALL: "C" },
+      },
       (err, stdout) => (err === null ? resolve(new Uint8Array(stdout)) : reject(err)),
     );
   }).catch((err: unknown) => {
     const why = err instanceof Error ? err.message.split("\n")[0] : String(err);
-    return blocked(`bundle export: gen ${genId} commit ${commit} unreadable from local git: ${why}`, "fetch the gen commit before exporting");
+    return blocked(
+      `bundle export: gen ${genId} commit ${commit} unreadable from local git: ${why}`,
+      "fetch the gen commit before exporting",
+    );
   });
   try {
     const tree = new Map<string, Uint8Array>();
@@ -104,7 +123,9 @@ async function gitTree(repoPath: string, genId: string, commit: string): Promise
     }
     return tree;
   } catch (cause) {
-    return blocked(`bundle export: git archive output for gen ${genId} is not readable as tar: ${cause instanceof Error ? cause.message : String(cause)}`);
+    return blocked(
+      `bundle export: git archive output for gen ${genId} is not readable as tar: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
   }
 }
 
@@ -130,10 +151,17 @@ function maskMemberText(plan: MaskPlan, text: string): Uint8Array {
 export async function exportBundle(req: BundleExportRequest): Promise<BundleExportOutcome> {
   const repo = req.entry.spec.repoPath;
   const chosen = selectGens(candidateRowsByGenId(repo), req.select);
-  if (chosen.length === 0) cannotAnswer("bundle export: the ledger holds no candidate generations yet", `abathur run --genome ${req.entry.spec.label} --mutator <template>`);
+  if (chosen.length === 0)
+    cannotAnswer(
+      "bundle export: the ledger holds no candidate generations yet",
+      `abathur run --genome ${req.entry.spec.label} --mutator <template>`,
+    );
   for (const gen of chosen) {
     if (!PATH_SAFE.test(gen.genId)) {
-      blocked(`bundle export: ledger genId '${gen.genId}' is not path-safe for member names or the output filename`, "repair or quarantine the tampered ledger row before exporting");
+      blocked(
+        `bundle export: ledger genId '${gen.genId}' is not path-safe for member names or the output filename`,
+        "repair or quarantine the tampered ledger row before exporting",
+      );
     }
   }
   const ids = chosen.map((c) => c.genId);
@@ -141,7 +169,10 @@ export async function exportBundle(req: BundleExportRequest): Promise<BundleExpo
   if (primary === undefined) blocked("bundle export: primary generation vanished mid-export");
   const primaryRow = primary.data;
   if (primaryRow.commitSha === undefined) cannotAnswer(`bundle export: candidate row ${primary.genId} lacks commitSha`);
-  if (!COMMIT_RE.test(primaryRow.headCommit)) cannotAnswer(`bundle export: candidate row ${primary.genId} carries a non-commit parent '${primaryRow.headCommit}'`);
+  if (!COMMIT_RE.test(primaryRow.headCommit))
+    cannotAnswer(
+      `bundle export: candidate row ${primary.genId} carries a non-commit parent '${primaryRow.headCommit}'`,
+    );
 
   const trees = new Map<string, Map<string, Uint8Array>>();
   for (const gen of chosen) {
@@ -160,7 +191,10 @@ export async function exportBundle(req: BundleExportRequest): Promise<BundleExpo
   }
 
   const patchRun = await tryGit(["-C", repo, "diff", "--no-color", primaryRow.headCommit, primaryRow.commitSha]);
-  if (!patchRun.ok) blocked(`bundle export: git diff ${primaryRow.headCommit}..${primaryRow.commitSha} failed: ${patchRun.error.stderr.split("\n")[0] ?? "git diff"}`);
+  if (!patchRun.ok)
+    blocked(
+      `bundle export: git diff ${primaryRow.headCommit}..${primaryRow.commitSha} failed: ${patchRun.error.stderr.split("\n")[0] ?? "git diff"}`,
+    );
   members.push({ path: "patch.diff", content: maskMemberText(plan, patchRun.stdout) });
 
   const lineage = {
@@ -183,7 +217,9 @@ export async function exportBundle(req: BundleExportRequest): Promise<BundleExpo
         const memberPath = `${EVIDENCE_PREFIX}${gen.genId}/${runId}.jsonl`;
         const size = statSync(transcript).size;
         if (size > EVIDENCE_CAP_BYTES) {
-          blocked(`bundle export: ${memberPath} is ${String(size)} bytes — exceeds the 2 MiB/unit evidence cap; refusing (no truncation)`);
+          blocked(
+            `bundle export: ${memberPath} is ${String(size)} bytes — exceeds the 2 MiB/unit evidence cap; refusing (no truncation)`,
+          );
         }
         members.push({ path: memberPath, content: maskMemberText(plan, readFileSync(transcript, "utf8")) });
       }
@@ -226,7 +262,10 @@ export async function exportBundle(req: BundleExportRequest): Promise<BundleExpo
     if (hit !== null) leaks.push(`${m.path}:${String(hit.line)} — "${hit.snippet}"`);
   }
   if (leaks.length > 0) {
-    blocked(`bundle export: refusing to write — machine-local leak(s) detected pre-write:\n  - ${leaks.join("\n  - ")}`, "declare literals under the spec's bundle.maskLiterals or scrub the source data");
+    blocked(
+      `bundle export: refusing to write — machine-local leak(s) detected pre-write:\n  - ${leaks.join("\n  - ")}`,
+      "declare literals under the spec's bundle.maskLiterals or scrub the source data",
+    );
   }
 
   const name = `abathur-${genomeFingerprint.slice(0, 16)}-${ids.slice().sort().join("_")}.bundle.tgz`;

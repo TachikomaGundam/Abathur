@@ -13,23 +13,22 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
+import { BANK_QUANTUM } from "../core/evolve/score-bank.js";
+import type { BenchStats } from "../core/spec.js";
 import {
   ACCEPT_Q,
   aggregateScore,
-  bonferroniQ,
-  evaluate,
-  normalCdf,
-  studentTQuantile,
   type BudgetCaps,
   type BudgetCounters,
+  bonferroniQ,
   type CandidateResult,
+  evaluate,
   type IncumbentResult,
+  normalCdf,
+  studentTQuantile,
   type UnitBankStat,
   type UnitReplicates,
 } from "../core/stats.js";
-import { BANK_QUANTUM } from "../core/evolve/score-bank.js";
-import type { BenchStats } from "../core/spec.js";
 
 const FIXTURE_STATS: BenchStats = { halfWidth: 0.15, minEffect: 0.1, nReps: { initial: 2, max: 3 } };
 const CAPS: BudgetCaps = { maxCandidates: 1, maxModelCalls: 96, maxTokens: 25_000_000, maxWallS: 16_200 };
@@ -37,7 +36,7 @@ const IDLE: BudgetCounters = { candidates: 0, modelCalls: 0, tokens: 1_000_000, 
 
 /** Gate-time c10 bank: σ values from the real archive pool (python replication). */
 const FIXTURE_BANK = new Map<string, UnitBankStat>([
-  ["scenario-13", { sigma: 0.0170, df: 12 }],
+  ["scenario-13", { sigma: 0.017, df: 12 }],
   ["scenario-14", { sigma: 0.0176, df: 11 }],
   ["scenario-15", { sigma: 0.0884, df: 4 }],
   ["scenario-16", { sigma: 0.1053, df: 4 }],
@@ -58,7 +57,11 @@ const C10_INCUMBENT = units([
   ["scenario-18", "val", [0.75, 1]],
 ]);
 
-function c10Candidate(s19: readonly number[], s16: readonly number[] = [0.75, 1], s18: readonly number[] = [1, 0.75]): CandidateResult {
+function c10Candidate(
+  s19: readonly number[],
+  s16: readonly number[] = [0.75, 1],
+  s18: readonly number[] = [1, 0.75],
+): CandidateResult {
   return {
     runId: "backtest",
     counters: IDLE,
@@ -77,8 +80,20 @@ function inc(unitsList: readonly UnitReplicates[]): IncumbentResult {
   return { units: unitsList };
 }
 
-function runAccept(candidate: CandidateResult, incumbentUnits: readonly UnitReplicates[] = C10_INCUMBENT, bank: ReadonlyMap<string, UnitBankStat> | null | undefined = FIXTURE_BANK, nPairs = 1) {
-  return evaluate({ candidate, incumbent: inc(incumbentUnits), stats: FIXTURE_STATS, budgetCaps: CAPS, nPairs, ...(bank === undefined ? {} : { bank }) });
+function runAccept(
+  candidate: CandidateResult,
+  incumbentUnits: readonly UnitReplicates[] = C10_INCUMBENT,
+  bank: ReadonlyMap<string, UnitBankStat> | null | undefined = FIXTURE_BANK,
+  nPairs = 1,
+) {
+  return evaluate({
+    candidate,
+    incumbent: inc(incumbentUnits),
+    stats: FIXTURE_STATS,
+    budgetCaps: CAPS,
+    nPairs,
+    ...(bank === undefined ? {} : { bank }),
+  });
 }
 
 const close = (actual: number, expected: number, msg?: string): void => {
@@ -99,7 +114,10 @@ describe("acceptance gate — campaign replays", () => {
     close(v.acceptance.pShift ?? Number.NaN, 0.5, "pShift");
     assert.ok(v.failures.some((f) => f === "gain 0.0000 < minEffect 0.1000"));
     assert.ok(v.failures.some((f) => f.includes("P(gain shift > 0) = 0.5000 < q 0.9000")));
-    assert.ok(!v.failures.some((f) => f.includes("CI half-width") || f.includes("acceptance band")), v.failures.join("\n"));
+    assert.ok(
+      !v.failures.some((f) => f.includes("CI half-width") || f.includes("acceptance band")),
+      v.failures.join("\n"),
+    );
     const s16 = v.unitComparisons.find((u) => u.unitId === "scenario-16");
     assert.ok(s16 !== undefined);
     assert.equal(s16.passes, true, "one 0.125 step inside the 0.15 guard tolerance is noise, not regression");
@@ -153,10 +171,13 @@ describe("acceptance gate — campaign replays", () => {
     const solo = runAccept(c10Candidate([0.625, 0.625]));
     assert.equal(solo.verdict, "nominated");
     close(solo.acceptance?.pShift ?? Number.NaN, 0.92132, "pShift");
-  const pair = runAccept(c10Candidate([0.625, 0.625]), C10_INCUMBENT, FIXTURE_BANK, 2);
+    const pair = runAccept(c10Candidate([0.625, 0.625]), C10_INCUMBENT, FIXTURE_BANK, 2);
     assert.equal(pair.verdict, "culled");
     assert.equal(pair.acceptance?.q, 0.95);
-    assert.ok(pair.failures.some((f) => f.includes("= 0.9213 < q 0.9500")), pair.failures.join("\n"));
+    assert.ok(
+      pair.failures.some((f) => f.includes("= 0.9213 < q 0.9500")),
+      pair.failures.join("\n"),
+    );
   });
 });
 
@@ -170,7 +191,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["t", "train", [0.625, 0.625]]]) },
       incumbent: inc(units([["t", "train", [0.5, 0.5]]])),
-  stats: { ...FIXTURE_STATS, halfWidth: 1 },
+      stats: { ...FIXTURE_STATS, halfWidth: 1 },
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -185,7 +206,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["t", "train", [0.55, 0.6]]]) },
       incumbent: inc(units([["t", "train", [0.5, 0.5]]])),
-  stats: { ...FIXTURE_STATS, halfWidth: 1 },
+      stats: { ...FIXTURE_STATS, halfWidth: 1 },
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -201,30 +222,63 @@ describe("acceptance gate — branches", () => {
       ["t", { sigma: 0.017, df: 12 }],
     ]);
     const v = evaluate({
-      candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.75, 0.75]], ["t", "train", [1, 1]]]) },
-      incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-  stats: FIXTURE_STATS,
+      candidate: {
+        runId: "c",
+        counters: IDLE,
+        units: units([
+          ["v", "val", [0.75, 0.75]],
+          ["t", "train", [1, 1]],
+        ]),
+      },
+      incumbent: inc(
+        units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      ),
+      stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
     });
     assert.equal(v.verdict, "culled");
-    assert.ok(v.failures.some((f) => f.startsWith("regression on unit 'v'") && f.includes("≥ q 0.9000")), v.failures.join("\n"));
+    assert.ok(
+      v.failures.some((f) => f.startsWith("regression on unit 'v'") && f.includes("≥ q 0.9000")),
+      v.failures.join("\n"),
+    );
     assert.equal(v.unitComparisons.find((u) => u.unitId === "v")?.passes, false);
   });
 
   it("acceptance band breach: big bank σ ⇒ band 0.2718 > halfWidth culls even with zero delta", () => {
-    const bank = new Map<string, UnitBankStat>([["v", { sigma: 0.3, df: 10 }], ["t", { sigma: 0.017, df: 12 }]]);
+    const bank = new Map<string, UnitBankStat>([
+      ["v", { sigma: 0.3, df: 10 }],
+      ["t", { sigma: 0.017, df: 12 }],
+    ]);
     const v = evaluate({
-      candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [1, 1]], ["t", "train", [1, 1]]]) },
-      incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-  stats: FIXTURE_STATS,
+      candidate: {
+        runId: "c",
+        counters: IDLE,
+        units: units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      },
+      incumbent: inc(
+        units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      ),
+      stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
     });
     assert.equal(v.verdict, "culled");
-    assert.ok(v.failures.some((f) => f.includes("acceptance band 0.2719 > halfWidth 0.1500 on unit 'v'")), v.failures.join("\n"));
+    assert.ok(
+      v.failures.some((f) => f.includes("acceptance band 0.2719 > halfWidth 0.1500 on unit 'v'")),
+      v.failures.join("\n"),
+    );
   });
 
   it("banked val unit with NO history for the bank runs the exact legacy t-CI line — the 1.5883 absurdity survives only on this fallback path", () => {
@@ -232,20 +286,32 @@ describe("acceptance gate — branches", () => {
     const v = runAccept(c10Candidate([0.5, 0.5], [0.75, 1]), C10_INCUMBENT, bank);
     const expectedHalfWidth = studentTQuantile(0.05, 1) * 0.125;
     assert.ok(Math.abs(expectedHalfWidth - 1.5883) < 1e-4, "design-time arithmetic");
-    assert.ok(v.failures.some((f) => f === `CI half-width ${expectedHalfWidth.toFixed(4)} > halfWidth 0.1500 on unit 'scenario-16'`), v.failures.join("\n"));
+    assert.ok(
+      v.failures.some(
+        (f) => f === `CI half-width ${expectedHalfWidth.toFixed(4)} > halfWidth 0.1500 on unit 'scenario-16'`,
+      ),
+      v.failures.join("\n"),
+    );
     assert.ok(v.acceptance !== undefined);
-    assert.equal(v.acceptance.units.find((u) => u.unitId === "scenario-16"), undefined);
+    assert.equal(
+      v.acceptance.units.find((u) => u.unitId === "scenario-16"),
+      undefined,
+    );
   });
 
   it("partial bank: train pool unpriced ⇒ aggregate falls back to the legacy point-gain gate; nomination still requires gain ≥ minEffect", () => {
-  const partial = new Map<string, UnitBankStat>([...FIXTURE_BANK].filter(([id]) => id !== "scenario-19"));
+    const partial = new Map<string, UnitBankStat>([...FIXTURE_BANK].filter(([id]) => id !== "scenario-19"));
     const weak = runAccept(c10Candidate([0.625, 0.5]), C10_INCUMBENT, partial);
     assert.equal(weak.verdict, "culled");
     assert.ok(weak.failures.some((f) => f.includes("gain 0.0625 < minEffect 0.1000")));
     assert.equal(weak.acceptance?.pShift, null);
     assert.equal(weak.acceptance?.gainSe, null);
     const strong = runAccept(c10Candidate([0.75, 0.75]), C10_INCUMBENT, partial);
-    assert.equal(strong.verdict, "nominated", "cold-start gate-time bank (no s19 rows yet) still accepts the +0.25 class via the legacy point gate");
+    assert.equal(
+      strong.verdict,
+      "nominated",
+      "cold-start gate-time bank (no s19 rows yet) still accepts the +0.25 class via the legacy point gate",
+    );
     assert.equal(strong.acceptance?.pShift, null);
   });
 });
@@ -281,12 +347,15 @@ describe("fail-closed law under an acceptance bank", () => {
   });
 
   it("both-unmeasured ⇒ symmetric exclusion: dropped from comparisons, acceptance reports and the gain pool alike", () => {
-    const withGhost = units([["ghost", "val", []], ...C10_INCUMBENT.map((u) => [u.unitId, u.split, [...u.scores]] as const)]);
+    const withGhost = units([
+      ["ghost", "val", []],
+      ...C10_INCUMBENT.map((u) => [u.unitId, u.split, [...u.scores]] as const),
+    ]);
     const cand = c10Candidate([0.75, 0.75]);
     const v = runAccept({ ...cand, units: [{ unitId: "ghost", split: "val", scores: [] }, ...cand.units] }, withGhost);
     assert.equal(v.verdict, "nominated");
     assert.ok(v.unitComparisons.every((u) => u.unitId !== "ghost"));
-    assert.ok(v.acceptance !== undefined && v.acceptance.units.every((u) => u.unitId !== "ghost"));
+    assert.ok(v.acceptance?.units.every((u) => u.unitId !== "ghost"));
     close(aggregateScore(withGhost.filter((u) => u.unitId !== "ghost")), aggregateScore(C10_INCUMBENT));
   });
 
@@ -297,15 +366,27 @@ describe("fail-closed law under an acceptance bank", () => {
   });
 
   it("absent/null bank reproduces the legacy gate verbatim; the whole verdict object is unchanged", () => {
-  const legacy = evaluate({ candidate: c10Candidate([0.5, 0.5]), incumbent: inc(C10_INCUMBENT), stats: FIXTURE_STATS, budgetCaps: CAPS, nPairs: 1 });
+    const legacy = evaluate({
+      candidate: c10Candidate([0.5, 0.5]),
+      incumbent: inc(C10_INCUMBENT),
+      stats: FIXTURE_STATS,
+      budgetCaps: CAPS,
+      nPairs: 1,
+    });
     const nulled = runAccept(c10Candidate([0.5, 0.5]), C10_INCUMBENT, null);
     assert.deepEqual(nulled, legacy);
     assert.equal(legacy.acceptance, undefined);
     assert.equal(legacy.verdict, "culled");
-    assert.ok(legacy.failures.some((f) => f.includes("CI half-width 1.5883")), "the campaign-10 legacy cull carried the absurd half-width line");
+    assert.ok(
+      legacy.failures.some((f) => f.includes("CI half-width 1.5883")),
+      "the campaign-10 legacy cull carried the absurd half-width line",
+    );
     const banked = runAccept(c10Candidate([0.5, 0.5]));
     assert.equal(banked.verdict, "culled");
-    assert.ok(!banked.failures.some((f) => f.includes("CI half-width")), "acceptance path prices the dip instead of tripping on df=1 t");
+    assert.ok(
+      !banked.failures.some((f) => f.includes("CI half-width")),
+      "acceptance path prices the dip instead of tripping on df=1 t",
+    );
   });
 
   it("point mass σ=0: se=0 branch — exact tie gives P=0 (no nomination on demonstrated-identical arms), a 0.25 guard drop vetoes at P=1, a 0.125 dip inside tolerance passes", () => {
@@ -314,9 +395,21 @@ describe("fail-closed law under an acceptance bank", () => {
       ["t", { sigma: 0, df: 10 }],
     ]);
     const tie = evaluate({
-      candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [1, 1]], ["t", "train", [1, 1]]]) },
-      incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-  stats: FIXTURE_STATS,
+      candidate: {
+        runId: "c",
+        counters: IDLE,
+        units: units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      },
+      incumbent: inc(
+        units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      ),
+      stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -325,9 +418,21 @@ describe("fail-closed law under an acceptance bank", () => {
     assert.equal(tie.acceptance?.pShift, 0);
     assert.equal(tie.acceptance?.gainSe, 0);
     const hard = evaluate({
-      candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.75, 0.75]], ["t", "train", [1.3, 1.3]]]) },
-      incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-  stats: FIXTURE_STATS,
+      candidate: {
+        runId: "c",
+        counters: IDLE,
+        units: units([
+          ["v", "val", [0.75, 0.75]],
+          ["t", "train", [1.3, 1.3]],
+        ]),
+      },
+      incumbent: inc(
+        units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      ),
+      stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -335,9 +440,21 @@ describe("fail-closed law under an acceptance bank", () => {
     assert.equal(hard.verdict, "culled");
     assert.ok(hard.failures.some((f) => f.startsWith("regression on unit 'v'") && f.includes("= 1.0000")));
     const dip = evaluate({
-      candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.875, 0.875]], ["t", "train", [1.3, 1.3]]]) },
-      incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-  stats: FIXTURE_STATS,
+      candidate: {
+        runId: "c",
+        counters: IDLE,
+        units: units([
+          ["v", "val", [0.875, 0.875]],
+          ["t", "train", [1.3, 1.3]],
+        ]),
+      },
+      incumbent: inc(
+        units([
+          ["v", "val", [1, 1]],
+          ["t", "train", [1, 1]],
+        ]),
+      ),
+      stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,

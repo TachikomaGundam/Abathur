@@ -16,7 +16,13 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 import { cannotAnswer } from "../../exit.js";
-import { LEDGER_KIND_GENERATION_COMPLETE, Ledger, ledgerPath, ledgerRecordSchema, type LedgerRecord } from "../ledger.js";
+import {
+  LEDGER_KIND_GENERATION_COMPLETE,
+  type Ledger,
+  type LedgerRecord,
+  ledgerPath,
+  ledgerRecordSchema,
+} from "../ledger.js";
 import type { BudgetCounters } from "../stats.js";
 
 export const unitMatrixRowSchema = z.strictObject({
@@ -61,24 +67,31 @@ export const generationRowDataSchema = z
     /** Present only on rows appended by `abathur re-adjudicate`: the corrected verdict with
      *  full replay provenance (source rows, bank state, replaced verdict). The original row
      *  stays in the files untouched — this field documents the amendment, never hides it. */
-    readjudication: z.strictObject({
-      at: z.string().min(1),
-      specFingerprint: z.string().min(1),
-      gate: z.enum(["legacy", "acceptance"]),
-      bank: z.strictObject({ units: z.number().int().nonnegative(), priorSigma: z.number(), pooledDf: z.number() }).nullable(),
-      sourceRows: z.strictObject({
-        candidate: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
-        incumbent: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
-      }),
-      replacedVerdict: z.string().min(1),
-    }).optional(),
+    readjudication: z
+      .strictObject({
+        at: z.string().min(1),
+        specFingerprint: z.string().min(1),
+        gate: z.enum(["legacy", "acceptance"]),
+        bank: z
+          .strictObject({ units: z.number().int().nonnegative(), priorSigma: z.number(), pooledDf: z.number() })
+          .nullable(),
+        sourceRows: z.strictObject({
+          candidate: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
+          incumbent: z.strictObject({ file: z.string().min(1), ts: z.string().min(1) }),
+        }),
+        replacedVerdict: z.string().min(1),
+      })
+      .optional(),
     benchProvenance: z.strictObject({
       benchType: z.enum(["toy", "opencode-fixture-scenarios"]),
       versions: z.array(z.strictObject({ bin: z.string().min(1), version: z.string() })),
     }),
   })
   .superRefine((data, ctx) => {
-    if (data.source === "candidate" && (data.candidateId === undefined || data.treeSha === undefined || data.commitSha === undefined)) {
+    if (
+      data.source === "candidate" &&
+      (data.candidateId === undefined || data.treeSha === undefined || data.commitSha === undefined)
+    ) {
       ctx.addIssue({ code: "custom", message: "candidate rows require candidateId, commitSha and treeSha" });
     }
   });
@@ -156,7 +169,9 @@ export function peekPlanState(genomeRepo: string): PlanPeek {
     }
     const parsed = ledgerRecordSchema.safeParse(record);
     if (!parsed.success) {
-      cannotAnswer(`run --dry-run: ledger line ${String(index + 1)} in ${ledgerPath(genomeRepo)} failed schema validation`);
+      cannotAnswer(
+        `run --dry-run: ledger line ${String(index + 1)} in ${ledgerPath(genomeRepo)} failed schema validation`,
+      );
     }
     if (parsed.data.kind !== LEDGER_KIND_GENERATION_COMPLETE) return;
     const data = decodeGenerationRecord(parsed.data);
@@ -185,4 +200,3 @@ export function addCounters(a: BudgetCounters, b: BudgetCounters): BudgetCounter
 export function round3(x: number): number {
   return Math.round(x * 1000) / 1000;
 }
-

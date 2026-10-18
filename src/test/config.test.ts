@@ -3,20 +3,13 @@
 // torn down in t.after so parallel checkouts of this repo never collide.
 
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  ConfigError,
-  deepMerge,
-  loadConfig,
-  resolveConfigDir,
-  resolveConfigPath,
-  stripJsonc,
-} from "../config.js";
+import { ConfigError, deepMerge, loadConfig, resolveConfigDir, resolveConfigPath, stripJsonc } from "../config.js";
 
 /** Create a throwaway HOME whose ~/.config/abathur does not exist yet. */
 async function freshRoot(): Promise<string> {
@@ -100,10 +93,7 @@ test("loadConfig: unknown key inside the local overlay is rejected too", async (
 
   assert.throws(
     () => loadConfig({ ABATHUR_CONFIG: cfg, HOME: root }),
-    (error: unknown) =>
-      error instanceof ConfigError &&
-      error.kind === "unknown-key" &&
-      error.keys?.includes("oops"),
+    (error: unknown) => error instanceof ConfigError && error.kind === "unknown-key" && error.keys?.includes("oops"),
   );
 });
 
@@ -158,9 +148,7 @@ test("resolveConfigPath: ABATHUR_CONFIG pointing at a missing file fails closed"
 
   assert.throws(
     () => resolveConfigPath({ ABATHUR_CONFIG: missing, HOME: root }),
-    (error: unknown) =>
-      error instanceof ConfigError && error.kind === "unreadable" &&
-      error.message.includes(missing),
+    (error: unknown) => error instanceof ConfigError && error.kind === "unreadable" && error.message.includes(missing),
   );
   // loadConfig surfaces the same failure class (unreadable => exit 2 contract)
   assert.throws(
@@ -206,10 +194,7 @@ test("resolveConfigDir: tracks the winner, canonical home when nothing exists", 
   const bare = await freshRoot();
   t.after(() => rm(bare, { recursive: true, force: true }));
   // repo default exists but is lower priority: with only HOME+no files, canonical home wins
-  assert.equal(
-    resolveConfigDir({ ABATHUR_CONFIG: undefined, HOME: bare }),
-    path.join(bare, ".config", "abathur"),
-  );
+  assert.equal(resolveConfigDir({ ABATHUR_CONFIG: undefined, HOME: bare }), path.join(bare, ".config", "abathur"));
 });
 
 // ------------------------------------------------------------------ malformed

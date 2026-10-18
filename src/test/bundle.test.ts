@@ -17,27 +17,26 @@
 //            never the worktree; --last N = N newest candidate rows, primary = max genId.
 
 import assert from "node:assert/strict";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, chmodSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
-
-import { Ledger } from "../core/ledger.js";
-import { benchDigest, fingerprint, genId } from "../core/ids.js";
-import { newGeneration, openGenome, sealGeneration } from "../core/worktree.js";
-import type { WorktreeEnv, WorktreeOptions } from "../core/genome-paths.js";
-import { registerGenome, requireGenomesByLabel, fingerprint16 } from "../core/genome.js";
-import type { RegistryEntry } from "../core/genome.js";
+import { fileURLToPath } from "node:url";
+import { prepareToyGenome } from "../bench/toy.js";
+import { buildMaskPlan, scanMemberLeaks } from "../core/bundle-mask.js";
+import { readTar, TarError, type TarMember, writeTar } from "../core/bundle-tar.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
-import { prepareToyGenome } from "../bench/toy.js";
+import type { RegistryEntry } from "../core/genome.js";
+import { fingerprint16, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv, WorktreeOptions } from "../core/genome-paths.js";
+import { benchDigest, fingerprint, genId } from "../core/ids.js";
+import { Ledger } from "../core/ledger.js";
 import { loadGenomeSpecFile } from "../core/spec.js";
-import { readTar, writeTar, TarError, type TarMember } from "../core/bundle-tar.js";
-import { buildMaskPlan, scanMemberLeaks } from "../core/bundle-mask.js";
+import { newGeneration, openGenome, sealGeneration } from "../core/worktree.js";
 
 const CLI = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 
@@ -86,7 +85,10 @@ interface BundleFixture {
   readonly wopts: WorktreeOptions;
 }
 
-async function bundleFixture(t: TestContext, opts: { readonly maskLiterals?: readonly string[] } = {}): Promise<BundleFixture> {
+async function bundleFixture(
+  t: TestContext,
+  opts: { readonly maskLiterals?: readonly string[] } = {},
+): Promise<BundleFixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), "abathur-bundle-"));
   t.after(() => {
     spawnSync("rm", ["-rf", root], { encoding: "utf8" });
@@ -104,7 +106,16 @@ async function bundleFixture(t: TestContext, opts: { readonly maskLiterals?: rea
     );
     // commit the edit: export self-describes from the gen COMMIT tree, so the
     // registry spec and the committed spec must agree by construction.
-    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-am", "bundle: declare maskLiterals");
+    gitC(
+      repo,
+      "-c",
+      "user.name=abathur",
+      "-c",
+      "user.email=agent@host.example",
+      "commit",
+      "-am",
+      "bundle: declare maskLiterals",
+    );
   }
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   const entry = requireGenomesByLabel(configDir, "toy-smoke").entries[0];
@@ -163,8 +174,22 @@ function candidateRows(f: BundleFixture): readonly Row[] {
 }
 
 /** Plant a bench transcript exactly where the fixture adapter would have left it. */
-function plantTranscript(f: BundleFixture, genIdStr: string, unitId: string, rep: number, lines: readonly string[]): string {
-  const dir = path.join(f.configDir, "bench-sandboxes", "a-20260101T000000Z-fixture", genIdStr, `${unitId}-${String(rep)}`, ".bench", "transcripts");
+function plantTranscript(
+  f: BundleFixture,
+  genIdStr: string,
+  unitId: string,
+  rep: number,
+  lines: readonly string[],
+): string {
+  const dir = path.join(
+    f.configDir,
+    "bench-sandboxes",
+    "a-20260101T000000Z-fixture",
+    genIdStr,
+    `${unitId}-${String(rep)}`,
+    ".bench",
+    "transcripts",
+  );
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${unitId}.jsonl`);
   writeFileSync(file, `${lines.join("\n")}\n`, "utf8");
@@ -178,7 +203,9 @@ function bundleDir(f: BundleFixture): string {
 }
 
 function listBundles(f: BundleFixture): string[] {
-  return readdirSync(bundleDir(f)).filter((n) => n.endsWith(".bundle.tgz")).sort();
+  return readdirSync(bundleDir(f))
+    .filter((n) => n.endsWith(".bundle.tgz"))
+    .sort();
 }
 
 function readBundle(f: BundleFixture, name: string): Uint8Array {
@@ -212,9 +239,7 @@ const sha256Hex = (b: Uint8Array): string => createHash("sha256").update(b).dige
 /** Replace/insert one member; rePin=false leaves the manifest pins stale (byte-flip AC). */
 function tamperMember(f: BundleFixture, name: string, memberPath: string, content: Uint8Array, rePin = true): void {
   const members = readTar(ungzip(f, name));
-  const next = members
-    .filter((m) => m.path !== memberPath)
-    .concat([{ path: memberPath, content }]);
+  const next = members.filter((m) => m.path !== memberPath).concat([{ path: memberPath, content }]);
   if (memberPath !== "manifest.json" && rePin) {
     const manifest = members.find((m) => m.path === "manifest.json");
     if (manifest === undefined) throw new Error("bundle has no manifest.json");
@@ -226,7 +251,11 @@ function tamperMember(f: BundleFixture, name: string, memberPath: string, conten
       entry.sha256 = sha256Hex(content);
       entry.len = content.length;
       const rewritten = new TextEncoder().encode(`${JSON.stringify(doc, null, 2)}\n`);
-      repack(f, name, next.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)));
+      repack(
+        f,
+        name,
+        next.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)),
+      );
       return;
     }
   }
@@ -249,7 +278,7 @@ function tarWithRawHeader(badName: string): Uint8Array {
   header.set(enc.encode("00"), 263);
   let sum = 0;
   for (const b of header) sum += b;
-  header.set(enc.encode((sum & 0o777777).toString(8).padStart(6, "0") + "\0 "), 148);
+  header.set(enc.encode(`${(sum & 0o777777).toString(8).padStart(6, "0")}\0 `), 148);
   const blocks = [header, new Uint8Array(512).fill(0x78), new Uint8Array(512), new Uint8Array(512)];
   const out = new Uint8Array(512 * 4);
   let off = 0;
@@ -298,13 +327,22 @@ test("ids.benchDigest: reorder-stable, content-sensitive, config-sensitive", () 
 test("bundle-tar: roundtrip, long names, traversal + garbage refused", () => {
   const members: TarMember[] = [
     { path: "manifest.json", content: new TextEncoder().encode("{}\n") },
-    { path: "trees/g-x/units/add.mjs", content: new TextEncoder().encode("export function add(a: number, b: number) { return a + b; }\n") },
+    {
+      path: "trees/g-x/units/add.mjs",
+      content: new TextEncoder().encode("export function add(a: number, b: number) { return a + b; }\n"),
+    },
     { path: `deep/dir/${"x".repeat(120)}/file.txt`, content: new TextEncoder().encode("ok\n") },
   ];
   const bytes = writeTar(members);
   const back = readTar(bytes);
-  assert.deepEqual(back.map((m) => m.path), members.map((m) => m.path));
-  assert.deepEqual(Buffer.from(back[1]?.content ?? new Uint8Array()), Buffer.from(members[1]?.content ?? new Uint8Array()));
+  assert.deepEqual(
+    back.map((m) => m.path),
+    members.map((m) => m.path),
+  );
+  assert.deepEqual(
+    Buffer.from(back[1]?.content ?? new Uint8Array()),
+    Buffer.from(members[1]?.content ?? new Uint8Array()),
+  );
 
   assert.throws(() => writeTar([{ path: "../evil", content: new Uint8Array() }]), TarError);
   assert.throws(() => writeTar([{ path: "/etc/passwd", content: new Uint8Array() }]), TarError);
@@ -324,7 +362,10 @@ test("bundle-tar: non-ASCII member names round-trip byte-exact (PAX override, no
     { path: `${"ünï".repeat(30)}/leaf-ü.txt`, content: new TextEncoder().encode("split-prefixed non-ascii\n") },
   ];
   const back = readTar(writeTar(members));
-  assert.deepEqual(back.map((m) => m.path), members.map((m) => m.path));
+  assert.deepEqual(
+    back.map((m) => m.path),
+    members.map((m) => m.path),
+  );
   for (const want of members) {
     const got = back.find((m) => m.path === want.path);
     assert.ok(got !== undefined, `member ${want.path} missing after roundtrip`);
@@ -342,7 +383,10 @@ test("bundle-mask: declared literals → placeholders; undeclared machine paths 
   assert.equal(leak.line, 2);
   assert.match(leak.snippet, /\/srv\/home-alice/);
   // after masking, the same text is clean
-  assert.equal(scanMemberLeaks(plan.mask(`line one\nsecond ${WIKI_LITERAL} line`), plan, "/home/other", "/work/other"), null);
+  assert.equal(
+    scanMemberLeaks(plan.mask(`line one\nsecond ${WIKI_LITERAL} line`), plan, "/home/other", "/work/other"),
+    null,
+  );
   // a DECLARED literal surviving masking is still a leak (fail-closed double gate)
   assert.ok(scanMemberLeaks(`second ${WIKI_LITERAL} line`, plan, "/home/other", "/work/other") !== null);
   assert.equal(scanMemberLeaks("plain text", plan, "/home/other", "/work/other"), null);
@@ -372,14 +416,30 @@ test("AC(happy): export promoted lineage → inspect OK, manifest exact, determi
 
   const m = manifestOf(f, expected);
   assert.deepEqual(Object.keys(m), [
-    "schema_version", "digest_algo", "genome", "parent", "benchDigest", "benchProvenance",
-    "budgetCounters", "stats", "sealedGlobs", "files", "rationale", "frictionDigests",
+    "schema_version",
+    "digest_algo",
+    "genome",
+    "parent",
+    "benchDigest",
+    "benchProvenance",
+    "budgetCounters",
+    "stats",
+    "sealedGlobs",
+    "files",
+    "rationale",
+    "frictionDigests",
   ]);
   assert.equal(m.schema_version, 1);
   assert.equal(m.digest_algo, "sha256-canonical-v1");
   assert.deepEqual(Object.keys(m.benchProvenance as object), [
-    "opencodeVersion", "agentModel", "adapterConfigDigest", "fixtureSeedId",
-    "judgeModel", "mutatorModel", "nRepeats", "statsConfigDigest",
+    "opencodeVersion",
+    "agentModel",
+    "adapterConfigDigest",
+    "fixtureSeedId",
+    "judgeModel",
+    "mutatorModel",
+    "nRepeats",
+    "statsConfigDigest",
   ]);
   assert.equal((m.genome as { label: string }).label, "toy-smoke");
   assert.equal((m.genome as { fingerprint: string }).fingerprint, fingerprint(f.entry.spec));
@@ -466,7 +526,11 @@ test("AC(masked success): literal declared via spec bundle.maskLiterals → plac
 
   assert.equal(cli(f, "bundle", "export", "toy-smoke", "--gen", gen.genId, "--out", bundleDir(f)).status, 0);
   const name = listBundles(f)[0] as string;
-  assert.equal(cli(f, "bundle", "inspect", path.join(bundleDir(f), name)).status, 0, "declared literal is masked, not leaked");
+  assert.equal(
+    cli(f, "bundle", "inspect", path.join(bundleDir(f), name)).status,
+    0,
+    "declared literal is masked, not leaked",
+  );
 
   for (const mem of readTar(ungzip(f, name))) {
     const text = new TextDecoder().decode(mem.content);
@@ -565,7 +629,11 @@ test("AC(digest recompute): manifest.benchDigest disagreeing with contained tree
   const real = doc.benchDigest as string;
   doc.benchDigest = real.replace(/[0-9a-f]$/, real.endsWith("0") ? "1" : "0");
   const rewritten = new TextEncoder().encode(`${JSON.stringify(doc, null, 2)}\n`);
-  repack(f, name, members.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)));
+  repack(
+    f,
+    name,
+    members.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)),
+  );
 
   const insp = cli(f, "bundle", "inspect", path.join(bundleDir(f), name));
   assert.equal(insp.status, 1);
@@ -586,7 +654,11 @@ test("AC(unknown digest_algo): → exit 2 cannot-answer, not a failure claim", a
   const doc = JSON.parse(new TextDecoder().decode(manifest.content)) as Record<string, unknown>;
   doc.digest_algo = "sha256-v0";
   const rewritten = new TextEncoder().encode(`${JSON.stringify(doc, null, 2)}\n`);
-  repack(f, name, members.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)));
+  repack(
+    f,
+    name,
+    members.map((m) => (m.path === "manifest.json" ? { path: m.path, content: rewritten } : m)),
+  );
 
   const insp = cli(f, "bundle", "inspect", path.join(bundleDir(f), name));
   assert.equal(insp.status, 2);
@@ -645,7 +717,9 @@ test("dirty_worktree: bundle follows the commit tree, never the uncommitted work
   assert.ok(!new TextDecoder().decode(mul).includes("DIRTY WORKTREE"));
 
   const m = manifestOf(f, name);
-  const pin = (m.files as { path: string; sha256: string }[]).find((x) => x.path === `trees/${String(nominated.genId)}/units/mul.mjs`);
+  const pin = (m.files as { path: string; sha256: string }[]).find(
+    (x) => x.path === `trees/${String(nominated.genId)}/units/mul.mjs`,
+  );
   assert.ok(pin !== undefined);
   assert.equal(pin.sha256, sha256Hex(committed));
   assert.equal(cli(f, "bundle", "inspect", path.join(bundleDir(f), name)).status, 0);
@@ -670,7 +744,11 @@ test("stale_state: --last N picks the N newest candidate gens; primary = newest;
   assert.equal(m.parent, primary.data.headCommit, "manifest describes the newest gen");
   assert.equal(m.rationale, primary.data.rationale);
   const members = readTar(ungzip(f, name));
-  for (const id of ids) assert.ok(members.some((x) => x.path.startsWith(`trees/${id}/`)), `tree for ${id} shipped`);
+  for (const id of ids)
+    assert.ok(
+      members.some((x) => x.path.startsWith(`trees/${id}/`)),
+      `tree for ${id} shipped`,
+    );
   assert.ok(members.some((x) => x.path === "lineage.json"));
   assert.equal(cli(f, "bundle", "inspect", path.join(bundleDir(f), name)).status, 0);
 
@@ -682,7 +760,10 @@ test("stale_state: --last N picks the N newest candidate gens; primary = newest;
   const third = await handSeal(f, "bundle-third", { file: "units/mul.mjs", append: "\n// third\n" }, "culled");
   const r3 = cli(f, "bundle", "export", "toy-smoke", "--last", "1", "--out", bundleDir(f));
   assert.equal(r3.status, 0, r3.stderr);
-  assert.ok(listBundles(f).some((n) => n.endsWith(`-${third.genId}.bundle.tgz`)), "newest gen picked");
+  assert.ok(
+    listBundles(f).some((n) => n.endsWith(`-${third.genId}.bundle.tgz`)),
+    "newest gen picked",
+  );
 
   const bad = cli(f, "bundle", "export", "toy-smoke", "--gen", "g-20200101T000000Z-deadbeef", "--out", bundleDir(f));
   assert.equal(bad.status, 2, "no-data gen miss is cannot-answer, not a recorded decision");
@@ -763,10 +844,7 @@ async function handSeal(
 test("CLI seam: usage errors are exit 2; router keeps bundle slot; help lists bundle", async (t) => {
   const f = await bundleFixture(t);
   assert.equal(cli(f, "bundle").status, 2);
-  assert.ok(
-    !cli(f, "bundle").stderr.includes("not implemented yet"),
-    "bundle group must be wired, not pending",
-  );
+  assert.ok(!cli(f, "bundle").stderr.includes("not implemented yet"), "bundle group must be wired, not pending");
   assert.equal(cli(f, "bundle", "frobnicate").status, 2);
   assert.equal(cli(f, "bundle", "export", "toy-smoke", "--gen", "g-x").status, 2, "--out required");
   assert.equal(

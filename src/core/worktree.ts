@@ -18,22 +18,15 @@ import path from "node:path";
 
 import { blocked, cannotAnswer } from "../exit.js";
 import { git, tryGit } from "../util/git.js";
-import {
-  generationPath,
-  genomeDir,
-  gitOpts,
-  requireRev,
-  SNAPSHOTS_DIR,
-} from "./genome-paths.js";
 import type { GenomeRef, WorktreeOptions } from "./genome-paths.js";
+import { generationPath, genomeDir, gitOpts, requireRev, SNAPSHOTS_DIR } from "./genome-paths.js";
 import { removeFrozenTree } from "./snapshot.js";
 
-export type { GenomeRef, WorktreeEnv, WorktreeOptions } from "./genome-paths.js";
+export type { GenomeRef, SnapshotHandle, WorktreeEnv, WorktreeOptions } from "./genome-paths.js";
 export { cacheRoot } from "./genome-paths.js";
-export type { SnapshotHandle } from "./genome-paths.js";
-export { snapshotCommit } from "./snapshot.js";
-export { INCUMBENT_BRANCH, fastForwardIncumbent } from "./incumbent.js";
 export type { FastForwardResult } from "./incumbent.js";
+export { fastForwardIncumbent, INCUMBENT_BRANCH } from "./incumbent.js";
+export { snapshotCommit } from "./snapshot.js";
 
 export interface DirtyEntry {
   /** Porcelain v1 2-char status (XY). */
@@ -123,19 +116,14 @@ export async function openGenome(
   }
   const bare = await git(["rev-parse", "--is-bare-repository"], gopts);
   if (bare.stdout.trim() === "true") {
-    blocked(
-      `worktree: ${repo} is a bare repo — genomes must be full working copies (the ledger lives in-tree)`,
-    );
+    blocked(`worktree: ${repo} is a bare repo — genomes must be full working copies (the ledger lives in-tree)`);
   }
   const head = await tryGit(["rev-parse", "HEAD"], gopts);
   if (!head.ok) {
     blocked(`worktree: ${repo} has no commits — seed the genome before opening it`);
   }
   const branchRun = await tryGit(["rev-parse", "--abbrev-ref", "HEAD"], gopts);
-  const status = await git(
-    ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-    gopts,
-  );
+  const status = await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], gopts);
   const entries = parsePorcelain(status.stdout);
   const targets = targetPaths.map((t) => normalizeTarget(repo, t));
   const underTarget = (e: DirtyEntry): boolean => targets.some((t) => isUnder(e.file, t));
@@ -272,9 +260,7 @@ export async function cleanupStale(
   // would otherwise block re-adding a generation with the same id.
   const pruned = await tryGit(["worktree", "prune"], gitOpts(opts, path.resolve(genome.repoPath)));
   if (!pruned.ok) {
-    blocked(
-      `worktree: cannot prune the worktree registry of ${genome.repoPath}: ${pruned.error.stderr.trim()}`,
-    );
+    blocked(`worktree: cannot prune the worktree registry of ${genome.repoPath}: ${pruned.error.stderr.trim()}`);
   }
   return { removed, kept };
 }

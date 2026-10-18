@@ -7,8 +7,8 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import type { TestContext } from "node:test";
+import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
@@ -56,10 +56,7 @@ export interface FixtureGenome {
 }
 
 /** Git working copy with tracked `a.txt` and `bench/run.sh`, one seeded commit on `main`. */
-export async function fixtureRepo(
-  t: TestContext,
-  prefix = "abathur-wt-",
-): Promise<FixtureGenome> {
+export async function fixtureRepo(t: TestContext, prefix = "abathur-wt-"): Promise<FixtureGenome> {
   const root = await mkdtemp(path.join(os.tmpdir(), prefix));
   t.after(() => forceRm(root));
   const repo = path.join(root, "src-repo");

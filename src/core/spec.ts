@@ -192,9 +192,7 @@ export function effectiveRepoPath(repoPath: string, env: EnvRepoLookup = process
 export function parseGenomeSpecDocument(document: unknown, origin: string): GenomeSpec {
   const result = genomeSpecSchema.safeParse(document);
   if (result.success) return result.data;
-  cannotAnswer(
-    `genome: invalid spec in ${origin}:\n  - ${formatZodIssues(result.error.issues).join("\n  - ")}`,
-  );
+  cannotAnswer(`genome: invalid spec in ${origin}:\n  - ${formatZodIssues(result.error.issues).join("\n  - ")}`);
 }
 
 /** Read a `<file>.jsonc` GenomeSpec: malformed JSONC or schema violation ⇒ exit 2. */
