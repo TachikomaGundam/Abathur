@@ -1,6 +1,7 @@
-// Post-build asset copier: tsc only emits .js from src/**\/*.ts, so non-TS runtime
-// assets must be staged into dist/ explicitly. Every source is OPTIONAL at this
-// stage (they land in todos 5 and 8); missing sources are a graceful no-op.
+// Post-build asset copier: tsc only emits .js from src/**/*.ts, so non-TS runtime
+// assets must be staged into dist/ explicitly. stub-mutators and the toy genome are
+// copied verbatim; package.json -> dist/version-manifest.json is REQUIRED (the CLI
+// refuses to report a version when it is missing or disagrees with the manifest).
 import { cp, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
