@@ -62,7 +62,7 @@ test("package contract: runtime floor and optional plugin boundary match the ver
     typeof peerDependencies === "object" && peerDependencies !== null && "@opencode-ai/plugin" in peerDependencies
       ? peerDependencies["@opencode-ai/plugin"]
       : undefined,
-    "1.19.3",
+    "^1.19.3",
   );
   assert.deepEqual(
     typeof peerDependenciesMeta === "object" && peerDependenciesMeta !== null && "@opencode-ai/plugin" in peerDependenciesMeta

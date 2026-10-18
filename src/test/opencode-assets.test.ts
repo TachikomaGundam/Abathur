@@ -72,7 +72,7 @@ test("npm name route: exports['./server'] ships the marker'd plugin + optional h
   assert.ok(head.startsWith(PLUGIN_MARKER), `server entry must start with the plugin marker: ${head}`);
   assert.ok((pkg.files ?? []).some((entry) => server.startsWith(`./${entry}/`)), "server entry must live under a published files[] directory");
   assert.equal(pkg.dependencies?.["@opencode-ai/plugin"], undefined, "core must not install the plugin runtime");
-  assert.equal(pkg.peerDependencies?.["@opencode-ai/plugin"], "1.19.3", "plugin peer must be exact");
+  assert.match(pkg.peerDependencies?.["@opencode-ai/plugin"] ?? "", /^\^?\d+\.\d+\.\d+$/, "plugin peer is a semver range (adapt-and-evolve ruling: never pin the opencode version)");
   assert.equal(pkg.peerDependenciesMeta?.["@opencode-ai/plugin"]?.optional, true, "plugin peer must be optional");
   assert.equal(serverEntry, "./plugin/abathur.ts", "server entry and installer asset must be one file");
 });
