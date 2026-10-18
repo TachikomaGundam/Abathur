@@ -21,6 +21,11 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  # Never cancel an in-flight publish (unlike CI): queue instead.
+  group: publish
+  cancel-in-progress: false
+
 permissions:
   contents: read
   id-token: write # required for npm Trusted Publishing (OIDC provenance)
@@ -30,9 +35,9 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           # Node 24 ships npm >= 11.5.1, the minimum version that supports
           # Trusted Publishing. Older npm silently falls back to token auth.
