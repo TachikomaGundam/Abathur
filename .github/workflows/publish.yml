@@ -69,6 +69,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
+      # Full gate before publish: `npm test` runs build + the entire suite.
+      # A tag on an untested commit must never reach npm (regression found in
+      # review: publish was npm ci → build → publish, tests skipped).
+      - run: npm test
 
       - run: npm publish --provenance --access public
