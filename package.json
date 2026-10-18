@@ -45,7 +45,8 @@
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs",
-    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "typecheck:plugin": "tsc -p tsconfig.plugin.json",
+    "test": "npm run build && npm run typecheck:plugin && node --test \"dist/test/**/*.test.js\"",
     "prepack": "npm run build"
   },
   "dependencies": {
@@ -60,6 +61,7 @@
     }
   },
   "devDependencies": {
+    "@opencode-ai/plugin": "1.19.3",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
   }

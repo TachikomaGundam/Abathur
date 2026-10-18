@@ -72,6 +72,22 @@ test("package contract: runtime floor and optional plugin boundary match the ver
   );
 });
 
+test("package contract: the plugin adapter is type-checked by a wired project", () => {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const pluginConfig = JSON.parse(readFileSync(join(root, "tsconfig.plugin.json"), "utf8")) as unknown;
+  if (typeof pluginConfig !== "object" || pluginConfig === null || !("include" in pluginConfig)) {
+    throw new Error("tsconfig.plugin.json has no include list");
+  }
+  assert.deepEqual(pluginConfig.include, ["plugin/abathur.ts"]);
+  if (typeof manifest !== "object" || manifest === null || !("scripts" in manifest)) {
+    throw new Error("test package manifest has no scripts");
+  }
+  const { scripts } = manifest;
+  const testScript = typeof scripts === "object" && scripts !== null && "test" in scripts ? scripts.test : undefined;
+  if (typeof testScript !== "string") throw new Error("npm test script missing");
+  assert.ok(testScript.includes("typecheck:plugin"), "npm test must run the plugin typecheck");
+});
+
 test("package surface: core package excludes optional historian integration", () => {
   const root = fileURLToPath(new URL("../..", import.meta.url));
   const files = packageFiles().flatMap((entry) => listFiles(root, entry));
