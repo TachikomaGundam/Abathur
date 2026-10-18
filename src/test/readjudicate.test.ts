@@ -14,6 +14,7 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSy
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { readjudicateGeneration } from "../core/readjudicate.js";
 import { ledgerRecordSchema, LEDGER_KIND_GENERATION_COMPLETE, LEDGER_KIND_PROMOTE } from "../core/ledger.js";
@@ -196,41 +197,57 @@ test("corrupt archive lines are notices, never a crash, and never poison the rep
 // ------------------------------------------------------------------ historical anchor
 // The incident replay: c17's real rows, judged first by the silently-downgraded engine
 // (culled), then re-adjudicated offline to NOMINATED gain 0.2917 (start-work L141).
-// A sandboxed copy of the real archives run through this command must reproduce that
-// verdict with the same numbers — the engine re-judging its own history correctly.
-// Skips (never fails) when the historian state files are absent (CI elsewhere).
-test("anchor: real c17 archives replay to NOMINATED 0.2917 (copy, no mutation)", (t) => {
-  // located via env, never a hardcoded homedir (release hygiene); skipped wherever the
-  // historian repo is not wired — this anchor guards the OPERATOR's machine, CI has no history.
-  const hist = process.env["ABATHUR_HISTORIAN_REPO"];
-  if (hist === undefined || hist.length === 0) {
-    t.skip("ABATHUR_HISTORIAN_REPO unset — anchor needs the real archives");
-    return;
-  }
-  const real = path.join(hist, ".state", "abathur");
-  let names: string[];
-  try {
-    names = readdirSync(real);
-  } catch {
-    t.skip("historian .state/abathur not present on this machine");
-    return;
-  }
+// The vendored fixture under fixtures/c17/ is the byte-exact campaign17 archive, so this
+// anchor runs everywhere (CI included); when ABATHUR_HISTORIAN_REPO is set the live
+// archives are replayed too, as the operator-machine assurance leg.
+const C17_GEN_ID = "g-20260925T150918Z-9969e4b6";
+
+function replayC17(t: { after: (fn: () => void) => void }, sourceDir: string): void {
+  const names = readdirSync(sourceDir);
   const archives = names.filter((n) => n.startsWith("ledger.") && n.endsWith(".jsonl"));
-  if (!archives.some((n) => n.includes("campaign17"))) {
-    t.skip("campaign17 archive not present");
-    return;
-  }
   const { dir, state } = sandbox(t);
-  for (const n of archives) copyFileSync(path.join(real, n), path.join(state, n));
+  for (const n of archives) copyFileSync(path.join(sourceDir, n), path.join(state, n));
   writeFileSync(path.join(state, "ledger.jsonl"), ""); // copy of live would carry future rows — start empty
   // spec: mirror the historian constitution's anchors exactly (stats/budget as registered)
   const spec = entryFor(dir);
   (spec.spec.bench as { stats: unknown }).stats = STATS;
-  const out = readjudicateGeneration({ entry: spec, configDir: cfg(t), genId: "g-20260925T150918Z-9969e4b6", now: () => new Date("2026-09-28T00:00:00Z") });
+  const out = readjudicateGeneration({ entry: spec, configDir: cfg(t), genId: C17_GEN_ID, now: () => new Date("2026-09-28T00:00:00Z") });
   assert.equal(out.verdict, "nominated", out.lines.join("\n"));
   const appended = lastRows(state).at(-1);
   assert.ok(appended?.readjudication !== undefined);
   assert.ok(Math.abs((appended.gain ?? 0) - 0.2916666666666667) < 1e-9, `gain ${String(appended.gain)} must match the offline replay 0.2917`);
   assert.equal(appended.readjudication.replacedVerdict, "culled");
   assert.equal(appended.readjudication.sourceRows.candidate.file, "ledger.campaign17-2026-09-25.jsonl");
+}
+
+test("anchor: vendored c17 archive replays to NOMINATED 0.2917 (runs everywhere)", (t) => {
+  replayC17(t, fileURLToPath(new URL("../../src/test/fixtures/c17", import.meta.url)));
+});
+
+test("anchor: live c17 archive is byte-identical to the fixture and replays identically", (t) => {
+  const hist = process.env["ABATHUR_HISTORIAN_REPO"];
+  if (hist === undefined || hist.length === 0) {
+    t.skip("ABATHUR_HISTORIAN_REPO unset — live anchor needs the real archives");
+    return;
+  }
+  const archiveName = "ledger.campaign17-2026-09-25.jsonl";
+  const liveFile = path.join(hist, ".state", "abathur", archiveName);
+  const fixtureFile = fileURLToPath(new URL(`../../src/test/fixtures/c17/${archiveName}`, import.meta.url));
+  let live: string;
+  try {
+    live = readFileSync(liveFile, "utf8");
+  } catch {
+    t.skip("historian campaign17 archive not present on this machine");
+    return;
+  }
+  assert.equal(live, readFileSync(fixtureFile, "utf8"), "vendored c17 fixture has drifted from the live archive — re-vendor it");
+  // The live ledger also carries the later promote row; replay the incident
+  // archive alone, as the vendored leg does — a promoted generation refuses
+  // re-adjudication by design.
+  const dir = mkdtempSync(path.join(tmpdir(), "c17-live-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const isolated = path.join(dir, "state");
+  mkdirSync(isolated, { recursive: true });
+  writeFileSync(path.join(isolated, archiveName), live);
+  replayC17(t, isolated);
 });
