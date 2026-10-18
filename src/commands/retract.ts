@@ -4,11 +4,11 @@
 // promote/tombstone: the opencode plugin tool must never reach it. No --force:
 // every refusal is a bug report, not a flag.
 
-import { resolveConfigDir } from "../config.js";
-import { EXIT_OK, cannotAnswer, type ExitCode } from "../exit.js";
-import { retractGeneration } from "../core/retract.js";
-import { writeStdout } from "../out.js";
 import type { CommandSpec } from "../cli.js";
+import { resolveConfigDir } from "../config.js";
+import { retractGeneration } from "../core/retract.js";
+import { cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
+import { writeStdout } from "../out.js";
 import { resolveUniqueEntry } from "./run.js";
 
 const USAGE = "usage: abathur retract <label> <genId> --reason <text>";
@@ -18,9 +18,11 @@ async function runRetract(args: readonly string[]): Promise<ExitCode> {
   const positional: string[] = [];
   let reason: string | null = null;
   for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i] as string;
+    const arg = args[i];
+    if (arg === undefined) break;
     if (arg === "--reason") {
-      const value = args[(i += 1)];
+      i += 1;
+      const value = args[i];
       if (value === undefined || value.startsWith("--")) cannotAnswer("retract: --reason requires a value", USAGE);
       if (reason !== null) cannotAnswer("retract: --reason given twice", USAGE);
       reason = value;
@@ -37,7 +39,8 @@ async function runRetract(args: readonly string[]): Promise<ExitCode> {
   if (reason === null || reason.trim().length === 0) {
     cannotAnswer("retract: --reason <text> is required (why is this promote being undone?)", USAGE);
   }
-  if (reason.length > MAX_REASON_CHARS) cannotAnswer(`retract: --reason exceeds ${String(MAX_REASON_CHARS)} chars`, USAGE);
+  if (reason.length > MAX_REASON_CHARS)
+    cannotAnswer(`retract: --reason exceeds ${String(MAX_REASON_CHARS)} chars`, USAGE);
 
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "retract");

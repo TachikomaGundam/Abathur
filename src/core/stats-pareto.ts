@@ -17,7 +17,12 @@ export function seededRandom(seed: number): () => number {
 }
 
 function dominates(q: ParetoPoint, p: ParetoPoint): boolean {
-  return q.trainScore >= p.trainScore && q.tokens <= p.tokens && q.wallS <= p.wallS && (q.trainScore > p.trainScore || q.tokens < p.tokens || q.wallS < p.wallS);
+  return (
+    q.trainScore >= p.trainScore &&
+    q.tokens <= p.tokens &&
+    q.wallS <= p.wallS &&
+    (q.trainScore > p.trainScore || q.tokens < p.tokens || q.wallS < p.wallS)
+  );
 }
 
 /**
@@ -38,12 +43,16 @@ export function paretoFrontier(points: readonly ParetoPoint[], seed: number = 1)
   let i = 0;
   while (i < frontier.length) {
     let j = i + 1;
-    while (
-      j < frontier.length &&
-      frontier[j]!.trainScore === frontier[i]!.trainScore &&
-      frontier[j]!.tokens === frontier[i]!.tokens &&
-      frontier[j]!.wallS === frontier[i]!.wallS
-    ) {
+    while (j < frontier.length) {
+      const candidate = frontier[j];
+      const reference = frontier[i];
+      if (candidate === undefined || reference === undefined) break;
+      if (
+        candidate.trainScore !== reference.trainScore ||
+        candidate.tokens !== reference.tokens ||
+        candidate.wallS !== reference.wallS
+      )
+        break;
       j += 1;
     }
     const group = frontier.slice(i, j);

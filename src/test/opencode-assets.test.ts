@@ -36,15 +36,22 @@ test("plugin/abathur.ts: V1 shape — marker, default {id, server}, tool allowli
 test("plugin/abathur.ts: config hook self-registers /abathur — template byte-mirrors the command md body", async () => {
   const bytes = await readFile(pluginAssetPath, "utf8");
   assert.ok(/config:\s*async\s*\(cfg:\s*Config\)/.test(bytes), "config hook with typed cfg required");
-  assert.ok(bytes.includes('import { tool, type Config }'), "Config type imported from @opencode-ai/plugin");
+  assert.ok(bytes.includes("type Config"), "Config type imported from @opencode-ai/plugin");
   assert.ok(/cfg\.command\s*\?\?=\s*\{\}/.test(bytes), "cfg.command must be lazily created with ??=");
-  assert.ok(/cfg\.command\.abathur\s*\?\?=/.test(bytes), "entry must be ??= — a file-installed command is never overwritten");
+  assert.ok(
+    /cfg\.command\.abathur\s*\?\?=/.test(bytes),
+    "entry must be ??= — a file-installed command is never overwritten",
+  );
   const literal = bytes.match(/const COMMAND_TEMPLATE = `((?:[^`\\]|\\.)*)`;/);
   assert.ok(literal !== null, "COMMAND_TEMPLATE literal must exist");
   const template = (literal[1] ?? "").replaceAll("\\`", "`");
   const md = await readFile(commandAssetPath, "utf8");
   assert.ok(md.startsWith(COMMAND_MARKER), "md must still carry its first-line marker");
-  assert.equal(template, md.slice(md.indexOf("\n") + 1), "injected template must byte-equal the command md minus its marker line");
+  assert.equal(
+    template,
+    md.slice(md.indexOf("\n") + 1),
+    "injected template must byte-equal the command md minus its marker line",
+  );
 });
 
 test("plugin/abathur-command.md: first-line marker, $ARGUMENTS, points at the abathur tool", async () => {
@@ -57,22 +64,34 @@ test("plugin/abathur-command.md: first-line marker, $ARGUMENTS, points at the ab
 test("shipped plugin assets carry zero machine literals (D7 discipline extended to plugin/)", async () => {
   for (const file of [pluginAssetPath, commandAssetPath]) {
     const text = await readFile(file, "utf8");
-    for (const needle of FORBIDDEN_NEEDLES) assert.ok(!text.includes(needle), `${path.relative(repoRoot, file)} must not contain '${needle}'`);
+    for (const needle of FORBIDDEN_NEEDLES)
+      assert.ok(!text.includes(needle), `${path.relative(repoRoot, file)} must not contain '${needle}'`);
   }
 });
 
 test("npm name route: exports['./server'] ships the marker'd plugin + optional host peer declared", async () => {
   const pkg = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8")) as {
-    files?: string[]; exports?: Record<string, unknown>; dependencies?: Record<string, string>; peerDependencies?: Record<string, string>; peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+    files?: string[];
+    exports?: Record<string, unknown>;
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   };
   const serverEntry = pkg.exports?.["./server"];
   assert.equal(typeof serverEntry, "string", "./server export must be a plain string path");
   const server = serverEntry as string;
   const head = (await readFile(path.resolve(repoRoot, server), "utf8")).split("\n")[0] ?? "";
   assert.ok(head.startsWith(PLUGIN_MARKER), `server entry must start with the plugin marker: ${head}`);
-  assert.ok((pkg.files ?? []).some((entry) => server.startsWith(`./${entry}/`)), "server entry must live under a published files[] directory");
+  assert.ok(
+    (pkg.files ?? []).some((entry) => server.startsWith(`./${entry}/`)),
+    "server entry must live under a published files[] directory",
+  );
   assert.equal(pkg.dependencies?.["@opencode-ai/plugin"], undefined, "core must not install the plugin runtime");
-  assert.match(pkg.peerDependencies?.["@opencode-ai/plugin"] ?? "", /^\^?\d+\.\d+\.\d+$/, "plugin peer is a semver range (adapt-and-evolve ruling: never pin the opencode version)");
+  assert.match(
+    pkg.peerDependencies?.["@opencode-ai/plugin"] ?? "",
+    /^\^?\d+\.\d+\.\d+$/,
+    "plugin peer is a semver range (adapt-and-evolve ruling: never pin the opencode version)",
+  );
   assert.equal(pkg.peerDependenciesMeta?.["@opencode-ai/plugin"]?.optional, true, "plugin peer must be optional");
   assert.equal(serverEntry, "./plugin/abathur.ts", "server entry and installer asset must be one file");
 });

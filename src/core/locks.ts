@@ -146,7 +146,7 @@ export function acquireLock(opts: LockOptions): LockLease {
       const quarantine = `${lockDir}.stale-${process.pid}-${randomUUID().slice(0, 8)}`;
       try {
         renameSync(lockDir, quarantine);
-      } catch (race) {
+      } catch {
         reclaimed = null; // another taker won the rename — re-observe their lock normally
         continue;
       }

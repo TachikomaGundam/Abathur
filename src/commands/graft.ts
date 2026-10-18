@@ -5,13 +5,12 @@
 
 import { homedir } from "node:os";
 import path from "node:path";
-
+import type { CommandContext, CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
-import { readRegistry, type RegistryEntry } from "../core/genome.js";
+import { type RegistryEntry, readRegistry } from "../core/genome.js";
 import { graftBundle } from "../core/graft.js";
 import { cannotAnswer, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
-import type { CommandContext, CommandSpec } from "../cli.js";
 
 const USAGE = "usage: abathur graft <bundle.tgz> --genome <label>";
 
@@ -24,13 +23,19 @@ function parseGraftFlags(args: readonly string[]): GraftFlags {
   let bundlePath: string | null = null;
   let label: string | null = null;
   for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i] as string;
+    const arg = args[i];
+    if (arg === undefined) break;
     if (arg === "--genome") {
-      const raw = args[(i += 1)];
-      if (raw === undefined || raw.length === 0 || raw.startsWith("--")) cannotAnswer("graft: --genome <label> requires a value", USAGE);
+      i += 1;
+      const raw = args[i];
+      if (raw === undefined || raw.length === 0 || raw.startsWith("--"))
+        cannotAnswer("graft: --genome <label> requires a value", USAGE);
       label = raw;
     } else if (arg.startsWith("--")) {
-      cannotAnswer(`graft: unknown flag ${arg}`, `${USAGE}\n  no bypass flag exists — quarantine and pending-bench are decisions, not warnings`);
+      cannotAnswer(
+        `graft: unknown flag ${arg}`,
+        `${USAGE}\n  no bypass flag exists — quarantine and pending-bench are decisions, not warnings`,
+      );
     } else if (bundlePath !== null) {
       cannotAnswer(`graft: unexpected extra argument '${arg}'`, USAGE);
     } else {
@@ -49,7 +54,7 @@ function entryForLabel(configDir: string, label: string): RegistryEntry | null {
   if (matches.length > 1) {
     cannotAnswer(
       `graft: label '${label}' is ambiguous — ${String(matches.length)} genomes share it: ${matches
-        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)  // raw-repoPath: display string only; no FS access
+        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`) // raw-repoPath: display string only; no FS access
         .join(", ")}`,
       "give the specs distinct labels; the fingerprint is the identity",
     );

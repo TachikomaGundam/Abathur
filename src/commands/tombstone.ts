@@ -5,30 +5,38 @@
 // sealMessage so untrusted text cannot forge terminal output.
 
 import path from "node:path";
+import type { CommandSpec } from "../cli.js";
+import { resolveConfigDir } from "../config.js";
 import { acquireGenomeLock, acquireLock, LEDGER_KIND_TOMBSTONE, Ledger } from "../core/ledger.js";
 import { effectiveRepoPath } from "../core/spec.js";
-import { resolveConfigDir } from "../config.js";
-import { EXIT_OK, blocked, cannotAnswer, type ExitCode } from "../exit.js";
+import { blocked, cannotAnswer, EXIT_OK, type ExitCode } from "../exit.js";
 import { writeStdout } from "../out.js";
-import type { CommandSpec } from "../cli.js";
 import { resolveUniqueEntry } from "./run.js";
-
 
 const MAX_REASON_CHARS = 4000;
 const USAGE = "usage: abathur tombstone <label> <genId> --reason <text>";
 
 function echoed(reason: string): string {
-  const flat = reason.replace(/[^ -~]/g, " ").replace(/\s+/g, " ").trim();
+  const flat = reason
+    .replace(/[^ -~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return flat.length > 120 ? `${flat.slice(0, 120)}…` : flat;
 }
 
-function parseArgs(args: readonly string[]): { readonly label: string; readonly genId: string; readonly reason: string } {
+function parseArgs(args: readonly string[]): {
+  readonly label: string;
+  readonly genId: string;
+  readonly reason: string;
+} {
   const positional: string[] = [];
   let reason: string | null = null;
   for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i] as string;
+    const arg = args[i];
+    if (arg === undefined) break;
     if (arg === "--reason") {
-      const value = args[(i += 1)];
+      i += 1;
+      const value = args[i];
       if (value === undefined || value.startsWith("--")) cannotAnswer("tombstone: --reason requires a value", USAGE);
       if (reason !== null) cannotAnswer("tombstone: --reason given twice", USAGE);
       reason = value;
@@ -39,9 +47,12 @@ function parseArgs(args: readonly string[]): { readonly label: string; readonly 
     }
   }
   const [label, genId] = positional;
-  if (label === undefined || genId === undefined || positional.length !== 2) cannotAnswer("tombstone: expected exactly <label> <genId>", USAGE);
-  if (reason === null || reason.trim().length === 0) cannotAnswer("tombstone: --reason <text> is required (why is this lineage culled?)", USAGE);
-  if (reason.length > MAX_REASON_CHARS) cannotAnswer(`tombstone: --reason exceeds ${String(MAX_REASON_CHARS)} chars`, USAGE);
+  if (label === undefined || genId === undefined || positional.length !== 2)
+    cannotAnswer("tombstone: expected exactly <label> <genId>", USAGE);
+  if (reason === null || reason.trim().length === 0)
+    cannotAnswer("tombstone: --reason <text> is required (why is this lineage culled?)", USAGE);
+  if (reason.length > MAX_REASON_CHARS)
+    cannotAnswer(`tombstone: --reason exceeds ${String(MAX_REASON_CHARS)} chars`, USAGE);
   return { label, genId, reason };
 }
 
@@ -53,23 +64,31 @@ function runTombstone(args: readonly string[]): ExitCode {
   // single-flight with the run loop and sibling gates (same postmortem as promote)
   const lease = acquireGenomeLock({ ledger, configDir, genomeFp: entry.fingerprint });
   try {
-    const repoLease = acquireLock({ configDir: path.join(effectiveRepoPath(entry.spec.repoPath), ".state", "abathur"), key: "gate", label: "gate lock" });
+    const repoLease = acquireLock({
+      configDir: path.join(effectiveRepoPath(entry.spec.repoPath), ".state", "abathur"),
+      key: "gate",
+      label: "gate lock",
+    });
     try {
-  const records = ledger.readAll();
-  if (!records.some((r) => r.kind === "generation_complete" && r.genId === genId)) {
-    blocked(`tombstone: no generation_complete ledger row for gen '${genId}' of '${label}' — nothing to bury`);
-  }
-  const promoted = records.find((r) => r.kind === "promote" && r.genId === genId);
-  if (promoted !== undefined) {
-    blocked(`tombstone: gen '${genId}' was already promoted at ${promoted.ts} — cull is for candidates the human never accepted`);
-  }
-  const buried = records.find((r) => r.kind === LEDGER_KIND_TOMBSTONE && r.genId === genId);
-  if (buried !== undefined) {
-    blocked(`tombstone: gen '${genId}' is already tombstoned at ${buried.ts}`);
-  }
-  ledger.append({ kind: LEDGER_KIND_TOMBSTONE, genId, data: { genId, reason, actor: "cli" } });
-  writeStdout(`tombstone recorded: '${genId}' (reason: ${echoed(reason)}) — commits and lineage preserved (cull ≠ delete)`);
-  return EXIT_OK;
+      const records = ledger.readAll();
+      if (!records.some((r) => r.kind === "generation_complete" && r.genId === genId)) {
+        blocked(`tombstone: no generation_complete ledger row for gen '${genId}' of '${label}' — nothing to bury`);
+      }
+      const promoted = records.find((r) => r.kind === "promote" && r.genId === genId);
+      if (promoted !== undefined) {
+        blocked(
+          `tombstone: gen '${genId}' was already promoted at ${promoted.ts} — cull is for candidates the human never accepted`,
+        );
+      }
+      const buried = records.find((r) => r.kind === LEDGER_KIND_TOMBSTONE && r.genId === genId);
+      if (buried !== undefined) {
+        blocked(`tombstone: gen '${genId}' is already tombstoned at ${buried.ts}`);
+      }
+      ledger.append({ kind: LEDGER_KIND_TOMBSTONE, genId, data: { genId, reason, actor: "cli" } });
+      writeStdout(
+        `tombstone recorded: '${genId}' (reason: ${echoed(reason)}) — commits and lineage preserved (cull ≠ delete)`,
+      );
+      return EXIT_OK;
     } finally {
       repoLease.release();
     }

@@ -45,7 +45,12 @@ type Fail = { ok: false; error: string };
 const fail = (error: string): Fail => ({ ok: false, error });
 
 function isBinaryMarker(line: string): boolean {
-  return line.startsWith("Binary files") || line.startsWith("GIT binary patch") || line.startsWith("literal ") || line.startsWith("delta ");
+  return (
+    line.startsWith("Binary files") ||
+    line.startsWith("GIT binary patch") ||
+    line.startsWith("literal ") ||
+    line.startsWith("delta ")
+  );
 }
 
 /** Skip metadata lines between a `diff --git` header and its `---` line. */
@@ -62,7 +67,9 @@ function metadata(line: string): boolean {
 export function parseUnifiedDiff(text: string): ParseOutcome {
   if (text.includes("\r")) return fail("CRLF line endings are not supported in v1");
   // control bytes outside tab/LF = binary payload smuggled into a text hunk
-  if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)) return fail("control characters (binary content) are not supported as candidate ops");
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the gate's purpose is exactly rejecting control bytes
+  if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))
+    return fail("control characters (binary content) are not supported as candidate ops");
   const lines = text.split("\n");
   if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 
@@ -84,14 +91,16 @@ export function parseUnifiedDiff(text: string): ParseOutcome {
       i += 1;
       continue;
     }
-    if (line.startsWith("rename ") || line.startsWith("copy ")) return fail("renames/copies are not supported as candidate ops");
+    if (line.startsWith("rename ") || line.startsWith("copy "))
+      return fail("renames/copies are not supported as candidate ops");
     if (line.startsWith("deleted file mode")) return fail("deletes are not supported as candidate ops");
     if (isBinaryMarker(line)) return fail("binary patches are not supported as candidate ops");
     if (!line.startsWith("--- ")) return fail(`unrecognized diff line: ${line}`);
 
     const oldRaw = (line.slice(4).split("\t")[0] as string).trim();
     const next = lines[i + 1];
-    if (next === undefined || !next.startsWith("+++ ")) return fail(`expected '+++ b/<path>' after '---' at line ${String(i + 1)}`);
+    if (next === undefined || !next.startsWith("+++ "))
+      return fail(`expected '+++ b/<path>' after '---' at line ${String(i + 1)}`);
     const newRaw = (next.slice(4).split("\t")[0] as string).trim();
     if (newRaw === "/dev/null") return fail("deletes (+++ /dev/null) are not supported as candidate ops");
     if (!newRaw.startsWith("b/")) return fail(`+++ header must name a b/<path>: ${newRaw}`);
@@ -102,7 +111,8 @@ export function parseUnifiedDiff(text: string): ParseOutcome {
       kind = "create";
     } else {
       if (!oldRaw.startsWith("a/")) return fail(`--- header must name an a/<path> or /dev/null: ${oldRaw}`);
-      if (oldRaw.slice(2) !== newPath) return fail(`renames are not supported as candidate ops: ${oldRaw.slice(2)} -> ${newPath}`);
+      if (oldRaw.slice(2) !== newPath)
+        return fail(`renames are not supported as candidate ops: ${oldRaw.slice(2)} -> ${newPath}`);
       kind = "modify";
     }
     if (pendingGit !== null && pendingGit !== newPath) {
@@ -135,12 +145,15 @@ export function parseUnifiedDiff(text: string): ParseOutcome {
         i += 1;
       }
       if (oldSeen !== oldCount || newSeen !== newCount) {
-        return fail(`hunk @@ -${oldStart},${oldCount} +${newStart},${newCount} @@ declares ${oldCount}/${newCount} lines, body has ${oldSeen}/${newSeen}`);
+        return fail(
+          `hunk @@ -${oldStart},${oldCount} +${newStart},${newCount} @@ declares ${oldCount}/${newCount} lines, body has ${oldSeen}/${newSeen}`,
+        );
       }
       if (oldCount + newCount === 0) return fail(`empty hunk at ${newPath}:${String(oldStart)}`);
       hunks.push({ oldStart, oldCount, newStart, newCount, lines: body });
     }
-    if (i < lines.length && isBinaryMarker(lines[i] as string)) return fail("binary patches are not supported as candidate ops");
+    if (i < lines.length && isBinaryMarker(lines[i] as string))
+      return fail("binary patches are not supported as candidate ops");
     if (hunks.length === 0) return fail(`no valid @@ hunk for file section ${newPath}`);
     changes.push({ path: newPath, kind, hunks });
     pendingGit = null;
@@ -188,7 +201,9 @@ export function applyChanges(
       }
       for (let j = 0; j < olds.length; j += 1) {
         if (out[start + j] !== olds[j]) {
-          return failApply(`hunk context mismatch at ${change.path}:${String(h.oldStart + j)} — worktree drifted, refusing without force`);
+          return failApply(
+            `hunk context mismatch at ${change.path}:${String(h.oldStart + j)} — worktree drifted, refusing without force`,
+          );
         }
       }
       out.splice(start, olds.length, ...news);

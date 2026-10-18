@@ -21,34 +21,33 @@
 //         no-promote-import / no --force pins.
 
 import assert from "node:assert/strict";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
+import { fileURLToPath } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
-
-import { Ledger } from "../core/ledger.js";
-import { fingerprint } from "../core/ids.js";
-import { registerGenome, requireGenomesByLabel } from "../core/genome.js";
-import type { RegistryEntry } from "../core/genome.js";
+import { prepareToyGenome } from "../bench/toy.js";
+import { sha256Hex } from "../core/bundle-common.js";
+import { exportBundle } from "../core/bundle-export.js";
+import { readTar, type TarMember, writeTar } from "../core/bundle-tar.js";
 import { decodeGenerationRecord, type GenerationRowData } from "../core/evolve/run-bench.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
-import { prepareToyGenome } from "../bench/toy.js";
-import { loadGenomeSpecFile } from "../core/spec.js";
-import { exportBundle } from "../core/bundle-export.js";
-import { readTar, writeTar, type TarMember } from "../core/bundle-tar.js";
-import { sha256Hex } from "../core/bundle-common.js";
-import { INCUMBENT_BRANCH } from "../core/incumbent.js";
+import type { RegistryEntry } from "../core/genome.js";
+import { registerGenome, requireGenomesByLabel } from "../core/genome.js";
 import {
-  LEDGER_KIND_GRAFT_IMPORT,
+  decodeGraftImport,
   graftQueueDir,
   graftQueuePath,
-  decodeGraftImport,
+  LEDGER_KIND_GRAFT_IMPORT,
   listGraftQueue,
 } from "../core/graft-support.js";
+import { fingerprint } from "../core/ids.js";
+import { INCUMBENT_BRANCH } from "../core/incumbent.js";
+import { Ledger } from "../core/ledger.js";
+import { loadGenomeSpecFile } from "../core/spec.js";
 
 const CLI = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -102,8 +101,6 @@ interface Suite {
   readonly genomePath: string;
 }
 
-let instanceSeq = 0;
-
 async function suite(t: TestContext): Promise<Suite> {
   const root = await mkdtemp(path.join(os.tmpdir(), "abathur-graft-"));
   t.after(() => {
@@ -120,9 +117,15 @@ async function suite(t: TestContext): Promise<Suite> {
 async function makeInstance(
   s: Suite,
   name: string,
-  opts: { readonly requires?: readonly { readonly cmd: string; readonly args?: readonly string[]; readonly probeExit: number }[]; readonly minEffect?: number } = {},
+  opts: {
+    readonly requires?: readonly {
+      readonly cmd: string;
+      readonly args?: readonly string[];
+      readonly probeExit: number;
+    }[];
+    readonly minEffect?: number;
+  } = {},
 ): Promise<Instance> {
-  instanceSeq += 1;
   const configDir = path.join(s.root, `cfg-${name}`);
   mkdirSync(configDir, { recursive: true });
   writeFileSync(path.join(configDir, "config.jsonc"), '{ "opencodeBin": null }\n', "utf8");
@@ -131,11 +134,23 @@ async function makeInstance(
     const spec = loadGenomeSpecFile(path.join(repo, "genome.jsonc"));
     const edited = {
       ...spec,
-      bench: opts.minEffect === undefined ? spec.bench : { ...spec.bench, stats: { ...spec.bench.stats, minEffect: opts.minEffect } },
+      bench:
+        opts.minEffect === undefined
+          ? spec.bench
+          : { ...spec.bench, stats: { ...spec.bench.stats, minEffect: opts.minEffect } },
       ...(opts.requires === undefined ? {} : { requires: opts.requires }),
     };
     writeFileSync(path.join(repo, "genome.jsonc"), `${JSON.stringify(edited, null, 2)}\n`, "utf8");
-    gitC(repo, "-c", "user.name=abathur", "-c", "user.email=agent@host.example", "commit", "-am", "graft fixture: spec edit");
+    gitC(
+      repo,
+      "-c",
+      "user.name=abathur",
+      "-c",
+      "user.email=agent@host.example",
+      "commit",
+      "-am",
+      "graft fixture: spec edit",
+    );
   }
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   const entry = requireGenomesByLabel(configDir, "toy-smoke").entries[0];
@@ -237,7 +252,12 @@ function tamperManifest(bundlePath: string, edit: (doc: Record<string, unknown>)
   const members = bundleMembers(bundlePath);
   const doc = manifestDoc(members);
   edit(doc);
-  repack(bundlePath, members.map((m) => (m.path === "manifest.json" ? { path: m.path, content: enc(`${JSON.stringify(doc, null, 2)}\n`) } : m)));
+  repack(
+    bundlePath,
+    members.map((m) =>
+      m.path === "manifest.json" ? { path: m.path, content: enc(`${JSON.stringify(doc, null, 2)}\n`) } : m,
+    ),
+  );
 }
 
 function primaryTreeGen(members: readonly TarMember[]): string {
@@ -267,7 +287,12 @@ function tamperTreeStaleDigest(bundlePath: string): void {
   if (pin === undefined) throw new Error(`manifest does not pin ${target}`);
   pin.sha256 = sha256Hex(content);
   pin.len = content.length;
-  repack(bundlePath, next.map((m) => (m.path === "manifest.json" ? { path: m.path, content: enc(`${JSON.stringify(doc, null, 2)}\n`) } : m)));
+  repack(
+    bundlePath,
+    next.map((m) =>
+      m.path === "manifest.json" ? { path: m.path, content: enc(`${JSON.stringify(doc, null, 2)}\n`) } : m,
+    ),
+  );
 }
 
 /** Hand-built evil tar: writeTar refuses traversal, so craft the raw header. */
@@ -297,7 +322,9 @@ function bundleSha(bundlePath: string): string {
 }
 
 function incumbentSha(inst: Instance): string | null {
-  const run = spawnSync("git", ["-C", inst.repo, "rev-parse", "--verify", "-q", `refs/heads/${INCUMBENT_BRANCH}`], { encoding: "utf8" });
+  const run = spawnSync("git", ["-C", inst.repo, "rev-parse", "--verify", "-q", `refs/heads/${INCUMBENT_BRANCH}`], {
+    encoding: "utf8",
+  });
   return run.status === 0 ? run.stdout.trim() : null;
 }
 
@@ -456,9 +483,18 @@ test("AC(c): genome not registered ⇒ pending-bench queue + status depth, ZERO 
   mkdirSync(bare, { recursive: true });
   writeFileSync(path.join(bare, "config.jsonc"), '{ "opencodeBin": null }\n', "utf8");
   const ghost: Instance = {
-    root: s.root, name: "bare", configDir: bare, repo: s.genomePath,
-    entry: null, xdgCache: path.join(s.root, "xdg-bare"),
-    cliEnv: { ...process.env, ABATHUR_CONFIG: path.join(bare, "config.jsonc"), HOME: path.join(s.root, "home-bare"), XDG_CACHE_HOME: path.join(s.root, "xdg-bare") },
+    root: s.root,
+    name: "bare",
+    configDir: bare,
+    repo: s.genomePath,
+    entry: null,
+    xdgCache: path.join(s.root, "xdg-bare"),
+    cliEnv: {
+      ...process.env,
+      ABATHUR_CONFIG: path.join(bare, "config.jsonc"),
+      HOME: path.join(s.root, "home-bare"),
+      XDG_CACHE_HOME: path.join(s.root, "xdg-bare"),
+    },
   };
 
   const run = cli(ghost, "graft", bundlePath, "--genome", "toy-smoke");
@@ -531,7 +567,11 @@ test("requires[] probe failure ⇒ pending-bench row + queue + exit 2, ZERO benc
   assert.equal(again.status, 0, `satisfied probe grafts through: ${again.stdout}${again.stderr}`);
   assert.ok(!existsSync(graftQueuePath(dst.configDir, bundleSha(bundlePath))), "queue consumed");
   const decisions = graftRows(dst.repo).map((x) => x.row?.decision);
-  assert.deepEqual(decisions, ["pending-bench", "nominated"], "pending rows do not trip the duplicate rule; terminal does");
+  assert.deepEqual(
+    decisions,
+    ["pending-bench", "nominated"],
+    "pending rows do not trip the duplicate rule; terminal does",
+  );
 });
 
 // ------------------------------------------------------------ stale_state
@@ -562,7 +602,10 @@ test("malformed_input: garbage container, stripped/invalid manifest, traversal t
   assert.ok(!r1.stderr.includes("    at "), `no stack trace: ${r1.stderr}`);
 
   const stripped = path.join(s.root, "stripped.bundle.tgz");
-  writeFileSync(stripped, new Uint8Array(gzipSync(writeTar(bundleMembers(bundlePath).filter((m) => m.path !== "manifest.json")))));
+  writeFileSync(
+    stripped,
+    new Uint8Array(gzipSync(writeTar(bundleMembers(bundlePath).filter((m) => m.path !== "manifest.json")))),
+  );
   const r2 = cli(dst, "graft", stripped, "--genome", "toy-smoke");
   assert.equal(r2.status, 2, "manifest missing cannot-answer");
 
@@ -602,7 +645,10 @@ test("prompt_injection: hostile bundle strings never forge status/echo lines", a
   assert.ok(!run.stderr.includes("\u001b"), "raw ANSI never reaches stderr");
   assert.doesNotMatch(run.stdout, /OWNED/, "bundle stats matrix is never echoed");
   for (const line of run.stdout.split("\n").filter((l) => l.length > 0)) {
-    assert.ok(!(line === "quarantine depth: 999" || line === "fake: graft queue: 999"), `injected line echoed: ${line}`);
+    assert.ok(
+      !(line === "quarantine depth: 999" || line === "fake: graft queue: 999"),
+      `injected line echoed: ${line}`,
+    );
   }
   const raw = readFileSync(path.join(dst.repo, ".state", "abathur", "ledger.jsonl"), "utf8");
   assert.ok(!raw.includes("\u001b"), "ledger text carries no raw ESC byte (canonicalJson escapes)");
@@ -647,11 +693,20 @@ test("queue listing is fail-closed: absent dir ⇒ empty, unreadable dir ⇒ ret
 // ---------------------------------------------------------------- structural
 
 test("structural: graft never imports the promote gate; no --force anywhere in graft code", () => {
-  const graftFiles = ["src/core/graft.ts", "src/core/graft-support.ts", "src/core/graft-gates.ts", "src/core/graft-rebench.ts", "src/commands/graft.ts"];
+  const graftFiles = [
+    "src/core/graft.ts",
+    "src/core/graft-support.ts",
+    "src/core/graft-gates.ts",
+    "src/core/graft-rebench.ts",
+    "src/commands/graft.ts",
+  ];
   for (const rel of graftFiles) {
     const text = readFileSync(path.join(REPO_ROOT, rel), "utf8");
     // comments may DOCUMENT the absence of a bypass; the pin is on real code
-    const code = text.split("\n").filter((line) => !/^\s*(\/\/|\*)/.test(line)).join("\n");
+    const code = text
+      .split("\n")
+      .filter((line) => !/^\s*(\/\/|\*)/.test(line))
+      .join("\n");
     assert.doesNotMatch(code, /from\s+"[^"]*promote\.js"/, `${rel} must not import promote`);
     assert.doesNotMatch(code, /--force/, `${rel} must not offer a bypass flag`);
   }

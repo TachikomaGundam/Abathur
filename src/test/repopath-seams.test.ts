@@ -18,8 +18,8 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 // dist/test/*.js -> repo src/ (tests run from the built tree but guard SOURCE).
 const SRC = fileURLToPath(new URL("../../src/", import.meta.url));
@@ -39,7 +39,9 @@ function collectHits(file: string): string[] {
   lines.forEach((line, i) => {
     if (!line.includes("spec.repoPath")) return;
     if (line.includes("effectiveRepoPath(")) return;
-    if (line.includes("raw-repoPath:")) return;
+    // Waivers live in a comment adjacent to the use — formatters may move a trailing
+    // comment onto its own line, so accept same-line or next-line placement.
+    if (line.includes("raw-repoPath:") || (lines[i + 1] ?? "").includes("raw-repoPath:")) return;
     hits.push(`${path.relative(SRC, file)}:${String(i + 1)}: ${line.trim()}`);
   });
   return hits;
@@ -54,7 +56,6 @@ test("command/gate surface: every spec.repoPath use resolves via effectiveRepoPa
   assert.deepEqual(
     violations,
     [],
-    "raw spec.repoPath uses without effectiveRepoPath() or a `raw-repoPath:` waiver:\n" +
-      violations.join("\n"),
+    `raw spec.repoPath uses without effectiveRepoPath() or a \`raw-repoPath:\` waiver:\n${violations.join("\n")}`,
   );
 });

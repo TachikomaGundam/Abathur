@@ -11,18 +11,17 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { registerGenome, requireGenomesByLabel, type RegistryEntry } from "../core/genome.js";
-import { Ledger } from "../core/ledger.js";
-import type { WorktreeEnv } from "../core/genome-paths.js";
 import { prepareToyGenome } from "../bench/toy.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
+import { type RegistryEntry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv } from "../core/genome-paths.js";
+import { Ledger } from "../core/ledger.js";
+import { ExitSignal } from "../exit.js";
 
 // Same three-candidate stub script as run-loop.test.ts (annotate-add seals,
 // touch-kernel path-rejected, fix-add nominated).
@@ -141,6 +140,7 @@ test("campaign-1 defect: a non-self env-literal repoPath must NOT enter the self
 
 // ------------------------------------- self literal: overlay path preserved
 
+// biome-ignore lint/suspicious/noTemplateCurlyInString: the literal ${...} placeholder text is the behavior under test
 test("regression pin: the ${ABATHUR_SELF_REPO} literal still routes into the self-bench path", async (t) => {
   // The toy repo carries no selfbench/expected.json, so entering the overlay
   // bench FAILS CLOSED with exactly that demand — the observable proof that

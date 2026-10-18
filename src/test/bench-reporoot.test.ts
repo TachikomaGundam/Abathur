@@ -12,11 +12,10 @@ import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { test, type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { parseGenomeSpecDocument, type BenchUnit, type GenomeSpec } from "../core/spec.js";
+import { type TestContext, test } from "node:test";
 import { FixtureScenariosAdapter } from "../bench/fixture.js";
+import { type BenchUnit, type GenomeSpec, parseGenomeSpecDocument } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 // ------------------------------------------------------------------- helpers
 
@@ -176,6 +175,7 @@ test("{repoRoot} follows the candidate worktree when spec.repoPath is swapped (r
 test("fixture ctor resolves an env-literal repoPath via effectiveRepoPath (run-loop.ts:142 pattern)", async (t) => {
   const genDir = await genomeTree(t, "lit");
   const f = await seamFixture(t, genDir);
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal ${...} placeholder text is the behavior under test
   const litSpec: GenomeSpec = { ...f.spec, repoPath: "${ABATHUR_SEAM_LIT_REPO}" };
   const base = {
     env: { HOME: f.home },

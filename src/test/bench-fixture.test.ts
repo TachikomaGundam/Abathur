@@ -18,12 +18,11 @@ import assert from "node:assert/strict";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { treeDigestAt } from "../core/ids.js";
-import type { BenchUnit } from "../core/spec.js";
 import type { RunResult, ScoreOutcome } from "../bench/adapter.js";
 import { FixtureScenariosAdapter, sandboxHomeDir } from "../bench/fixture.js";
+import { treeDigestAt } from "../core/ids.js";
+import type { BenchUnit } from "../core/spec.js";
+import type { ExitSignal } from "../exit.js";
 import {
   adapterFixture,
   BIN_GOOD,
@@ -48,7 +47,9 @@ test("(A) 2-unit run: statuses, provenance versions, metrics, transcript, HOME e
   await f.adapter.seed(f.sandbox);
 
   const rows: { run: RunResult; score: ScoreOutcome }[] = [];
-  for (const unit of [TRAIN_UNITS[0]!, VAL_UNIT] as BenchUnit[]) {
+  const firstTrain = TRAIN_UNITS[0];
+  if (firstTrain === undefined) throw new Error("test fixture: TRAIN_UNITS is empty");
+  for (const unit of [firstTrain, VAL_UNIT] as BenchUnit[]) {
     rows.push({
       run: await f.adapter.run(unit, f.sandbox, f.spec.bench.timeoutS),
       score: await f.adapter.score(unit),
@@ -89,7 +90,9 @@ test("(A) configured opencode binary reaches the scenario runner", async (t) => 
   const f = await adapterFixture(t, BIN_GOOD, { captureOpencodeBin: true }, { includeVal: true });
   await f.adapter.reset(f.sandbox);
   await f.adapter.seed(f.sandbox);
-  await f.adapter.run(TRAIN_UNITS[0]!, f.sandbox, f.spec.bench.timeoutS);
+  const firstTrain = TRAIN_UNITS[0];
+  if (firstTrain === undefined) throw new Error("test fixture: TRAIN_UNITS is empty");
+  await f.adapter.run(firstTrain, f.sandbox, f.spec.bench.timeoutS);
   assert.equal(readFileSync(path.join(f.sandbox, "opencode-bin.txt"), "utf8"), `${f.opencodeBin}\n`);
 });
 
@@ -126,7 +129,6 @@ test("(B) val paths hidden from the mutator manifest; val run needs includeVal",
   assert.equal(run.status, "ok");
   assert.ok(readFileSync(manifestPath(op.sandbox), "utf8").includes("ZZHIDDEN")); // operator sees the truth
 });
-
 
 // ------------------------------------------------------------------ AC (H)
 
@@ -193,7 +195,14 @@ test("(J) sandbox HOME copies only the .opencode subset + mutated config copy; r
   assert.equal(doc["theme"], "dark"); // copied content preserved
   assert.ok(existsSync(path.join(sbHome, ".config", "opencode", "prompts", "p.md")));
   assert.equal(treeDigestAt(path.join(f.home, ".opencode")), openDigest, "real .opencode must be untouched");
-  assert.equal(treeDigestAt(path.join(f.home, ".config", "opencode")), cfgDigest, "real opencode config must be untouched");
-  const realCfg = JSON.parse(readFileSync(path.join(f.home, ".config", "opencode", "opencode.json"), "utf8")) as Record<string, unknown>;
+  assert.equal(
+    treeDigestAt(path.join(f.home, ".config", "opencode")),
+    cfgDigest,
+    "real opencode config must be untouched",
+  );
+  const realCfg = JSON.parse(readFileSync(path.join(f.home, ".config", "opencode", "opencode.json"), "utf8")) as Record<
+    string,
+    unknown
+  >;
   assert.equal(realCfg["model"], undefined);
 });

@@ -15,29 +15,26 @@
 //     (dynamically) load candidate code into the harness process.
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
 import test from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { registerGenome, requireGenomesByLabel, fingerprint16, type RegistryEntry } from "../core/genome.js";
-import { appendFriction, frictionQueuePath } from "../core/ledger.js";
-import { loadGenomeSpecFile } from "../core/spec.js";
-import { effectiveRepoPath, isEnvRepoLiteral } from "../core/spec.js";
 import { prepareToyGenome } from "../bench/toy.js";
-import { runEvolution } from "../core/evolve/run-loop.js";
-import type { WorktreeEnv } from "../core/genome-paths.js";
 import {
-  FRICTION_KIND,
   appendRunFriction,
   buildRunFriction,
-  readFrictionDigests,
+  FRICTION_KIND,
   frictionDigestSchema,
   type RunFrictionInput,
+  readFrictionDigests,
 } from "../core/evolve/friction.js";
+import { runEvolution } from "../core/evolve/run-loop.js";
+import { fingerprint16, type RegistryEntry, registerGenome, requireGenomesByLabel } from "../core/genome.js";
+import type { WorktreeEnv } from "../core/genome-paths.js";
+import { appendFriction, frictionQueuePath } from "../core/ledger.js";
+import { effectiveRepoPath, isEnvRepoLiteral, loadGenomeSpecFile } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 const HARNESS_ROOT = path.resolve(new URL("../../", import.meta.url).pathname);
 
@@ -115,7 +112,10 @@ test("friction: append/read round-trip through the guarded queue file", (t) => {
   const { digests, error } = readFrictionDigests(configDir);
   assert.equal(error, null);
   assert.equal(digests.length, 2);
-  assert.deepEqual(digests.map((d) => d.cause), ["run-summary", "cli-error"]);
+  assert.deepEqual(
+    digests.map((d) => d.cause),
+    ["run-summary", "cli-error"],
+  );
   const raw = readFileSync(frictionQueuePath(configDir), "utf8");
   assert.equal(raw.endsWith("\n"), true);
 });
@@ -128,7 +128,7 @@ test("friction: malformed queue line fails closed with a readable error, never c
   writeFileSync(file, `${good}{{{ not json at all\n${good}`, "utf8");
   const mid = readFrictionDigests(configDir);
   assert.equal(mid.digests.length, 0);
-  assert.ok(mid.error !== null && mid.error.includes("line 2"));
+  assert.ok(mid.error?.includes("line 2"));
   // a crash-truncated TAIL (no trailing newline) is repaired like the ledger's own:
   const configDir2 = tmpConfig(t);
   appendRunFriction(configDir2, baseInput());
@@ -144,7 +144,7 @@ test("friction: foreign schema-valid record kinds in the queue fail closed (neve
   appendFriction(configDir, { kind: "generation_complete", data: { anything: true } });
   const { digests, error } = readFrictionDigests(configDir);
   assert.equal(digests.length, 0);
-  assert.ok(error !== null && error.includes("friction_digest"));
+  assert.ok(error?.includes("friction_digest"));
 });
 
 // ------------------------------------------------------------- toy run storms
@@ -259,7 +259,10 @@ test("AC-1: rejection-storm toy run appends one structured friction digest match
   assert.equal(d.counts.nominated, 0);
   assert.equal(d.exit, 1);
   assert.equal(d.complete, true);
-  assert.ok(d.train.some((u) => u.unitId === "add" && u.n === 4), "train unit ids preserved (incumbent+candidate samples merged per unit)");
+  assert.ok(
+    d.train.some((u) => u.unitId === "add" && u.n === 4),
+    "train unit ids preserved (incumbent+candidate samples merged per unit)",
+  );
   // misleading_success guard: every rejection line the run printed is counted.
   const rejectedLines = outcome.lines.filter((l) => l.includes("rejected ("));
   assert.equal(rejectedLines.length, d.rejections.total);
@@ -283,11 +286,17 @@ test("AC-2: canary planted in the val unit NEVER appears in the friction queue",
   const { digests, error } = readFrictionDigests(f.configDir);
   assert.equal(error, null);
   const val = digests[0]?.val;
-  assert.deepEqual(val, { count: 1, aliases: ["val-1"], samples: 4 }, "scrubbed val material is present as counts/aliases");
+  assert.deepEqual(
+    val,
+    { count: 1, aliases: ["val-1"], samples: 4 },
+    "scrubbed val material is present as counts/aliases",
+  );
 });
 
 function gitIn(repo: string, ...args: string[]): void {
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, ...args], { stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, ...args], {
+    stdio: "pipe",
+  });
 }
 
 test("friction: run CLI on drifted kernel records cause cli-error (spawned exit 1)", (t) => {
@@ -302,14 +311,25 @@ test("friction: run CLI on drifted kernel records cause cli-error (spawned exit 
   touchSeal(repo, ["units/add.mjs", "units/mul.mjs", "units/explode.mjs", "units/sub.mjs", "grader.mjs"]);
   writeFileSync(path.join(repo, "genome.jsonc"), toySpec(repo), "utf8");
   execFileSync("git", ["init", "-b", "main", repo], { stdio: "pipe" });
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "add", "-A"], { stdio: "pipe" });
-  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "commit", "-m", "genome"], { stdio: "pipe" });
+  execFileSync("git", ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "add", "-A"], {
+    stdio: "pipe",
+  });
+  execFileSync(
+    "git",
+    ["-c", "user.name=abathur", "-c", "user.email=agent@host.example", "-C", repo, "commit", "-m", "genome"],
+    { stdio: "pipe" },
+  );
   registerGenome(configDir, path.join(repo, "genome.jsonc"));
   // drift the sealed grader AFTER registration:
   writeFileSync(path.join(repo, "grader.mjs"), "// tampered\n", "utf8");
   const run = spawnSync(process.execPath, [path.join(HARNESS_ROOT, "dist/cli.js"), "run", "--genome", "toy-drift"], {
     encoding: "utf8",
-    env: { ...process.env, ABATHUR_CONFIG: configPath, HOME: path.join(root, "home"), XDG_CACHE_HOME: path.join(root, "xdg") },
+    env: {
+      ...process.env,
+      ABATHUR_CONFIG: configPath,
+      HOME: path.join(root, "home"),
+      XDG_CACHE_HOME: path.join(root, "xdg"),
+    },
   });
   assert.equal(run.status, 1, run.stderr);
   assert.match(run.stderr, /kernel drift/);
@@ -374,6 +394,7 @@ function liteSelfRepo(root: string): void {
 test("seed genome: fingerprint + registry stem machine-independent across ABATHUR_SELF_REPO values", (t) => {
   const spec = loadGenomeSpecFile(path.join(HARNESS_ROOT, "genomes/abathur-self.jsonc"));
   assert.equal(spec.label, "abathur-self");
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal ${...} placeholder text is the behavior under test
   assert.equal(spec.repoPath, "${ABATHUR_SELF_REPO}");
   assert.equal(isEnvRepoLiteral(spec.repoPath), true);
   assert.equal(effectiveRepoPath("relative/repo").length > 0, true);
@@ -406,6 +427,7 @@ test("seed genome: fingerprint + registry stem machine-independent across ABATHU
   assert.ok(existsSync(fileA) && existsSync(fileB), "same registry stem under both env values");
   const a = readFileSync(fileA, "utf8");
   assert.equal(a, readFileSync(fileB, "utf8"));
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal ${...} placeholder text is the behavior under test
   assert.ok(a.includes("${ABATHUR_SELF_REPO}"), "stored spec keeps the LITERAL, never the resolved path");
 
   // unset env => every consumer exits 2 naming the variable, never a literal dir:
@@ -419,6 +441,7 @@ test("seed genome: fingerprint + registry stem machine-independent across ABATHU
     assert.ok(error instanceof ExitSignal && error.code === 2);
     assert.match(error.message, /ABATHUR_SELF_REPO/);
   }
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal ${...} placeholder text is the behavior under test
   assert.equal(existsSync(path.join(root3, "${ABATHUR_SELF_REPO}")), false);
 });
 
@@ -433,7 +456,15 @@ test("structural: todo-11 modules grant no promote authority and load no candida
   ];
   for (const rel of files) {
     const text = readFileSync(path.join(HARNESS_ROOT, rel), "utf8");
-    for (const banned of ["core/promote.js", "promoteGeneration", "fastForwardIncumbent", "new Function", "eval(", " child_process.exec(", "execSync("]) {
+    for (const banned of [
+      "core/promote.js",
+      "promoteGeneration",
+      "fastForwardIncumbent",
+      "new Function",
+      "eval(",
+      " child_process.exec(",
+      "execSync(",
+    ]) {
       assert.ok(!text.includes(banned), `${rel} must not reference '${banned}'`);
     }
     assert.ok(!/import\s*\(/.test(text), `${rel} must not dynamically import candidate code`);

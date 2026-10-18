@@ -2,12 +2,12 @@
 // stdout funnel only; every gate and the whole evolution loop live in
 // src/core/evolve/run-loop.ts (runEvolution), so the loop stays unit-testable.
 
+import type { CommandContext, CommandSpec } from "../cli.js";
 import { resolveConfigDir } from "../config.js";
-import { readRegistry, requireGenomesByLabel, type RegistryEntry } from "../core/genome.js";
 import { appendRunFriction, type RunFrictionInput } from "../core/evolve/friction.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
-import { cannotAnswer, ExitSignal, type ExitCode } from "../exit.js";
-import type { CommandContext, CommandSpec } from "../cli.js";
+import { type RegistryEntry, readRegistry, requireGenomesByLabel } from "../core/genome.js";
+import { cannotAnswer, type ExitCode, ExitSignal } from "../exit.js";
 import { writeStdout } from "../out.js";
 
 const USAGE =
@@ -47,7 +47,10 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
   let includeVal = false;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i] as string;
-    const next = (): string | undefined => args[(i += 1)];
+    const next = (): string | undefined => {
+      i += 1;
+      return args[i];
+    };
     switch (arg) {
       case "--genome": {
         const raw = next();
@@ -65,7 +68,8 @@ export function parseRunFlags(args: readonly string[]): RunFlags {
         break;
       case "--mutator": {
         const raw = next();
-        if (raw === undefined || raw.length === 0 || raw.startsWith("--")) cannotAnswer("run: --mutator <template> requires a value", USAGE);
+        if (raw === undefined || raw.length === 0 || raw.startsWith("--"))
+          cannotAnswer("run: --mutator <template> requires a value", USAGE);
         mutator = raw;
         break;
       }
@@ -89,7 +93,7 @@ export function resolveUniqueEntry(configDir: string, label: string, who = "run"
   if (scan.entries.length > 1) {
     cannotAnswer(
       `${who}: label '${label}' is ambiguous — ${String(scan.entries.length)} genomes share it: ${scan.entries
-        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`)  // raw-repoPath: display string only; no FS access
+        .map((e) => `${e.fingerprint} @ ${e.spec.repoPath}`) // raw-repoPath: display string only; no FS access
         .join(", ")}`,
       "give the specs distinct labels; the fingerprint is the identity",
     );
@@ -118,7 +122,7 @@ async function runRun(context: CommandContext): Promise<ExitCode> {
   // books one structured run-summary record, and every refusal that happens
   // after the registry resolved books a cli-error record — in both cases the
   // queue append can never break or change the run's own exit status.
-  let outcome;
+  let outcome: Awaited<ReturnType<typeof runEvolution>>;
   try {
     outcome = await runEvolution({
       entry,

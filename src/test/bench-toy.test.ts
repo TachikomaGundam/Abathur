@@ -11,18 +11,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { test, type TestContext } from "node:test";
-
-import { ExitSignal } from "../exit.js";
-import { treeDigestAt } from "../core/ids.js";
-import { loadGenomeSpecFile, type BenchUnit, type GenomeSpec } from "../core/spec.js";
-import { applyPatch, scriptedPatches } from "../core/evolve/stub-mutators.mjs";
-import {
-  type RunResult,
-  type ScoreOutcome,
-  type ScoreResult,
-} from "../bench/adapter.js";
+import { type TestContext, test } from "node:test";
+import type { RunResult, ScoreOutcome, ScoreResult } from "../bench/adapter.js";
 import { prepareToyGenome, ToyBenchAdapter } from "../bench/toy.js";
+import { applyPatch, scriptedPatches } from "../core/evolve/stub-mutators.mjs";
+import { treeDigestAt } from "../core/ids.js";
+import { type BenchUnit, type GenomeSpec, loadGenomeSpecFile } from "../core/spec.js";
+import { ExitSignal } from "../exit.js";
 
 // ------------------------------------------------------------------- fixtures
 
@@ -56,6 +51,12 @@ function unitById(spec: GenomeSpec, id: string): BenchUnit {
 function scored(outcome: ScoreOutcome): ScoreResult {
   if (outcome.kind === "scored") return outcome.result;
   assert.fail(`expected scored, got inconclusive: ${outcome.reason}`);
+}
+
+function mustScore(rows: ReadonlyMap<string, { score: ScoreOutcome }>, id: string): ScoreResult {
+  const row = rows.get(id);
+  if (row === undefined) assert.fail(`expected a scored row for '${id}'`);
+  return scored(row.score);
 }
 
 interface MatrixRow {
@@ -107,10 +108,10 @@ test("(a) seed→run→score cycle: ok statuses, provenance, metrics, val+train 
   assert.equal(rows.get("add")?.run.exitCode, 0);
   assert.equal(rows.get("add")?.run.note, undefined);
 
-  assert.equal(scored(rows.get("add")!.score).score, 0); // seeded bug is graded
-  assert.equal(scored(rows.get("add")!.score).pass, false);
-  assert.equal(scored(rows.get("mul")!.score).score, 1);
-  assert.equal(scored(rows.get("sub")!.score).pass, true); // val unit gradable
+  assert.equal(mustScore(rows, "add").score, 0); // seeded bug is graded
+  assert.equal(mustScore(rows, "add").pass, false);
+  assert.equal(mustScore(rows, "mul").score, 1);
+  assert.equal(mustScore(rows, "sub").pass, true); // val unit gradable
   const mulBytes = readFileSync(path.join(sandbox, "units", "mul.mjs")).length;
   assert.equal(rows.get("mul")?.run.metrics.tokensEst, Math.ceil(mulBytes / 4));
 
@@ -250,9 +251,7 @@ test("seedCommand / resetCommand hooks execute inside the sandbox when configure
   assert.ok(existsSync(path.join(sandbox, "seeded.flag")));
 });
 
-
 // -------------------------------------------------------------- stub-mutators
-
 
 test("stub-mutators: applyPatch refuses missing/ambiguous anchors; fix-add lifts the score", async (t) => {
   const { genomeDir, spec } = await toyFixture(t);
