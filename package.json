@@ -1,7 +1,7 @@
 {
   "name": "@tachikomagundam/abathur",
   "version": "0.3.0",
-  "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
+  "description": "Evolution harness: observe failures, mutate, re-bench, select \u2014 human-gated promotion, offline lineage bundles.",
   "author": "TachikomaGundam",
   "type": "module",
   "license": "MIT",
@@ -47,7 +47,9 @@
     "build": "tsc && node scripts/copy-assets.mjs",
     "typecheck:plugin": "tsc -p tsconfig.plugin.json",
     "test": "npm run build && npm run typecheck:plugin && node --test \"dist/test/**/*.test.js\"",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "lint": "biome check src plugin scripts",
+    "format": "biome check --write src plugin scripts"
   },
   "dependencies": {
     "zod": "^4.0.0"
@@ -61,6 +63,7 @@
     }
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "@opencode-ai/plugin": "^1.19.3",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
