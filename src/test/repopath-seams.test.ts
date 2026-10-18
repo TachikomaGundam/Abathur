@@ -56,6 +56,6 @@ test("command/gate surface: every spec.repoPath use resolves via effectiveRepoPa
   assert.deepEqual(
     violations,
     [],
-    `raw spec.repoPath uses without effectiveRepoPath() or a \`raw-repoPath:\` waiver:\n${violations.join("\n")}`,
+    `raw spec.repoPath uses without effectiveRepoPath() or a raw-repoPath waiver:\n${violations.join("\n")}`,
   );
 });
