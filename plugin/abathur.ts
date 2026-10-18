@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.9
+// abathur-opencode-plugin v0.3.0
 // Official opencode plugin adapter for the abathur evolution harness.
 // Registers ONE agent tool, `abathur`, that shells out to the abathur CLI —
 // argv-only (node:child_process execFile, never a shell), top-level commands
@@ -16,8 +16,8 @@
 //     resolves in opencode's config-directory node_modules.
 // (B) served as the package's "./server" export when the npm package name is
 //     listed in opencode.jsonc "plugin" — opencode's arborist install places
-//     @opencode-ai/plugin (runtime dependency) next to the package in its
-//     cache, so the same import resolves there too; with no commands/abathur.md
+//     the host must resolve the optional @opencode-ai/plugin peer next to the
+//     package; with no commands/abathur.md
 //     on disk, the config hook below self-registers the command instead.
 
 import { execFile } from "node:child_process";
@@ -121,7 +121,7 @@ function runCli(bin: string, argv: readonly string[]): Promise<CliResult> {
  * /abathur slash-command template, injected into cfg.command.abathur by the
  * config hook for installs without a commands/abathur.md on disk (Route B).
  * Byte-mirror of plugin/abathur-command.md minus its first-line marker —
- * src/test/opencode.test.ts pins the equality.
+ * src/test/opencode-assets.test.ts pins the equality.
  */
 const COMMAND_TEMPLATE = `Drive the abathur evolution harness through the \`abathur\` tool on this machine.
 

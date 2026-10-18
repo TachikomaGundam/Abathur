@@ -1,6 +1,6 @@
 // Acceptance-semantics evaluate() tests (2026-09-24 redesign). Thresholds
-// mirror the LIVE historian genome: halfWidth 0.15, minEffect 0.1. Bank σ
-// values are the real campaign-10 gate-time bank (§2.3 of
+// use a fixed acceptance fixture: halfWidth 0.15, minEffect 0.1. Bank σ
+// values are from a gate-time fixture (§2.3 of
 // .omo/evidence/ACCEPTANCE-SEMANTICS-DESIGN.md); expected probabilities are
 // from the independent python design-time replication (math.erf), asserted to
 // 2e-5 — well above the A&S normalCdf error (< 1.5e-7) and far below any
@@ -31,12 +31,12 @@ import {
 import { BANK_QUANTUM } from "../core/evolve/score-bank.js";
 import type { BenchStats } from "../core/spec.js";
 
-const HIST_STATS: BenchStats = { halfWidth: 0.15, minEffect: 0.1, nReps: { initial: 2, max: 3 } };
+const FIXTURE_STATS: BenchStats = { halfWidth: 0.15, minEffect: 0.1, nReps: { initial: 2, max: 3 } };
 const CAPS: BudgetCaps = { maxCandidates: 1, maxModelCalls: 96, maxTokens: 25_000_000, maxWallS: 16_200 };
 const IDLE: BudgetCounters = { candidates: 0, modelCalls: 0, tokens: 1_000_000, wallS: 11_154 };
 
 /** Gate-time c10 bank: σ values from the real archive pool (python replication). */
-const HIST_BANK = new Map<string, UnitBankStat>([
+const FIXTURE_BANK = new Map<string, UnitBankStat>([
   ["scenario-13", { sigma: 0.0170, df: 12 }],
   ["scenario-14", { sigma: 0.0176, df: 11 }],
   ["scenario-15", { sigma: 0.0884, df: 4 }],
@@ -77,8 +77,8 @@ function inc(unitsList: readonly UnitReplicates[]): IncumbentResult {
   return { units: unitsList };
 }
 
-function runAccept(candidate: CandidateResult, incumbentUnits: readonly UnitReplicates[] = C10_INCUMBENT, bank: ReadonlyMap<string, UnitBankStat> | null | undefined = HIST_BANK, nPairs = 1) {
-  return evaluate({ candidate, incumbent: inc(incumbentUnits), stats: HIST_STATS, budgetCaps: CAPS, nPairs, ...(bank === undefined ? {} : { bank }) });
+function runAccept(candidate: CandidateResult, incumbentUnits: readonly UnitReplicates[] = C10_INCUMBENT, bank: ReadonlyMap<string, UnitBankStat> | null | undefined = FIXTURE_BANK, nPairs = 1) {
+  return evaluate({ candidate, incumbent: inc(incumbentUnits), stats: FIXTURE_STATS, budgetCaps: CAPS, nPairs, ...(bank === undefined ? {} : { bank }) });
 }
 
 const close = (actual: number, expected: number, msg?: string): void => {
@@ -153,7 +153,7 @@ describe("acceptance gate — campaign replays", () => {
     const solo = runAccept(c10Candidate([0.625, 0.625]));
     assert.equal(solo.verdict, "nominated");
     close(solo.acceptance?.pShift ?? Number.NaN, 0.92132, "pShift");
-    const pair = runAccept(c10Candidate([0.625, 0.625]), C10_INCUMBENT, HIST_BANK, 2);
+  const pair = runAccept(c10Candidate([0.625, 0.625]), C10_INCUMBENT, FIXTURE_BANK, 2);
     assert.equal(pair.verdict, "culled");
     assert.equal(pair.acceptance?.q, 0.95);
     assert.ok(pair.failures.some((f) => f.includes("= 0.9213 < q 0.9500")), pair.failures.join("\n"));
@@ -170,7 +170,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["t", "train", [0.625, 0.625]]]) },
       incumbent: inc(units([["t", "train", [0.5, 0.5]]])),
-      stats: { ...HIST_STATS, halfWidth: 1 },
+  stats: { ...FIXTURE_STATS, halfWidth: 1 },
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -185,7 +185,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["t", "train", [0.55, 0.6]]]) },
       incumbent: inc(units([["t", "train", [0.5, 0.5]]])),
-      stats: { ...HIST_STATS, halfWidth: 1 },
+  stats: { ...FIXTURE_STATS, halfWidth: 1 },
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -203,7 +203,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.75, 0.75]], ["t", "train", [1, 1]]]) },
       incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-      stats: HIST_STATS,
+  stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -218,7 +218,7 @@ describe("acceptance gate — branches", () => {
     const v = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [1, 1]], ["t", "train", [1, 1]]]) },
       incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-      stats: HIST_STATS,
+  stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -238,7 +238,7 @@ describe("acceptance gate — branches", () => {
   });
 
   it("partial bank: train pool unpriced ⇒ aggregate falls back to the legacy point-gain gate; nomination still requires gain ≥ minEffect", () => {
-    const partial = new Map<string, UnitBankStat>([...HIST_BANK].filter(([id]) => id !== "scenario-19"));
+  const partial = new Map<string, UnitBankStat>([...FIXTURE_BANK].filter(([id]) => id !== "scenario-19"));
     const weak = runAccept(c10Candidate([0.625, 0.5]), C10_INCUMBENT, partial);
     assert.equal(weak.verdict, "culled");
     assert.ok(weak.failures.some((f) => f.includes("gain 0.0625 < minEffect 0.1000")));
@@ -297,7 +297,7 @@ describe("fail-closed law under an acceptance bank", () => {
   });
 
   it("absent/null bank reproduces the legacy gate verbatim; the whole verdict object is unchanged", () => {
-    const legacy = evaluate({ candidate: c10Candidate([0.5, 0.5]), incumbent: inc(C10_INCUMBENT), stats: HIST_STATS, budgetCaps: CAPS, nPairs: 1 });
+  const legacy = evaluate({ candidate: c10Candidate([0.5, 0.5]), incumbent: inc(C10_INCUMBENT), stats: FIXTURE_STATS, budgetCaps: CAPS, nPairs: 1 });
     const nulled = runAccept(c10Candidate([0.5, 0.5]), C10_INCUMBENT, null);
     assert.deepEqual(nulled, legacy);
     assert.equal(legacy.acceptance, undefined);
@@ -316,7 +316,7 @@ describe("fail-closed law under an acceptance bank", () => {
     const tie = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [1, 1]], ["t", "train", [1, 1]]]) },
       incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-      stats: HIST_STATS,
+  stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -327,7 +327,7 @@ describe("fail-closed law under an acceptance bank", () => {
     const hard = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.75, 0.75]], ["t", "train", [1.3, 1.3]]]) },
       incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-      stats: HIST_STATS,
+  stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,
@@ -337,7 +337,7 @@ describe("fail-closed law under an acceptance bank", () => {
     const dip = evaluate({
       candidate: { runId: "c", counters: IDLE, units: units([["v", "val", [0.875, 0.875]], ["t", "train", [1.3, 1.3]]]) },
       incumbent: inc(units([["v", "val", [1, 1]], ["t", "train", [1, 1]]])),
-      stats: HIST_STATS,
+  stats: FIXTURE_STATS,
       budgetCaps: CAPS,
       nPairs: 1,
       bank,

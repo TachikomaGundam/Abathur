@@ -26,8 +26,6 @@ export interface ConfigEnv {
 export const configSchema = z.strictObject({
   /** Absolute path to the `opencode` CLI binary; null = resolve from PATH at call time. */
   opencodeBin: z.string().min(1).nullable().default(null),
-  /** Data home (ledger, registry, sandboxes); null = $ABATHUR_HOME else ~/.local/share/abathur. */
-  stateDir: z.string().min(1).nullable().default(null),
 });
 export type AbathurConfig = z.infer<typeof configSchema>;
 
@@ -128,6 +126,14 @@ export function deepMerge(
 }
 
 function validateConfig(doc: Record<string, unknown>, origin: string): AbathurConfig {
+  if (Object.hasOwn(doc, "stateDir")) {
+    throw new ConfigError(
+      "unknown-key",
+      `config: stateDir in ${origin} is retired because it never controlled runtime state — remove it`,
+      origin,
+      ["stateDir"],
+    );
+  }
   const result = configSchema.safeParse(doc);
   if (result.success) return result.data;
   for (const issue of result.error.issues) {

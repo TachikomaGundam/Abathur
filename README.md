@@ -43,7 +43,9 @@ npm i -g ./tachikomagundam-abathur-*.tgz   # glob: npm pack emits the current ve
 abathur --help
 ```
 
-Requires Node >= 22 and `git` on `PATH`. Runtime dependencies: `zod` (the harness) plus `@opencode-ai/plugin` (imported at load time by the opencode plugin adapter).
+Requires Node `^22.22.2 || ^24.15.0 || >=26.0.0` and `git` on `PATH`. The core
+runtime depends only on `zod`. The optional OpenCode adapter requires its host
+to resolve the `@opencode-ai/plugin` peer.
 Real benches additionally need the `opencode` CLI (path via `opencodeBin` in
 config or `PATH` lookup) and whatever a genome's `requires[]` probes name.
 
@@ -206,49 +208,24 @@ commands included) into their sandboxed HOMEs, so an installed plugin also
 loads inside bench sessions. Uninstall first if a bench needs a clean plugin
 environment.
 
-### The historian genome and the operator workflow
+### Optional bench integrations
 
-`historian` is the first real genome: OpenCode agents work wiki scenarios
-against a live Wiki.js fixture; script-first graders score dimensions A–J with
-a hard G gate. `config/genomes/historian.example.jsonc` is a **template** —
-every machine-specific value is a `${VAR}` placeholder, because repo-tracked
-files carry zero machine literals. Only `repoPath` has built-in env resolution
-(`effectiveRepoPath`, `src/core/spec.ts`); `requires[]` probes and every
-command string are spawned as argv, never through a shell, so `${VAR}` inside
-them does **not** expand. The operator resolves the template:
-
-1. Keep a historian bench repo checkout (`scenarios/`, `rubric.md`,
-   `seed_sandbox.sh`, `baseline/**`), a running wiki, and the wiki-ops CLI.
-2. Copy the example to a private `*.local.jsonc` file (the gitignore pattern
-   covers it anywhere in the tree) and substitute every placeholder with the
-   real absolute paths / URLs; then `abathur genome add` **that** file.
-   The printed fingerprint is deterministic per resolved path set (on the
-   orchestrator's machine: `2b2456be6cddcb91` — yours will differ with your
-   paths, and stay stable for them).
-3. Live-run environment the operator must keep: `~/.wikijs-api-key` in the
-   **parent** HOME (the `requires[]` probe child inherits the parent env and
-   reads it directly), and `ABATHUR_WIKI_KEY_FILE` — the sandbox-side scripts
-   reinstall the key into each mirrored sandbox home, because `resetCommand`
-   wipes the sandbox HOME mirror before every unit (hook order: reset runs
-   before the mirror, so anything hooks need must be re-installed per unit).
-4. `export ABATHUR_JUDGE_MODEL=...` is mandatory even when empty: the
-   grader-side `opencode` invocations error out on an unset variable, not on
-   an empty one.
-5. Prove setup without model spend: `abathur run --genome historian --dry-run`
-   runs every `requires[]` probe and prints the plan; zero engines spawn.
-
-Real runs launch `opencode` headless and cost tokens. Budgets
-(`budget.maxCandidates/maxModelCalls/maxTokens/maxWallS`) are hard stops —
-crossing one truncates to `inconclusive` (exit 2), never to a fake pass.
+The npm package ships the generic fixture adapter, not any service-specific
+bench. A Wiki.js, CAD, or other external-service integration belongs in its
+own checkout and must provide its own private genome specification, fixtures,
+grader, credentials, and service lifecycle. The core package accepts that
+specification only when its commands and prerequisites pass the normal
+fail-closed probes. It never supplies a provider default or credentials.
 
 ### D7 decoupling guarantees
 
 - The genome registry and every writable artifact live **out-of-tree** under
   the config dir; the npm package directory is read-only at runtime.
 - Source under `src/` contains **zero** machine or product literals
-  (`src/test/**` fixtures are exempt by design). The CI
-  gate: `grep -rnE '/home/lab|historian' src/` yields nothing outside
-  `src/test/**` fixtures. Config templates spell out placeholders instead.
+  (`src/test/**` fixtures are exempt by design). The CI gate scans `src/` for
+  its configured machine-root sentinel and `historian`; it yields nothing
+  outside `src/test/**` fixtures. Config templates spell out placeholders
+  instead.
 - Machine paths enter only through config and env: a `${VAR}`-literal
   `repoPath` fingerprints over the **unresolved** bytes, so spec identity is
   machine-independent (abathur-self: `1913fcec…` everywhere) and resolves
@@ -287,12 +264,8 @@ table are [docs/federation.md](docs/federation.md).
 
 - **Single-flight contract**: at most one live bench per genome fingerprint
   per shared fixture service. The genome lock `run`/`graft` take is a
-  **machine-local** file lock (it serializes worktrees, sandboxes, and the
-  ledger on one box). Historian benches share a wiki through `resetCommand`,
-  which purges the entire `_sandbox/*` namespace — two machines benching the
-  same historian genome against one wiki will clobber each other mid-run.
-  Cross-machine serialization of historian benches is the operator's
-  responsibility (schedule, lockbox, one-wiki-one-bench rule — your call).
+  **machine-local** file lock. Cross-machine serialization of any external
+  fixture service is the integration operator's responsibility.
 - Promotion, burial and retraction are yours alone: `promote`/`tombstone`/`retract` carry no
   `--confirm` because the CLI invocation **is** the gate; there is no
   `--force` anywhere in the binary. Review `abathur status` quarantine depth
@@ -300,9 +273,9 @@ table are [docs/federation.md](docs/federation.md).
 - Stale pending-bench queue entries (`<configDir>/graft-queue/`) mean a
   bundle waits on setup — register the genome or repair a probe, then re-run
   `graft`; terminal decisions retire the entry automatically.
-- Keep `~/.wikijs-api-key` valid and `ABATHUR_JUDGE_MODEL` exported for
-  historian work; budget caps are per-run hard stops, so raise them
-  deliberately in the spec, never by re-running off-book.
+- Keep each external integration's credentials and binaries outside this
+  package. Budget caps are per-run hard stops, so raise them deliberately in
+  the spec, never by re-running off-book.
 
 ### Exit codes
 
@@ -348,7 +321,8 @@ npm i -g ./tachikomagundam-abathur-*.tgz   # 通配即当前版——npm pack �
 abathur --help
 ```
 
-需要 Node >= 22 与 `PATH` 上的 `git`。运行时依赖是 `zod`（工装）与 `@opencode-ai/plugin`（插件适配器装载期即 import）。真实基准还需要
+需要 Node `^22.22.2 || ^24.15.0 || >=26.0.0` 与 `PATH` 上的 `git`。核心运行时只依赖
+`zod`。可选 OpenCode 适配器要求宿主解析 `@opencode-ai/plugin` peer。真实基准还需要
 `opencode` CLI（通过配置里的 `opencodeBin` 或 `PATH` 解析），以及基因组
 `requires[]` 探针点名的那些工具。
 
@@ -496,40 +470,18 @@ sha256 与状态
 注意：夹具基准会把真实的 `~/.config/opencode`（含插件与命令）镜像进沙箱 HOME，
 因此装好的插件在基准会话里同样会加载。若基准需要干净的插件环境，请先 uninstall。
 
-### 历史学家基因组与操作员工作流
+### 可选基准集成
 
-`historian` 是第一个真实基因组：OpenCode 智能体对着在线 Wiki.js 夹具完成 wiki
-场景；script-first 评分器按 A–J 维度打分并有硬性 G 闸门。
-`config/genomes/historian.example.jsonc` 是一份**模板**——每个机器相关值都是
-`${VAR}` 占位符，因为仓库跟踪的文件里机器字面量为零。只有 `repoPath` 有内置的
-环境变量解析（`effectiveRepoPath`，`src/core/spec.ts`）；`requires[]` 探针与所有
-命令字符串都是 argv 直接 spawn、绝不经过 shell，所以其中的 `${VAR}` **不会**展开。
-操作员需要解析模板：
-
-1. 备好 historian 基准仓库的 checkout（`scenarios/`、`rubric.md`、
-   `seed_sandbox.sh`、`baseline/**`）、一个运行中的 wiki，以及 wiki-ops CLI。
-2. 把模板复制成私有的 `*.local.jsonc` 文件（gitignore 规则在树的任何位置都覆盖
-   它），把每个占位符替换为真实的绝对路径 / URL；然后对**那份文件**执行
-   `abathur genome add`。打印出的指纹对每组解析后的路径是确定性的（编排者机器上
-   是 `2b2456be6cddcb91`——你的路径会得到不同的值，但对那些路径保持稳定）。
-3. 操作员必须维护的实跑环境：**父级** HOME 里的 `~/.wikijs-api-key`（`requires[]`
-   探针子进程继承父环境并直接读取它），以及 `ABATHUR_WIKI_KEY_FILE`——沙箱侧脚本
-   会把密钥重装进每个镜像沙箱 HOME，因为 `resetCommand` 在每个单元运行前会清空
-   沙箱 HOME 镜像（钩子顺序：reset 先于 mirror 执行，钩子需要的东西必须逐单元重装）。
-4. `export ABATHUR_JUDGE_MODEL=...` 是强制的，即使为空：评分侧的 `opencode` 调用
-   遇到**未设置**的变量会报错，遇到空值不会。
-5. 不花模型费用验证环境：`abathur run --genome historian --dry-run` 会跑完所有
-   `requires[]` 探针并打印计划；零引擎 spawn。
-
-真实 run 会启动 `opencode` headless 并消耗 token。预算
-（`budget.maxCandidates/maxModelCalls/maxTokens/maxWallS`）是硬停——越线截断为
-`inconclusive`（exit 2），绝不会伪装成通过。
+npm 包只交付通用夹具适配器，不交付任何特定服务的基准。Wiki.js、CAD 或其他外部
+服务集成必须放在自己的 checkout，并自带私有基因组规格、夹具、评分器、凭据与
+服务生命周期。核心包只在命令和前置探针通过时执行该规格；它不提供服务默认值或凭据。
 
 ### D7 解耦保证
 
 - 基因组注册表与一切可写产物都在**树外**、配置目录下；运行时 npm 包目录只读。
-- `src/` 下的源码**零**机器 / 产品字面量（`src/test/**` 夹具按设计豁免）。CI 闸门：`grep -rnE '/home/lab|historian' src/`
-  在 `src/test/**` 夹具之外一无所获。配置模板用占位符表达。
+- `src/` 下的源码**零**机器 / 产品字面量（`src/test/**` 夹具按设计豁免）。CI
+  闸门扫描 `src/` 中配置的机器根哨兵与 `historian`；在 `src/test/**` 夹具之外
+  一无所获。配置模板用占位符表达。
 - 机器路径只从配置与环境变量进入：`${VAR}` 字面量形式的 `repoPath` 按**未解析**
   字节参与指纹计算，因此规格身份与机器无关（abathur-self 在任何机器都是
   `1913fcec…`），只在文件系统接缝处解析；变量未设置就 exit 2 并点名该变量。
@@ -561,18 +513,15 @@ v1 交付的是**格式和本地工具**，不是网络。bundle 是一个你用
 ### 操作员职责
 
 - **单飞契约**：每个基因组指纹、每个共享夹具服务，最多只有一个在跑的基准。
-  `run`/`graft` 获取的基因组锁是**机器本地**的文件锁（它只在单机内串行化
-  worktree、沙箱与台账）。historian 基准通过 `resetCommand` 共享 wiki，而它会
-  清空整个 `_sandbox/*` 命名空间——两台机器拿同一个 historian 基因组对着同一个
-  wiki 跑基准，会在运行中互相踩掉对方。historian 基准的跨机串行化是操作员的
-  职责（排班、锁柜、一 wiki 一基准——随你选哪种）。
+  `run`/`graft` 获取的基因组锁是**机器本地**的文件锁。外部夹具服务的跨机串行化
+  由对应集成的操作员负责。
 - 晋升、埋葬与撤回只属于你：`promote`/`tombstone`/`retract` 不带 `--confirm`，因为 CLI 调用本身
   **就是**闸门；整个二进制里没有 `--force`。晋升前先查看 `abathur status` 的
   隔离深度与 `graft decisions` 行。
 - 待嫁接队列（`<configDir>/graft-queue/`）里的陈旧条目表示某个 bundle 在等环境
   就绪——注册好基因组或修好探针，再跑一次 `graft`；终态决定会自动移除队列条目。
-- 做 historian 工作时保持 `~/.wikijs-api-key` 有效、`ABATHUR_JUDGE_MODEL` 已导出；
-  预算上限是每次运行的硬停，要提就在规格里郑重地提，不要在账外反复重跑。
+- 外部集成的凭据和可执行体不属于本包；预算上限是每次运行的硬停，要提就在规格里
+  郑重地提，不要在账外反复重跑。
 
 ### 退出码
 

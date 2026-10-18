@@ -107,18 +107,33 @@ test("loadConfig: unknown key inside the local overlay is rejected too", async (
   );
 });
 
+test("loadConfig: retired stateDir is rejected with a migration reason", async (t) => {
+  const root = await freshRoot();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cfg = path.join(root, "config.jsonc");
+  await writeJsonc(cfg, `{ "stateDir": "/scratch/abathur" }`);
+
+  assert.throws(
+    () => loadConfig({ ABATHUR_CONFIG: cfg, HOME: root }),
+    (error: unknown) =>
+      error instanceof ConfigError &&
+      error.kind === "unknown-key" &&
+      error.message.includes("stateDir") &&
+      error.message.includes("never controlled runtime state"),
+  );
+});
+
 // ------------------------------------------------------------ overlay merge
 
 test("loadConfig: *.local.jsonc deep-merges over the base file", async (t) => {
   const root = await freshRoot();
   t.after(() => rm(root, { recursive: true, force: true }));
   const cfg = path.join(root, "config.jsonc");
-  await writeJsonc(cfg, `{ "opencodeBin": "/usr/bin/opencode", "stateDir": "/srv/state" }`);
-  await writeJsonc(cfg.replace(/\.jsonc$/, ".local.jsonc"), `{ "stateDir": "/scratch/state" }`);
+  await writeJsonc(cfg, `{ "opencodeBin": "/usr/bin/opencode" }`);
+  await writeJsonc(cfg.replace(/\.jsonc$/, ".local.jsonc"), `{ "opencodeBin": "/scratch/opencode" }`);
 
   const loaded = loadConfig({ ABATHUR_CONFIG: cfg, HOME: root });
-  assert.equal(loaded.config.opencodeBin, "/usr/bin/opencode"); // base survives
-  assert.equal(loaded.config.stateDir, "/scratch/state"); // overlay wins
+  assert.equal(loaded.config.opencodeBin, "/scratch/opencode"); // overlay wins
   assert.equal(loaded.path, cfg);
   assert.equal(loaded.overlayPath, path.join(root, "config.local.jsonc"));
 });
@@ -158,12 +173,12 @@ test("resolveConfigPath: ~/.config/abathur beats the repo default", async (t) =>
   const root = await freshRoot();
   t.after(() => rm(root, { recursive: true, force: true }));
   const user = userConfigPath(root);
-  await writeJsonc(user, `{ "stateDir": "/user/abathur-state" }`);
+  await writeJsonc(user, `{ "opencodeBin": null }`);
 
   assert.equal(resolveConfigPath({ HOME: root }), user);
   const loaded = loadConfig({ HOME: root });
   assert.equal(loaded.path, user);
-  assert.equal(loaded.config.stateDir, "/user/abathur-state");
+  assert.equal(loaded.config.opencodeBin, null);
 });
 
 test("resolveConfigPath: falls back to repo config/abathur.jsonc when nothing else exists", async (t) => {
@@ -238,8 +253,7 @@ test("loadConfig: full happy path reads JSONC comments and overlay from disk", a
     cfg,
     `{
        // machine values
-       "opencodeBin": "/opt/opencode/bin/opencode",
-       "stateDir": null, /* keep default home */
+       "opencodeBin": "/opt/opencode/bin/opencode"
      }`,
   );
 

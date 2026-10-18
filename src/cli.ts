@@ -29,6 +29,7 @@ import {
   renderExitSignal,
   type ExitCode,
 } from "./exit.js";
+import { runtimeVersion } from "./version.js";
 
 export interface CommandContext {
   readonly loaded: LoadedConfig;
@@ -79,7 +80,7 @@ export function usage(): string {
   ].join("\n");
 }
 
-async function dispatch(argv: readonly string[]): Promise<ExitCode> {
+export async function dispatch(argv: readonly string[]): Promise<ExitCode> {
   const [head, ...rest] = argv;
   if (head === undefined) {
     return cannotAnswer("no command given", "run 'abathur --help' for the command list");
@@ -88,9 +89,17 @@ async function dispatch(argv: readonly string[]): Promise<ExitCode> {
     process.stdout.write(usage());
     return EXIT_OK;
   }
+  if (head === "--version" || head === "-V" || head === "version") {
+    process.stdout.write(`abathur ${runtimeVersion()}\n`);
+    return EXIT_OK;
+  }
   const command = COMMANDS.find((spec) => spec.name === head);
   if (command === undefined) {
     return cannotAnswer(`unknown command '${head}'`, "run 'abathur --help' for the command list");
+  }
+  if (rest.length === 1 && (rest[0] === "--help" || rest[0] === "-h" || rest[0] === "help")) {
+    process.stdout.write(usage());
+    return EXIT_OK;
   }
   let loaded: LoadedConfig;
   try {

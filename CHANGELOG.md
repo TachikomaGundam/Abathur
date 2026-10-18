@@ -2,6 +2,23 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.3.0 — unreleased
+
+- add a config-free `abathur --version` / `-V` / `version` command that reports
+  the executing package version
+- add a fail-closed release-identity assessment core: unavailable evidence,
+  untagged observed heads, and contradictory versions stay distinct
+- bind the compiled version record to the adjacent package manifest; a stale
+  compiled artifact now refuses to report a version
+- ship an explicit runtime whitelist: compiled tests and the campaign-local PCB
+  grader stay out of the package, while the configured historian grader remains
+- remove machine-local defaults from historian judge hooks; operators must
+  explicitly provide the judge bench and model, or the hook exits 2 before spawn
+- remove the unused `stateDir` setting; legacy config now refuses it with a
+  migration reason instead of claiming to redirect runtime state
+- make the OpenCode adapter an optional peer dependency and exclude all
+  service-specific historian assets from the core npm package
+
 ## 0.2.8
 - engine fail-open repair (r21 injury ticket): non-finite grader scores are ruler failures, never replicates; a fully-excluded comparison pool returns inconclusive("vacuous evidence") instead of minting NaN nominations; regression test (stats 32/32, suite 552/0-fail)
 - pcb-agent r20/r21 bench lane: production-topology runner (bwrap arena at the control literal, five gates), bench-approver reactive arm, seed/mount scripts

@@ -1,7 +1,7 @@
 // Post-build asset copier: tsc only emits .js from src/**\/*.ts, so non-TS runtime
 // assets must be staged into dist/ explicitly. Every source is OPTIONAL at this
 // stage (they land in todos 5 and 8); missing sources are a graceful no-op.
-import { cp, stat } from "node:fs/promises";
+import { cp, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,3 +24,15 @@ for (const [srcRel, dstRel] of ASSETS) {
   await cp(src, dst, { recursive: true });
   console.log(`copy-assets: ${srcRel} -> dist/${dstRel}`);
 }
+
+const packageText = await readFile(path.join(repoRoot, "package.json"), "utf8");
+const packageManifest = JSON.parse(packageText);
+if (typeof packageManifest.version !== "string" || packageManifest.version.length === 0) {
+  throw new Error("copy-assets: package.json version is invalid");
+}
+await writeFile(
+  path.join(repoRoot, "dist", "version-manifest.json"),
+  `${JSON.stringify({ version: packageManifest.version })}\n`,
+  "utf8",
+);
+console.log("copy-assets: package.json -> dist/version-manifest.json");

@@ -295,6 +295,7 @@ export class FixtureScenariosAdapter implements BenchAdapter {
     const env: Record<string, string> = {
       HOME: sandboxHomeDir(sandboxDir),
       ABATHUR_AGENT_MODEL: this.agentModel(),
+      ABATHUR_OPENCODE_BIN: this.opencodeBinName(),
     };
     const judge = this.spec.bench.judgeModel;
     if (judge !== undefined) env["ABATHUR_JUDGE_MODEL"] = judge;

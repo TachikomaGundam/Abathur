@@ -1,9 +1,9 @@
 # The Immutable Kernel — what self-evolution may and may not touch
 
-This is the human-facing contract of the shipped seed `genomes/abathur-self.jsonc`
-and of `src/core/evolve/self-overlay.ts` / `self-snapshot.ts`. The seed's header
-comments restate the same contract in spec-adjacent form; where they are terse,
-this document is the expansion. Registration is fail-closed by design: every
+This is the human-facing contract for the checkout seed `genomes/abathur-self.jsonc`
+and the package implementation in `src/core/evolve/self-overlay.ts` /
+`self-snapshot.ts`. The npm package does not ship the seed. Registration is
+fail-closed by design: every
 seal glob must cover at least one real file (the `graders/**` contract directory
 satisfies that since todo 14), and the seed stays byte-stable — its `repoPath` is
 the unresolved literal `${ABATHUR_SELF_REPO}`, so the spec fingerprint

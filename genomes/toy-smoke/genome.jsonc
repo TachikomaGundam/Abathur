@@ -1,6 +1,6 @@
 {
   "label": "toy-smoke",
-  "repoPath": ".",
+  "repoPath": "${ABATHUR_TOY_REPO}",
   "bench": {
     "type": "toy",
     "units": [

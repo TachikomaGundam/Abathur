@@ -121,7 +121,7 @@ function generationRowCount(f: LiteralFixture): number {
 // ------------------------------------------------- non-self literal: normal bench
 
 test("campaign-1 defect: a non-self env-literal repoPath must NOT enter the self-bench overlay", async (t) => {
-  const f = await literalFixture(t, "ABATHUR_HISTORIAN_REPO");
+  const f = await literalFixture(t, "ABATHUR_VENDOR_REPO");
   const out = await runEvolution({
     entry: f.entry,
     configDir: f.configDir,
@@ -166,7 +166,7 @@ test("regression pin: the ${ABATHUR_SELF_REPO} literal still routes into the sel
 // ----------------------------------------------------- dry-run plan display
 
 test("--dry-run plan displays the RESOLVED repo path, never the literal against cwd", async (t) => {
-  const f = await literalFixture(t, "ABATHUR_HISTORIAN_REPO");
+  const f = await literalFixture(t, "ABATHUR_VENDOR_REPO");
   const out = await runEvolution({
     entry: f.entry,
     configDir: f.configDir,
