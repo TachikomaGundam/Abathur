@@ -198,8 +198,9 @@ test("corrupt archive lines are notices, never a crash, and never poison the rep
 // The incident replay: c17's real rows, judged first by the silently-downgraded engine
 // (culled), then re-adjudicated offline to NOMINATED gain 0.2917 (start-work L141).
 // The vendored fixture under fixtures/c17/ is the byte-exact campaign17 archive, so this
-// anchor runs everywhere (CI included); when ABATHUR_HISTORIAN_REPO is set the live
-// archives are replayed too, as the operator-machine assurance leg.
+// anchor runs everywhere (CI included). The live-machine drift leg moved to the
+// Abathur-integrations workspace (historian/test/c17-live-anchor.test.mjs) — core owns
+// no service coupling.
 const C17_GEN_ID = "g-20260925T150918Z-9969e4b6";
 
 function replayC17(t: { after: (fn: () => void) => void }, sourceDir: string): void {
@@ -222,32 +223,4 @@ function replayC17(t: { after: (fn: () => void) => void }, sourceDir: string): v
 
 test("anchor: vendored c17 archive replays to NOMINATED 0.2917 (runs everywhere)", (t) => {
   replayC17(t, fileURLToPath(new URL("../../src/test/fixtures/c17", import.meta.url)));
-});
-
-test("anchor: live c17 archive is byte-identical to the fixture and replays identically", (t) => {
-  const hist = process.env["ABATHUR_HISTORIAN_REPO"];
-  if (hist === undefined || hist.length === 0) {
-    t.skip("ABATHUR_HISTORIAN_REPO unset — live anchor needs the real archives");
-    return;
-  }
-  const archiveName = "ledger.campaign17-2026-09-25.jsonl";
-  const liveFile = path.join(hist, ".state", "abathur", archiveName);
-  const fixtureFile = fileURLToPath(new URL(`../../src/test/fixtures/c17/${archiveName}`, import.meta.url));
-  let live: string;
-  try {
-    live = readFileSync(liveFile, "utf8");
-  } catch {
-    t.skip("historian campaign17 archive not present on this machine");
-    return;
-  }
-  assert.equal(live, readFileSync(fixtureFile, "utf8"), "vendored c17 fixture has drifted from the live archive — re-vendor it");
-  // The live ledger also carries the later promote row; replay the incident
-  // archive alone, as the vendored leg does — a promoted generation refuses
-  // re-adjudication by design.
-  const dir = mkdtempSync(path.join(tmpdir(), "c17-live-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const isolated = path.join(dir, "state");
-  mkdirSync(isolated, { recursive: true });
-  writeFileSync(path.join(isolated, archiveName), live);
-  replayC17(t, isolated);
 });
