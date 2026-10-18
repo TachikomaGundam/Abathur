@@ -11,19 +11,27 @@ permissions:
 
 jobs:
   build-test:
-    name: Build & test (Node 22)
+    name: Build & test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor matches the lowest declared engines entry; 24 matches the
+        # publish job's toolchain so a version that only fails there is
+        # caught before tag, not at publish time.
+        node-version: ["22.22.2", "24"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: npm
           # NOTE: deliberately NO registry-url here. Setting registry-url makes
           # setup-node inject NODE_AUTH_TOKEN, which switches npm to authenticated
           # legacy auth and defeats Trusted Publishing (OIDC) downstream.
 
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
       - run: npm test
