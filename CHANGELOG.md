@@ -2,6 +2,33 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.3.1 — unreleased
+
+### Changed
+
+- `@opencode-ai/plugin` is a semver-range optional peer again (owner ruling: never pin
+  the OpenCode version — adaptation and evolution are the point); drift is caught by
+  the plugin typecheck gate instead of a frozen dependency.
+- Biome formatter + linter adopted (`npm run lint`, enforced in CI); one-time format
+  pass applied. Targeted lint fixes: removed a write-only counter, annotated
+  implicit-any lets, restructured assign-in-expression argument parsing, replaced
+  non-null assertions with explicit guards, and made the env-literal scanner's waiver
+  placement format-stable.
+- GitHub Actions pinned to commit SHAs; workflow concurrency added (CI cancels
+  superseded runs, publishes queue and never cancel mid-flight).
+- LICENSE copyright holder is now `TachikomaGundam`.
+- The c17 live-machine drift leg moved to the integrations workspace
+  (`historian/test/c17-live-anchor.test.mjs`); the vendored anchor still runs
+  everywhere. Core suite is now fully deterministic with zero environment skips.
+
+### Added
+
+- SECURITY.md (private vulnerability reporting), CONTRIBUTING.md, issue templates.
+
+### Removed
+
+- docs/AGENTISM.md (author's personal seat doctrine; archived outside the repo).
+
 ## 0.3.0 — unreleased
 
 - add a config-free `abathur --version` / `-V` / `version` command that reports
