@@ -23,36 +23,16 @@ All notable changes to Abathur are documented here.
   Node floor and the publish toolchain (22.22.2 + 24) and gates on
   `npm audit --omit=dev`; plugin/abathur.ts is type-checked via
   tsconfig.plugin.json on every test run
-
 ## 0.2.9 — 2026-10-12
 
 - release gate receipt: CRITICAL=0, suite green on the cargo tree; the
   empty-spin incident was named with a baseline-math detection trail
 - sanitized cargo slice from main (post PCB fix 43117e7): closed-list build,
   orphan content-only
-
-## 0.2.5 — 2026-09-22
-
-- sanitized sync from internal main @ 5dcca10: graders s13-17, the stats
-  cross-arm rule, and d7 hygiene fixes
-- retro-added the 0.2.4 CHANGELOG entry and plugin marker parity
-- border waiver for the integrity-test Windows-drive regex literal (same
-  recognized class as the v0.2.4 set)
-
-## 0.2.4 — 2026-09-14
-
-- sanitized sync from local main (content-only; excludes session state per the
-  border closed-list)
-- status resolves env-literal repoPaths via effectiveRepoPath, matching every
-  other command
-- test(bench): unique hang marker per file — fixes the cross-file ps race hit
-  twice by this release's CI
-
-## 0.2.8
+## 0.2.8 — 2026-10-03
 - engine fail-open repair (r21 injury ticket): non-finite grader scores are ruler failures, never replicates; a fully-excluded comparison pool returns inconclusive("vacuous evidence") instead of minting NaN nominations; regression test (stats 32/32, suite 552/0-fail)
 - pcb-agent r20/r21 bench lane: production-topology runner (bwrap arena at the control literal, five gates), bench-approver reactive arm, seed/mount scripts
 - NOTE: this commit is a byte-exact re-application after the 2026-09-30 .git accident (rsync --delete on the worktree); content lineage preserved from the session log, tests green before the loss
-
 ## 0.2.7 — 2026-09-29
 
 - feat(gate): `re-adjudicate <label> <genId>` — replay the current acceptance gate over
@@ -63,7 +43,6 @@ All notable changes to Abathur are documented here.
   clean by construction rather than by waiver).
 - release collision note: npm 0.2.6 was published from a parallel release vehicle that
   predates these two commits; 0.2.7 is the canonical continuation of main.
-
 ## 0.2.6 — 2026-09-27
 
 ### Human gates now resolve env-literal repoPaths — fail-closed seams, not conventions
@@ -91,8 +70,21 @@ All notable changes to Abathur are documented here.
      a human gate later. Existing legit raw uses (display strings, self-mode
      literal detection) are waived in writing.
 - 533/533 tests green (529 + 4 new).
+## 0.2.5 — 2026-09-22
 
+- sanitized sync from internal main @ 5dcca10: graders s13-17, the stats
+  cross-arm rule, and d7 hygiene fixes
+- retro-added the 0.2.4 CHANGELOG entry and plugin marker parity
+- border waiver for the integrity-test Windows-drive regex literal (same
+  recognized class as the v0.2.4 set)
+## 0.2.4 — 2026-09-14
 
+- sanitized sync from local main (content-only; excludes session state per the
+  border closed-list)
+- status resolves env-literal repoPaths via effectiveRepoPath, matching every
+  other command
+- test(bench): unique hang marker per file — fixes the cross-file ps race hit
+  twice by this release's CI
 ## 0.2.3 — 2026-09-11
 
 ### `/abathur` self-registers — Route B now ships the slash command too
@@ -120,7 +112,6 @@ All notable changes to Abathur are documented here.
   zero-config-edit option.
 - README (en+zh) "Inside opencode" rewritten around the corrected
   two-route story.
-
 ## 0.2.2 — 2026-09-11
 
 ### npm name-route plugin install (route B)
@@ -141,7 +132,6 @@ All notable changes to Abathur are documented here.
   registered by plugins upstream), B) config-only name entry with automatic
   npm download at startup (tool only; CLI still required on `PATH`).
 - The route A file-copy installer and its refusal semantics are unchanged.
-
 ## 0.2.1 — 2026-09-11
 
 ### Plugin adapter remediation (outcome of the F1 adversarial review)
@@ -165,7 +155,6 @@ All notable changes to Abathur are documented here.
   install and uninstall share an lstat destination guard — directories and
   symlinks are refused with exit 2 and named, never followed, entered, or
   destroyed.
-
 ## 0.2.0 — 2026-09-11
 
 ### Official opencode plugin adapter
@@ -190,7 +179,6 @@ All notable changes to Abathur are documented here.
 - Caveat: fixture benches mirror the real `~/.config/opencode` (plugins
   included) into sandbox HOMEs, so the installed plugin also loads inside
   bench sessions; uninstall first for a clean plugin environment.
-
 ## 0.1.1 — 2026-09-11
 
 ### Docs
@@ -198,7 +186,6 @@ All notable changes to Abathur are documented here.
 - Quick-start follow-up to the scoped rename: `ABATHUR_PKG` now points at
   `$(npm root -g)/@tachikomagundam/abathur` and the tarball install line at
   `tachikomagundam-abathur-<version>.tgz` (mirrored zh/en).
-
 ## 0.1.0 — 2026-09-10
 
 First release. An evolution harness for OpenCode agents:
