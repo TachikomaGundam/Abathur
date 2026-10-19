@@ -35,6 +35,9 @@ on 12V mains/phases): propose clauses that teach CLASS-RESOLVED judgment, not bl
 (2) push s41/s41b eyes past trap declaration (name the rejected temptation with arithmetic).
 Hold the line elsewhere: s31b is converged — do not touch routing/ledger text. One candidate max,
 total added lines <= 25.
+Output contract (HARD, recency): your single output MUST be one line of JSON
+{"candidates":[{"id":"...","rationale":"...","diffs":["<unified diff>..."]}]}
+— no prose summary, no empty list unless a concrete sealed-path blocker exists.
 ECONOMY
 [ -f "$canonical" ] || { echo "mutate: missing canonical spec $canonical" >&2; exit 1; }
 bin="${ABATHUR_OPENCODE_BIN:-opencode}"
