@@ -7,14 +7,14 @@
   // points at the abathur harness repo itself and resolves ONLY at filesystem
   // boundaries (effectiveRepoPath, src/core/spec.ts); unset/empty exits 2, never
   // a silently created directory named `${ABATHUR_SELF_REPO}`. Installer/README
-  // registration story: todo 15. NOTE: registration is fail-closed until the
-  // graders/ contract directory exists (every seal glob must cover >= 1 file —
-  // todo 14 ships it), which is exactly why seed registration is not part of the
-  // default install yet.
+  // registration story: todo 15. Post-separation (v0.3.0), graders/ moved OUT of
+  // this repo into the integrations workspace — so the seed's sealed set must
+  // cover only files that exist HERE (a vacuous seal glob fails registration
+  // closed; see src/test/friction.test.ts "every seal glob covers ...").
   //
   // The sealed set (kernel.immutableGlobs) covers the audit/stats/ledger core,
-  // the bench adapters, the reflection mutator, EVERY genome spec, the grader
-  // contracts and the toolchain (package.json + tsconfig.json +
+  // the bench adapters, the reflection mutator, EVERY genome spec and the
+  // toolchain (package.json + tsconfig.json +
   // scripts/copy-assets.mjs; unsealed files outside the overlaid src/** would
   // ride into a promoted gen score-neutrally and silently reseal on installer
   // re-add — plan round-2 #2). Consequence, stated plainly: v1 self-evolution
@@ -71,7 +71,6 @@
       "src/core/promote.ts",
       "src/bench/toy.*",
       "src/bench/fixture.*",
-      "graders/**",
       "genomes/**",
       "scripts/copy-assets.mjs",
       "package.json",

@@ -1,7 +1,6 @@
 // Shared fixture helpers for the todo-11 self-bench tests: a TRIMMED COPY of the
 // harness repo (every real src file except src/test/**, plus the toolchain,
-// genomes, selfbench and a stub graders/ contract) committed to a fresh git
-// repo in tmp. NEVER the real repo — self-bench tests only ever point
+// genomes and selfbench) committed to a fresh git repo in tmp. NEVER the real repo — self-bench tests only ever point
 // ABATHUR_SELF_REPO at these copies. The trimmed copy carries two tiny trusted
 // tests so the overlay suite runs in seconds; node_modules is symlinked to the
 // harness install (exactly what self-snapshot does for the toolchain).
@@ -105,12 +104,6 @@ export function makeSelfHarness(t: TestContext): SelfHarness {
   cpSync(path.join(HARNESS_ROOT, "genomes"), path.join(repo, "genomes"), { recursive: true });
   mkdirSync(path.join(repo, "selfbench"), { recursive: true });
   cpSync(path.join(HARNESS_ROOT, "selfbench", "replay.mjs"), path.join(repo, "selfbench", "replay.mjs"));
-  mkdirSync(path.join(repo, "graders"), { recursive: true });
-  writeFileSync(
-    path.join(repo, "graders", "contract.json"),
-    '{"schema":"abathur-grader-contract-v1","line":"{unit, score 0..1, pass, metrics{tokensEst,turns}}"}\n',
-    "utf8",
-  );
   rmSync(path.join(repo, "src", "test"), { recursive: true, force: true });
   mkdirSync(path.join(repo, "src", "test"), { recursive: true });
   writeFileSync(path.join(repo, "src", "test", "self-sanity.test.ts"), SANITY_TEST, "utf8");

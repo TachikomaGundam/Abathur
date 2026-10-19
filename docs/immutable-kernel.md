@@ -4,8 +4,8 @@ This is the human-facing contract for the checkout seed `genomes/abathur-self.js
 and the package implementation in `src/core/evolve/self-overlay.ts` /
 `self-snapshot.ts`. The npm package does not ship the seed. Registration is
 fail-closed by design: every
-seal glob must cover at least one real file (the `graders/**` contract directory
-satisfies that since todo 14), and the seed stays byte-stable — its `repoPath` is
+seal glob must cover at least one real file (guarded by a test that resolves the
+seed's globs against the shipped tree), and the seed stays byte-stable — its `repoPath` is
 the unresolved literal `${ABATHUR_SELF_REPO}`, so the spec fingerprint
 (`1913fcec…`) is identical on every machine and the checkout only resolves at
 filesystem seams. Point that variable at a git checkout with `npm ci` done; unset
@@ -23,7 +23,6 @@ exits 2, naming the variable.
 | `src/core/genome.ts` | registry semantics: registration, superset rule, fail-closed coverage |
 | `src/core/promote.ts` | the human-only gate: second sealed-path pass, CAS ref move, manifest regen |
 | `src/bench/toy.*`, `src/bench/fixture.*` | the bench adapters — how every score is produced |
-| `graders/**` | grader contract schemas — what "correct" means per bench |
 | `genomes/**` | every genome spec, including this seed and the toy-smoke fixtures |
 | `scripts/copy-assets.mjs`, `package.json`, `tsconfig.json` | the toolchain itself |
 
