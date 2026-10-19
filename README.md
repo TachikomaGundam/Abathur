@@ -233,7 +233,8 @@ fail-closed probes. It never supplies a provider default or credentials.
   instead.
 - Machine paths enter only through config and env: a `${VAR}`-literal
   `repoPath` fingerprints over the **unresolved** bytes, so spec identity is
-  machine-independent (abathur-self: `1913fcec…` everywhere) and resolves
+  machine-independent (the abathur-self seed yields the same fingerprint on
+  every machine — ask `genome show` for the live value) and resolves
   only at filesystem seams; unset env exits 2 naming the variable.
 - Identity is always the content fingerprint, never a label: two byte-equal
   specs are the same genome on any machine; labels are free and may repeat.
@@ -488,8 +489,8 @@ npm 包只交付通用夹具适配器，不交付任何特定服务的基准。W
   闸门扫描 `src/` 中配置的机器根哨兵与 `historian`；在 `src/test/**` 夹具之外
   一无所获。配置模板用占位符表达。
 - 机器路径只从配置与环境变量进入：`${VAR}` 字面量形式的 `repoPath` 按**未解析**
-  字节参与指纹计算，因此规格身份与机器无关（abathur-self 在任何机器都是
-  `1913fcec…`），只在文件系统接缝处解析；变量未设置就 exit 2 并点名该变量。
+  字节参与指纹计算，因此规格身份与机器无关（abathur-self 种子在任何机器上
+  得到同一指纹——现值用 `genome show` 查询），只在文件系统接缝处解析；变量未设置就 exit 2 并点名该变量。
 - 身份永远是内容指纹、不是标签：两份字节相同的规格在任何机器上都是同一个基因组；
   标签自由、可重复。
 - 适配器是封闭的 `bench.type` 注册表；遇到未知适配器类型的基因组是 exit 2，
