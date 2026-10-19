@@ -7,7 +7,8 @@ fail-closed by design: every
 seal glob must cover at least one real file (guarded by a test that resolves the
 seed's globs against the shipped tree), and the seed stays byte-stable — its `repoPath` is
 the unresolved literal `${ABATHUR_SELF_REPO}`, so the spec fingerprint
-(`1913fcec…`) is identical on every machine and the checkout only resolves at
+is identical on every machine (recompute with `genome show` after any seed edit)
+and the checkout only resolves at
 filesystem seams. Point that variable at a git checkout with `npm ci` done; unset
 exits 2, naming the variable.
 
