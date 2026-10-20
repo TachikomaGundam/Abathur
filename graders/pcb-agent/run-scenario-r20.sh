@@ -17,7 +17,7 @@ export HOME=/home/lab/workspace/pcb-control/production-home
 # D-e1 root cause: engine spawns do NOT export PCB_PRODUCTION_SERVE_PORT (manual
 # runs did) -> $PORT was empty in inner.sh -> curl to :0 -> SERVE_UP=0 in ~5s.
 # Runner now allocates a free port itself and exports it for launcher+inner.
-case "$UNIT" in *s31b*|*s32*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-3600};; *r22*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-2400};; esac
+case "$UNIT" in *s31b*|*s32*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-3600};; *s41*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-3600};; *r22*) export PCB_REP_TIMEOUT=${PCB_REP_TIMEOUT:-2400};; esac
 if [ -z "${PCB_PRODUCTION_SERVE_PORT:-}" ]; then
   PCB_PRODUCTION_SERVE_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1]); s.close()")
   export PCB_PRODUCTION_SERVE_PORT
