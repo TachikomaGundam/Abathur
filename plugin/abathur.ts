@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.2.9
+// abathur-opencode-plugin v0.3.0
 // Official opencode plugin adapter for the abathur evolution harness.
 //
 // Two layers ship in this one file (opencode loads it uncompiled, Route A via
