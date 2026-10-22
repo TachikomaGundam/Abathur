@@ -13,7 +13,7 @@
 // LOW on EYES: the knowledge died with the run and cannot be promoted into the
 // role files. That is exactly the institutional failure the operator named.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -79,7 +79,7 @@ if (existsSync(pcbPath)) {
     if (hard.length === 0) s += 0.30; else s += Math.max(0, 0.30 - hard.length * 0.05);
     if (unc && unc.nonNC === 0) s += 0.20;
     if (existsSync(schPath)) s += 0.05;
-    const fab = existsSync(R("fab-out")) ? require("node:fs").readdirSync(R("fab-out")) : [];
+    const fab = existsSync(R("fab-out")) ? readdirSync(R("fab-out")) : [];
     if (fab.some((f) => /gerber|\.gbr|\.zip/i.test(f)) && fab.some((f) => /drl|drill/i.test(f))) s += 0.05;
     if (existsSync(R("RESULT.md"))) s += 0.0; // honesty of the doc is judged by EYES+discrepancy
     outcome = Math.min(0.6, s);
@@ -122,7 +122,7 @@ const traps = [
     hit: /(cross.?layer|两.?层|both layer)/i.test(F) },
 ];
 let eyes = 0; const hits = [];
-for (const t of traps) { if (t.hit) { eyes += t.w; hits.push(t.id); } }
+for (const t of traps) { if (t.hit) { eyes += t.w; if (t.w > 0) hits.push(t.id); } }  // C3: zero-weight traps stay informational, never inflate coverage>1
 const scored = traps.filter((t) => t.w > 0);
 eyes = Math.min(0.4, eyes / scored.reduce((a, t) => a + t.w, 0) * 0.4);
 
