@@ -16,6 +16,7 @@ import { opencodeCommand } from "./commands/opencode.js";
 import { promoteCommand } from "./commands/promote.js";
 import { readjudicateCommand } from "./commands/readjudicate.js";
 import { runCommand } from "./commands/run.js";
+import { engineVersion } from "./version.js";
 import { selfEvalCommand } from "./commands/self-eval.js";
 import { statusCommand } from "./commands/status.js";
 import { tombstoneCommand } from "./commands/tombstone.js";
@@ -86,6 +87,12 @@ async function dispatch(argv: readonly string[]): Promise<ExitCode> {
   }
   if (head === "--help" || head === "-h" || head === "help") {
     process.stdout.write(usage());
+    return EXIT_OK;
+  }
+  if (head === "--version" || head === "-v" || head === "version") {
+    // Bare version on stdout: the plugin's version probe (Tier-1 v9) parses this
+    // line and compares it against the plugin's own package marker.
+    process.stdout.write(`${engineVersion()}\n`);
     return EXIT_OK;
   }
   const command = COMMANDS.find((spec) => spec.name === head);

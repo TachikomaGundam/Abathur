@@ -32,6 +32,7 @@ import type { ConfigEnv } from "../../config.js";
 import { fingerprint16, type RegistryEntry } from "../genome.js";
 import { auditKernel } from "../kernel.js";
 import { compactUtc, fingerprint, genId } from "../ids.js";
+import { startCampaignLock } from "../campaign-lock.js";
 import { LEDGER_KIND_GENERATION_COMPLETE, acquireGenomeLock, Ledger } from "../ledger.js";
 import type { WorktreeEnv } from "../genome-paths.js";
 import { openGenome } from "../worktree.js";
@@ -140,6 +141,12 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
     );
   }
 
+  // Campaign occupancy lock (Tier-1 v9): written after the dry-run early
+  // return so a plan-only invocation never claims occupancy, and before the
+  // genome ledger opens so the plugin's T2 guard sees the lock for the full
+  // mutation window. Fail-open by design: a null handle means "degraded,
+  // disproof-only mode" and never blocks the run.
+  const campaignLock = startCampaignLock({ selfRepo: process.env["ABATHUR_SELF_REPO"] });
   const ledger = Ledger.open(effectiveRepoPath(spec.repoPath), { now });
   const lease = acquireGenomeLock({
     ledger,
@@ -151,6 +158,7 @@ export async function runEvolution(opts: RunLoopOptions): Promise<RunLoopOutcome
     return await evolve(opts, mutatorCommand, ledger, caps, reps, env, now);
   } finally {
     lease.release();
+    campaignLock?.close();
   }
 }
 

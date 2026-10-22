@@ -33,7 +33,7 @@
     "plugin"
   ],
   "scripts": {
-    "build": "tsc && node scripts/copy-assets.mjs",
+    "build": "tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
     "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
     "prepack": "npm run build"
   },
