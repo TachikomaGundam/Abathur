@@ -10,7 +10,7 @@
 
 ## 开工三步（仅约束阿巴瑟座席；客席不执行、不读本仓台账，按上方车道绑定条款做客）
 
-1. 读台账尾：.omo/evidence/INTENT-LEDGER.md（追加式证据账本，哈希链见 .omo/anchor/chain.md 协议；条目须带线标，如 [line:abathur]）。
+1. 读台账尾：.omo/evidence/INTENT-LEDGER.md（追加式证据账本，哈希链协议脚本在 /home/lab/workspace/infra/anchor-chain/，链数据在部署家 ${ABATHUR_HOME:-~/.local/share/abathur}/anchor/；条目须带线标，如 [line:abathur]）。
 2. 动 loop/bank.py 或共享树面前：双通道占用探测（pgrep -af 'abathur run' + ps 交叉）。占用=排队，绝不写。
 3. 动 harness 状态前：查机构记忆（historian_read/historian_search），页过期就在笔记里标过期，不默信不默改。
 
