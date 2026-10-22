@@ -34,11 +34,12 @@
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
-    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
-    "prepack": "npm run build"
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\" && npm run test:plugin",
+    "prepack": "npm run build",
+    "test:plugin": "tsc -p tsconfig.plugintest.json && node --test \".plugintest-dist/plugintest/*.test.js\""
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.17.4",
+    "@opencode-ai/plugin": "^1.19.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {

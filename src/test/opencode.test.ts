@@ -276,7 +276,10 @@ test("plugin/abathur.ts: V1 shape — marker, default {id, server}, tool allowli
 
   assert.ok(/export default\s*\{/.test(bytes), "V1 default export object required");
   assert.ok(bytes.includes('id: "abathur"'), "file plugins must export id (resolvePluginId)");
-  assert.ok(/server:\s*async\s*\(\)/.test(bytes), "server must be an async function (readV1Plugin)");
+  // Tier-1 generation (plugin-tier1-design-20261020 §T1): server receives the host's PluginInput
+  // (sessionID/directory reachability for guard roots + system-note gating), so the pin accepts a
+  // parameter list. readV1Plugin intent unchanged: server must be an async function.
+  assert.ok(/server:\s*async\s*\([^)]*\)/.test(bytes), "server must be an async function (readV1Plugin)");
   assert.ok(bytes.includes("tool.schema"), "args must be built via tool.schema (no local zod dep)");
 
   // Exact-array pin (0.2.1): parse the ALLOWED_COMMANDS literal from source — membership

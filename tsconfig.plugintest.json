@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": ".plugintest-dist",
+    "types": ["node"]
+  },
+  "include": ["plugin/abathur.ts", "plugintest"]
+}
