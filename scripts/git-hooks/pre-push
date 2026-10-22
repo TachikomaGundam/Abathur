@@ -29,7 +29,7 @@ while read -r local_ref local_oid remote_ref remote_oid; do
       [ "$local_oid" = "0000000000000000000000000000000000000000" ] && continue
       ver="${local_ref#refs/tags/}"
       receipt="$RECEIPT_DIR/$ver.md"
-      [ -f "$receipt" ] || block "tag $ver -> $remote: no packet receipt $receipt (write it from docs/release/TEMPLATE.md with the border PASS transcript)"
+      [ -f "$receipt" ] || block "tag $ver -> $remote: no packet receipt $receipt (write it from docs/release/TEMPLATE.md with the gate PASS transcript)"
       grep -q '^gate: PASS' "$receipt" || block "receipt $receipt lacks a 'gate: PASS' line — the gate decides, the receipt only records"
       [ -f "$LEASE_FILE" ] || block "no release lease at $LEASE_FILE (scripts/release-lease.sh acquire $ver <who>)"
       grep -Eq "\"version\": ?\"$ver\"" "$LEASE_FILE" || block "lease at $LEASE_FILE does not name $ver — is another seat holding the wheel?"
