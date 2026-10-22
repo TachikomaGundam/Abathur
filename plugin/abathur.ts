@@ -24,7 +24,6 @@ import { execFile } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import {
   accessSync,
-  appendFileSync,
   closeSync,
   constants as fsConstants,
   existsSync,
