@@ -30,7 +30,8 @@
     "config",
     "graders",
     "docs",
-    "plugin"
+    "plugin",
+    "skills"
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
