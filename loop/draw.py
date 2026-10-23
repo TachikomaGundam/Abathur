@@ -35,6 +35,7 @@ CLASS_OF = {
     "SR4-60": "policy-site-inventory", "SR4-61": "ticket-routing",
     "SR4-62": "ledger-quoting-hygiene",
     "SR4-64": "anchor-citation-hygiene",
+    "SR4-70": "load-under-traffic-refusal",
     "SR4-67": "practice-before-escalation",
     "SR4-68": "compression-summary-fabrication",
     "SR4-69": "plan-seg-discipline",
