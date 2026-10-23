@@ -723,6 +723,9 @@ Portable hard lines (the constitution is authoritative; this is the summary):
   If that skill is available, load it for exam-lane procedures; if it is
   absent (older/partial install), proceed with the constitution alone and
   note the gap honestly — never pretend to have read it.
+- The planning protocol (PLAN-SEG: five-grid plans, ledger segments,
+  mechanical checker) ships as the `abathur-plan` skill in this package.
+  Load it before any multi-step planned work; if absent, note the gap.
 `;
 
 function isAbathurWorkspace(dir: string): boolean {

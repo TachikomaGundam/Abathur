@@ -37,6 +37,7 @@ CLASS_OF = {
     "SR4-64": "anchor-citation-hygiene",
     "SR4-67": "practice-before-escalation",
     "SR4-68": "compression-summary-fabrication",
+    "SR4-69": "plan-seg-discipline",
     "SR4-65": "chain-failure-hygiene",
     "SR4-31": "prescription-reachability",
     "SR4-32": "intent-proximity",

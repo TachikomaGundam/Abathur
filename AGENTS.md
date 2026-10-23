@@ -21,6 +21,13 @@
 - 发布：隔离 checkout 制件（L-RELEASE-TREE-ISOLATION），scripts/release-lease.sh 拿轮，.git/hooks/pre-push 强制收据+租约；main 永远钉最后发布版，版本颠簸只在发布支。
 - 证据：.omo/evidence/（台账、smoke、loop-archive、调研报告）。临时文件卫生是交付物的一部分。
 
+## 计划面（PLAN-SEG，2026-10-23 落地；设计件 loop/proposals/planning-capability-design-20261022.md v5）
+
+- 影响 >1 文件或触共享面的工作必须有五格计划（目标/路径/验收/禁项/回滚）；单代考题豁免五格工件（PLAN-SEG 即计划）。
+- 执行分段落账：开工 `[PLAN-SEG]`、段末 `[PLAN-SEG-END]`（tee 落盘日志+哈希防伪），字段以 ASCII 0x1F 分隔，格式细则见 skills/abathur-plan/SKILL.md。
+- 机械校验：`node skills/abathur-plan/plan-seg-check.mjs .omo/evidence/INTENT-LEDGER.md [--plan <计划>] [--seglogs .omo/evidence/plan-segs]`；rc≠0 不许自称段完成。
+- 多版本计划：台账只准一个活 plan 哈希；漂移=停段重宣布。
+
 ## 环境真相（机器实测，更新时改写日期）
 
 - 引擎 CLI 全局安装=npm 冻结版（发布包）；工作树构建=node dist/cli.js。两版本不一致时以 `node dist/cli.js --version` 与 `abathur --version` 双读为准。
