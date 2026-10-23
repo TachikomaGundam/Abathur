@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -115,7 +115,13 @@ test("插件 AGENT_PROMPT 提及 abathur-plan 技能", () => {
   assert.match(plugin, /abathur-plan/);
 });
 
-test("仓级 AGENTS.md 含 PLAN-SEG 计划面章节", () => {
+test("仓级 AGENTS.md 含 PLAN-SEG 计划面章节", (t) => {
+  // 发布包（孤儿分支）按 v0.3.0 先例不含仓级 AGENTS.md（内部座席操作面，不进公开面）；
+  // 该语境下本钉字跳过——skip 具名原因，不静默。
+  if (!existsSync(join(ROOT, "..", "AGENTS.md"))) {
+    t.skip("release packet face: repo AGENTS.md intentionally excluded");
+    return;
+  }
   const agents = readFileSync(join(ROOT, "..", "AGENTS.md"), "utf8");
   assert.match(agents, /PLAN-SEG/);
 });
