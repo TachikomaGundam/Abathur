@@ -19,6 +19,23 @@ INST_PKG="$(dirname "$REAL")/../package.json"
 INST_VER=$(python3 -c "import json;print(json.load(open('$INST_PKG'))['version'])" 2>/dev/null || echo "UNREADABLE")
 echo "installed package.json: $INST_VER ($INST_PKG)"
 
+# 1b. PATH shadow check — multiple abathur installs (2026-10-23 incident: sudo install
+#     landed in /usr/local while PATH resolved to the stale ~/.npm-global copy).
+SHADOWS=$(which -a abathur 2>/dev/null | awk '!seen[$0]++' | while read -r b; do
+  r=$(realpath "$b" 2>/dev/null) || continue
+  v=$(python3 -c "import json;print(json.load(open('$(dirname "$r")/../package.json'))['version'])" 2>/dev/null || echo UNREADABLE)
+  echo "$v $b"
+done)
+SHADOW_N=$(echo "$SHADOWS" | grep -c . || true)
+echo "PATH installs: $SHADOW_N"
+if [ "$SHADOW_N" -gt 1 ]; then
+  FIRST_V=$(echo "$SHADOWS" | head -1 | cut -d' ' -f1)
+  echo "$SHADOWS" | sed 's/^/  /'
+  echo "$SHADOWS" | awk '{print $1}' | sort -u | grep -q . && \
+  [ "$(echo "$SHADOWS" | awk '{print $1}' | sort -u | wc -l)" -gt 1 ] && {
+    echo "FAIL: PATH shadow — multiple abathur installs with differing versions (PATH resolves to $FIRST_V)"; FAIL=1; }
+fi
+
 # 2. --version command agreement (engine >= 0.4.0)
 CLI_VER=$(abathur --version 2>/dev/null || echo "UNSUPPORTED")
 echo "installed --version: $CLI_VER"
