@@ -44,6 +44,7 @@ export const generationRowDataSchema = z
     rationale: z.string().optional(),
     /** Incumbent HEAD this generation was forked from (resume identity for incumbent rows). */
     headCommit: z.string().min(1),
+    genomeFp: z.string().min(1).optional(),
     commitSha: z.string().optional(),
     /** Content tree sha — the stable dedup key for candidate generations. */
     treeSha: z.string().optional(),
@@ -105,7 +106,7 @@ export interface ResumeState {
   readonly rowCount: number;
 }
 
-export function readResume(ledger: Ledger): ResumeState {
+export function readResume(ledger: Ledger, genomeFp?: string): ResumeState {
   const incumbentByHead = new Map<string, GenerationRowData>();
   const candidatesByTree = new Map<string, GenerationRowData>();
   let counters: BudgetCounters = { candidates: 0, modelCalls: 0, tokens: 0, wallS: 0 };
@@ -115,7 +116,8 @@ export function readResume(ledger: Ledger): ResumeState {
     const data = decodeGenerationRecord(record);
     rowCount += 1;
     counters = addCounters(counters, data.counters);
-    if (data.source === "incumbent") incumbentByHead.set(data.headCommit, data);
+    if (genomeFp !== undefined && data.genomeFp !== genomeFp) continue; // cross-spec rows are not resumable
+        if (data.source === "incumbent") incumbentByHead.set(data.headCommit, data);
     else if (data.treeSha !== undefined) candidatesByTree.set(data.treeSha, data);
   }
   return { incumbentByHead, candidatesByTree, counters, rowCount };

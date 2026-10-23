@@ -195,8 +195,8 @@ async function evolve(
   }
 
   const opened = await openGenome(genomeRepo, spec.bench.units.map((u) => u.path), { env });
-  const resume = readResume(ledger);
   const genomeFp = fingerprint16(spec);
+  const resume = readResume(ledger, genomeFp);
   const invId = `a-${compactUtc(now())}-${genomeFp.slice(0, 8)}`;
   const selfBenchBase = { genomeRepo, genomeFp, incumbentCommit: opened.headCommit, env };
   const tracker = new ChildTracker(genomeRepo);
@@ -232,6 +232,7 @@ async function evolve(
     const data: GenerationRowData = {
       source: "incumbent",
       headCommit: opened.headCommit,
+      genomeFp,
       complete: out.complete,
       reps,
       units: out.units.map(cloneMatrixRow),
