@@ -43,7 +43,7 @@ npm i -g ./tachikomagundam-abathur-*.tgz   # glob: npm pack emits the current ve
 abathur --help
 ```
 
-Requires Node >= 22 and `git` on `PATH`. Runtime dependencies: `zod` (the harness) plus `@opencode-ai/plugin` (imported at load time by the opencode plugin adapter).
+Requires Node >= 22.22.1 and `git` on `PATH`. Runtime dependencies: `zod` only — `@opencode-ai/plugin` is an optional peer, needed solely when the opencode plugin adapter is loaded (the host opencode supplies it). After installing, `abathur init` creates the Abathur-owned deployment surfaces (data home + anchor dir); no install hook ever touches shared device facilities.
 Real benches additionally need the `opencode` CLI (path via `opencodeBin` in
 config or `PATH` lookup) and whatever a genome's `requires[]` probes name.
 
@@ -373,7 +373,7 @@ npm i -g ./tachikomagundam-abathur-*.tgz   # 通配即当前版——npm pack �
 abathur --help
 ```
 
-需要 Node >= 22 与 `PATH` 上的 `git`。运行时依赖是 `zod`（工装）与 `@opencode-ai/plugin`（插件适配器装载期即 import）。真实基准还需要
+需要 Node >= 22.22.1 与 `PATH` 上的 `git`。运行时依赖只有 `zod`——`@opencode-ai/plugin` 是可选对等依赖，仅在 opencode 加载插件适配器时需要（由宿主 opencode 提供）。安装后跑 `abathur init` 建立阿巴瑟自有部署面（数据家+锚链目录）；任何安装钩子都不触碰设备共享设施。真实基准还需要
 `opencode` CLI（通过配置里的 `opencodeBin` 或 `PATH` 解析），以及基因组
 `requires[]` 探针点名的那些工具。
 

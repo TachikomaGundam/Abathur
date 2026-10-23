@@ -6,6 +6,7 @@ import { resolveConfigDir } from "../config.js";
 import { readRegistry, requireGenomesByLabel, type RegistryEntry } from "../core/genome.js";
 import { appendRunFriction, type RunFrictionInput } from "../core/evolve/friction.js";
 import { runEvolution } from "../core/evolve/run-loop.js";
+import { assertCampaignInstallIntegrity } from "../core/install-probe.js";
 import { cannotAnswer, ExitSignal, type ExitCode } from "../exit.js";
 import type { CommandContext, CommandSpec } from "../cli.js";
 import { writeStdout } from "../out.js";
@@ -102,6 +103,7 @@ export function resolveUniqueEntry(configDir: string, label: string, who = "run"
 const ZERO_COUNTS = { applied: 0, rejected: 0, benched: 0, inconclusive: 0, nominated: 0, timeouts: 0, reaped: 0 };
 
 async function runRun(context: CommandContext): Promise<ExitCode> {
+  assertCampaignInstallIntegrity(process.argv[1] ?? ""); // skip semantics: install-probe.ts header
   const flags = parseRunFlags(context.args);
   const configDir = resolveConfigDir();
   for (const warning of readRegistry(configDir).warnings) writeStdout(`warning: ${warning}`);

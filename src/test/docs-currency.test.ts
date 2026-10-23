@@ -30,8 +30,11 @@ test("runtime dependencies named truthfully (every real dep appears)", () => {
   for (const dep of Object.keys(pkg.dependencies)) {
     assert.ok(readme.includes(dep), `README omits runtime dependency ${dep}`);
   }
-  assert.ok(!/Only `zod` is a runtime dependency/.test(readme), "stale zod-only claim");
-  assert.ok(!readme.includes("运行时依赖只有 `zod`"), "stale zod-only claim (zh)");
+  // 0.4.1 contract: zod is the only runtime dep; the plugin SDK is an optional
+  // peer and the README must say so in both locales (the 0.4.0 incident made
+  // this claim load-bearing).
+  assert.ok(readme.includes("optional peer"), "README must describe the SDK as an optional peer (en)");
+  assert.ok(readme.includes("可选对等依赖"), "README must describe the SDK as an optional peer (zh)");
 });
 
 test("every registered CLI command appears in the README", () => {

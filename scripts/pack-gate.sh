@@ -10,6 +10,8 @@
 #   3. content scan — no machine-absolute paths inside shipped files
 #      (plugin/ assets are already pinned by src/test/opencode.test.ts;
 #      this catches the rest).
+#   4. production closure purity — no prerelease (beta/alpha/rc) packages in the
+#      non-dev dependency closure (the 0.4.0 effect-beta -> ini lesson).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
@@ -40,6 +42,21 @@ CONTENT_HITS=$(grep -rl '/home/lab/' "$TMP/x" 2>/dev/null || true)
 if [ -n "$CONTENT_HITS" ]; then
   echo "pack-gate: FAIL — machine-absolute paths inside shipped files:"
   printf '%s\n' "$CONTENT_HITS"
+  FAIL=1
+fi
+
+PRERELEASE_HITS=$(node -e '
+const lock = JSON.parse(require("fs").readFileSync("package-lock.json", "utf8"));
+const bad = [];
+for (const [where, entry] of Object.entries(lock.packages ?? {})) {
+  if (where === "" || entry.dev === true) continue;
+  if (/-(beta|alpha|rc)\./.test(String(entry.version ?? ""))) bad.push(`${where}@${entry.version}`);
+}
+console.log(bad.join("\n"));
+')
+if [ -n "$PRERELEASE_HITS" ]; then
+  echo "pack-gate: FAIL — prerelease packages in the production dependency closure:"
+  printf '%s\n' "$PRERELEASE_HITS"
   FAIL=1
 fi
 

@@ -5,12 +5,14 @@
 // process themselves, so they stay unit-testable.
 
 import { realpathSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { bundleCommand } from "./commands/bundle.js";
 import { genomeCommand } from "./commands/genome.js";
 import { graftCommand } from "./commands/graft.js";
+import { initCommand } from "./commands/init.js";
 import { kernelCommand } from "./commands/kernel.js";
 import { opencodeCommand } from "./commands/opencode.js";
 import { promoteCommand } from "./commands/promote.js";
@@ -22,6 +24,7 @@ import { statusCommand } from "./commands/status.js";
 import { tombstoneCommand } from "./commands/tombstone.js";
 import { retractCommand } from "./commands/retract.js";
 import { ConfigError, loadConfig, type LoadedConfig } from "./config.js";
+import { deploymentSurfaces } from "./core/surfaces.js";
 import {
   EXIT_CANNOT_ANSWER,
   EXIT_OK,
@@ -44,6 +47,7 @@ export interface CommandSpec {
 
 // Router order mirrors the plan; summaries appear verbatim in --help.
 export const COMMANDS: readonly CommandSpec[] = [
+  initCommand,
   genomeCommand,
   runCommand,
   statusCommand,
@@ -98,6 +102,14 @@ async function dispatch(argv: readonly string[]): Promise<ExitCode> {
   const command = COMMANDS.find((spec) => spec.name === head);
   if (command === undefined) {
     return cannotAnswer(`unknown command '${head}'`, "run 'abathur --help' for the command list");
+  }
+  if (command.name !== "init") {
+    const missing = deploymentSurfaces().filter((dir) => !existsSync(dir));
+    if (missing.length > 0) {
+      process.stderr.write(
+        `abathur: deployment surfaces not established (${missing.length} missing) — run 'abathur init'\n`,
+      );
+    }
   }
   let loaded: LoadedConfig;
   try {

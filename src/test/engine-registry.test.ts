@@ -78,6 +78,7 @@ test("registry carries the pinned write-prefix set (fail-closed direction)", () 
     ["genome", "add"],
     ["genome", "rm"],
     ["graft"],
+    ["init"],
     ["opencode"],
     ["promote"],
     ["re-adjudicate"],

@@ -23,6 +23,12 @@ env -i HOME="$TMP/home" PATH="/usr/local/bin:/usr/bin:/bin" \
 
 BIN="$TMP/prefix/bin/abathur"
 [ -x "$BIN" ] || BIN="$TMP/prefix/bin/abathur.cmd"
+echo "[c-face] strict-mode variant: same install under --engine-strict (engines honesty proof)"
+env -i HOME="$TMP/home" PATH="/usr/local/bin:/usr/bin:/bin" \
+  npm install -g --engine-strict --prefix "$TMP/prefix-strict" "$TMP/$TARBALL" >/dev/null 2>&1 \
+  || { echo "[c-face] FAIL: strict-mode install refused on node $(node --version)"; exit 1; }
+echo "[c-face] strict-mode install: ok"
+
 echo "[c-face] probing installed binary"
 VER=$(env -i PATH="/usr/local/bin:/usr/bin:/bin" "$BIN" --version 2>/dev/null || echo "UNSUPPORTED")
 echo "[c-face] --version: $VER"

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The kit section (ABATHUR-KIT) is plain JS by design — tests extract and
+    // eval it standalone, so TS annotations are impossible there. This check
+    // therefore owns SYNTAX validity (the 2026-10-23 unescaped-backtick class)
+    // and module-level soundness, not strict typing.
+    "rootDir": ".",
+    "noEmit": true,
+    "strict": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["plugin/abathur.ts"]
+}

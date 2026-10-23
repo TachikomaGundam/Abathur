@@ -289,7 +289,7 @@ test("plugin/abathur.ts: V1 shape — marker, default {id, server}, tool allowli
   const literal = bytes.match(/const ALLOWED_COMMANDS[^=]*=\s*\[([^\]]*)\]/);
   assert.ok(literal !== null, "ALLOWED_COMMANDS array literal must exist");
   const allowed = [...(literal[1] ?? "").matchAll(/"([^"]+)"/g)].map((found) => found[1] ?? "");
-  assert.deepEqual(allowed, ["genome", "run", "status", "bundle", "graft", "self-eval", "kernel", "--help"]);
+  assert.deepEqual(allowed, ["init", "genome", "run", "status", "bundle", "graft", "self-eval", "kernel", "--help"]);
   assert.ok(!allowed.includes("promote"), "promote is terminal-only — must not be tool-reachable");
   assert.ok(!allowed.includes("tombstone"), "tombstone is terminal-only — must not be tool-reachable");
 
@@ -348,6 +348,8 @@ test("npm name route: exports['./server'] ships the marker'd plugin + runtime de
     files?: string[];
     exports?: Record<string, unknown>;
     dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   };
 
   // opencode picks the server entry via exports["./server"] (extractExportValue
@@ -363,11 +365,17 @@ test("npm name route: exports['./server'] ships the marker'd plugin + runtime de
   assert.ok((pkg.files ?? []).some((entry) => server.startsWith(`./${entry}/`)),
     "server entry must live under a published files[] directory");
 
-  // Arborist installs the package's dependencies next to it in opencode's cache —
-  // that sibling copy is how the shipped import of @opencode-ai/plugin resolves (OMO mechanism).
-  const dep = pkg.dependencies?.["@opencode-ai/plugin"];
-  assert.equal(typeof dep, "string", "@opencode-ai/plugin must be a runtime dependency");
-  assert.ok((dep ?? "").length > 0, "dependency range must not be empty");
+  // Peer-optional contract (incident 2026-10-23, sibyl d2a1): the SDK is supplied
+  // by the host opencode at plugin load time; a runtime dep would drag the
+  // effect-beta -> ini@7 chain onto every install (the 0.4.0 install incident).
+  // The host-provides-SDK assumption is verified by the release checklist's
+  // plugin-load smoke, not by this pin.
+  const peer = pkg.peerDependencies?.["@opencode-ai/plugin"];
+  assert.equal(typeof peer, "string", "@opencode-ai/plugin must be a peer dependency");
+  assert.equal(pkg.peerDependenciesMeta?.["@opencode-ai/plugin"]?.optional, true,
+    "peer must be optional — pure-CLI installs must not pull the SDK");
+  assert.ok(pkg.dependencies?.["@opencode-ai/plugin"] === undefined,
+    "SDK must not be a runtime dependency");
 
   // Route B must serve the same bytes the route A installer copies: both resolve to plugin/abathur.ts.
   assert.equal(serverEntry, "./plugin/abathur.ts", "server entry and installer asset must be one file");

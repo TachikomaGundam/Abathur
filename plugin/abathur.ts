@@ -1,4 +1,4 @@
-// abathur-opencode-plugin v0.3.0
+// abathur-opencode-plugin v0.4.0
 // Official opencode plugin adapter for the abathur evolution harness.
 //
 // Two layers ship in this one file (opencode loads it uncompiled, Route A via
@@ -53,6 +53,7 @@ const MAX_OUTPUT_BYTES = 64 * 1024;
 /** The seven tool-reachable top-level commands plus --help. Anything else is refused locally.
  * promote/tombstone/retract are human gates and deliberately terminal-only (0.2.1/0.2.7): not reachable here. */
 const ALLOWED_COMMANDS: readonly string[] = [
+  "init",
   "genome",
   "run",
   "status",
@@ -311,6 +312,7 @@ const FALLBACK_WRITE_COMMANDS: readonly (readonly string[])[] = [
   ["genome", "add"],
   ["genome", "rm"],
   ["graft"],
+  ["init"],
   ["opencode"],
   ["promote"],
   ["re-adjudicate"],
@@ -719,12 +721,12 @@ Portable hard lines (the constitution is authoritative; this is the summary):
   receipts to it.
  - Use the abathur_ledger_append tool for ledger writes; use
   abathur_campaign_status before touching exam files.
-- The campaign playbook ships as the `abathur-loop` skill in this package.
+ - The campaign playbook ships as the \`abathur-loop\` skill in this package.
   If that skill is available, load it for exam-lane procedures; if it is
   absent (older/partial install), proceed with the constitution alone and
   note the gap honestly — never pretend to have read it.
 - The planning protocol (PLAN-SEG: five-grid plans, ledger segments,
-  mechanical checker) ships as the `abathur-plan` skill in this package.
+  mechanical checker) ships as the \`abathur-plan\` skill in this package.
   Load it before any multi-step planned work; if absent, note the gap.
 `;
 
