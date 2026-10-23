@@ -15,7 +15,7 @@ description: Abathur 进化考场操作手册（exam lane playbook）。当需�
 
 ## 世代流程（七步）
 
-1. **抽签**：`python3 .omo/loop/draw.py G<N> <候选题…>`。守卫：恰好一枚 canary、关闭世代不复抽、失败类轮换全覆盖。退出 1=覆盖缺类，读输出补题。
+1. **抽签**：`python3 loop/draw.py G<N> <候选题…>`。守卫：恰好一枚 canary、关闭世代不复抽、失败类轮换全覆盖。退出 1=覆盖缺类，读输出补题。
 2. **攻题**（真卷）：任务发给考生会话（干净上下文），宪法快照注入。考生产工件。
 3. **判卷**：法官会话按题面判据逐条核，信号数/处决信号逐项过。判罚必须是机器可核形态（路径+哈希+命令回执）。
 4. **铃测**：planted 假卷（故意犯病的答卷）走同一判卷。假卷必须 FAIL 且处决信号点火——尺抓不到谎=尺伤，具名伤单。
@@ -31,6 +31,6 @@ description: Abathur 进化考场操作手册（exam lane playbook）。当需�
 
 ## 考题维护
 
-- 新题进 `.omo/loop/bank.py` ITEMS（含 setup/grader/canary 标记），失败类进 CLASS_OF。
+- 新题进 `loop/bank.py` ITEMS（含 setup/grader/canary 标记），失败类进 CLASS_OF。
 - 题面自相矛盾被法官 CONDITIONAL 升级时：不许静默放行，修题面重跑局。
 - 退役题保留历史，标 SUSPENDED_ITEMS 并写明原因。

@@ -1,0 +1,9 @@
+{
+  // Genome label -> repo env-var mapping (庭C correction G1: kill memory-based
+  // genome paths). Every ${VAR} literal used by any genomes/**.jsonc repoPath
+  // MUST appear as a repoEnv value here — src/test/release-contracts.test.ts
+  // pins the coverage. The genome.jsonc files keep the UNRESOLVED literal by
+  // design (see genomes/abathur-self.jsonc header comment).
+  "abathur-self": { "repoEnv": "ABATHUR_SELF_REPO" },
+  "historian": { "repoEnv": "ABATHUR_HISTORIAN_REPO" }
+}

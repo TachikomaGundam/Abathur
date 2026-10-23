@@ -1,0 +1,22 @@
+{
+  // T3 shell-env injection contract (Tier-1 design v9, 庭C correction).
+  // The ONLY keys the plugin's shell.env hook may inject, with semantics.
+  // The plugin's INJECTABLE_KEYS constant MUST equal injectableKeys below —
+  // src/test/release-contracts.test.ts pins the equality (single source here).
+  // The machine-specific VALUES (e.g. the pinned Node PATH) live on the human
+  // key surface (~/.config/opencode/abathur-shell-env.json), never in this repo.
+  "injectableKeys": [
+    "PATH",
+    "ABATHUR_CONFIG",
+    "ABATHUR_SELF_REPO",
+    "ABATHUR_HISTORIAN_REPO",
+    "ABATHUR_DEBUG"
+  ],
+  "semantics": {
+    "PATH": "prepended to the session PATH (pinned toolchain)",
+    "ABATHUR_CONFIG": "engine config file path (fail-closed when set-but-unreadable)",
+    "ABATHUR_SELF_REPO": "anchor repo for the campaign lock + ledger resolution",
+    "ABATHUR_HISTORIAN_REPO": "anchor repo for historian genomes",
+    "ABATHUR_DEBUG": "engine debug channel switch"
+  }
+}

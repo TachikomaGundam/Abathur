@@ -717,8 +717,12 @@ Portable hard lines (the constitution is authoritative; this is the summary):
 - promote/tombstone/retract and any publish/push are human-terminal gates.
 - Read the intent ledger tail before mutating harness state; append your own
   receipts to it.
-- Use the abathur_ledger_append tool for ledger writes; use
+ - Use the abathur_ledger_append tool for ledger writes; use
   abathur_campaign_status before touching exam files.
+- The campaign playbook ships as the `abathur-loop` skill in this package.
+  If that skill is available, load it for exam-lane procedures; if it is
+  absent (older/partial install), proceed with the constitution alone and
+  note the gap honestly — never pretend to have read it.
 `;
 
 function isAbathurWorkspace(dir: string): boolean {

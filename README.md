@@ -206,6 +206,31 @@ commands included) into their sandboxed HOMEs, so an installed plugin also
 loads inside bench sessions. Uninstall first if a bench needs a clean plugin
 environment.
 
+### Tier-1 discipline layer (≥0.4.0) — honest capability limits
+
+The plugin's discipline layer (status injection, exam-file guard, env
+injection, ledger tool, occupancy probe) is **防手滑 + 可见化 (accident-proofing
+and visibility), not a security boundary**:
+
+- The exam-file guard intercepts `edit`/`write`/`apply_patch` only; `bash`
+  writes to guarded files are a named residual (warn-only heuristics). A
+  determined agent can bypass it — the guard exists to stop slips and to make
+  violations loud, not to withstand adversaries.
+- The campaign lock is cooperative: it is written by `abathur run` (≥0.4.0)
+  and removed at exit. A crashed run leaves a stale lock that the plugin
+  judges by heartbeat/pid/start-time criteria; `SIGKILL` mid-heartbeat-window
+  can look "pending" for up to 15 minutes by design.
+- On engines <0.4.0 the plugin runs in `FALLBACK-PROBE` mode (process scan
+  instead of the lock); the probe's own blind spots are documented in
+  `loop/proposals/plugin-tier1-design-20261020.md`.
+- The T3 env injection is disabled unless the operator pins `repoRoot` in the
+  plugin's options and provides `~/.config/opencode/abathur-shell-env.json`
+  (human key surface); the injectable key set is fixed by
+  `config/env-contract.jsonc`.
+- The ledger tool enforces hash-chained appends, but on a single-user machine
+  the chain proves tampering only against *other* writers — the seat itself
+  can rewrite its own ledger (named gap: external anchoring).
+
 ### The historian genome and the operator workflow
 
 `historian` is the first real genome: OpenCode agents work wiki scenarios

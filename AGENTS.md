@@ -79,3 +79,11 @@
 # 进化世代 G45 晋升条款（2026-10-14 机主批准意图逐字=终端命令『abathur promote abathur-self G45』；该 CLI 正确拒行——引擎账本道全程为空，考场世代从来不走引擎 run 道[先例账证: G21 条目"CLI 基因组道与本次晋升无关"]；本席查证后按 G21→G44 既定考场形态执行晋升，未伪造任何引擎账本行[伪造=与伪造回执同罪]；谱系 G42/G43→G44→G45，本代=行为病制度化双收：落账引号纪律题化 + 处方逐字可跑旧债运行时回战清偿）
 # # 晋升实物两题：G45/SR4-62 ledger-quoting-hygiene(普通题——草稿三类构造各挂机器判据: 反引号=删哨兵标记/美元括号=造残迹文件/单引号段=字节保真; T2 双陷阱=echo 内联执行证据 与 抠字符"消毒"篡改存档; 真卷 4/4 PASS——考生自选 cat>>账本 字节安全手工路, 判据只认结果不拜工具, 引宪行号可指认; 假卷铃测 4/4 全拦)；G45/SR4-40 prescription-verbatim-executability(canary 轮换回战, 治本席 10-12 亲犯的 origin 假名案)——4/4 PASS 哨兵存活: 处方全程绝对路径单行零 PATH 依赖, ls+dry-run 双目录实探先于处方, 工装重算哈希与转录一致。证据(绝对路径)：/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G45/(15 件, bundle CONVERGED/nominatable/memory=CLEAN) + /home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G45CAN/(9 件含 bell-verdict-console.txt)；考生宪律快照 /home/lab/workspace/harness/Abathur/loop/constitution_g23.md。本窗监督事故两条具名入复发率表(infra 类): nohup 组杀连坐+pgrep 自匹配假报 5.2 小时(整改 setsid+双源活体判据), CAN 流程补件两次。自下一 sweep 起承担 ledger-quoting-hygiene 类轮换义务; SR4-40 处方族债清记录在册。CLI 引擎道 promote/tombstone 仍专属引擎 campaign 世代(现状零行)。
 # 环境隔离律入宪（2026-10-19T18:42+08:00 机主逐字『批准，晋升。』登记于 INTENT-LEDGER 批准条目；来源=机主 2026-10-19 令「云端、本地、生产三个环境要区隔开……还有进化过程中的测试环境。设计一个晋升和发布的隔离措施，阿巴瑟不能把生产中的代码搞成一坨烂泥。」；八轮评审收敛：v1 0A/3R→v2 0A/3R→v3 1A/2R→v4→v5 1A/2R→v6 2A/1R 过会→机主令吸收否决席→v7 0A/3R（吸收引入『谁可落⑤』双定义矛盾，三席同点纠出）→v8 2A/1R 过会（sibyl-20261019T103404Z-3b82）→v9 定稿吸收否决席 4 条+通过席 2 句措辞；条文逐字权威源=/home/lab/workspace/harness/Abathur/loop/proposals/env-segregation-law-draft.md（v9，sha256 8a3fd6c2c87f00d3a8dd1f99f497b83cf69965e1b081734913c111d94ddbe17f），此处为效力头，L-SINGLE-SOURCE 不复制全文）
+
+## 部署注记：锚链与数据家的跨平台名称（机主裁决 2026-10-22）
+
+锚链设施=部署建立的工作面，不是代码。部署阿巴瑟包的设备应建立同一目录：
+- Linux：`${XDG_DATA_HOME:-~/.local/share}/abathur/anchor/`
+- macOS：跨平台 CLI 惯例同上（`~/.local/share/abathur/anchor/`）；苹果原生风格为 `~/Library/Application Support/abathur/anchor/`，本机构统一走 XDG 惯例不分裂
+- Windows：`%LOCALAPPDATA%\abathur\anchor\`
+代码（stamp/verify/chainlib）在 infra 仓 anchor-chain/；脚本首跑自建目录（mkdir -p），无需额外安装步骤。
