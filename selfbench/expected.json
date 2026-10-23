@@ -1,0 +1,5 @@
+{
+  "digest": "24c50864e61205a06fca6fb1f4db5be10d113e78a204e012cd4f3fff745ddd1d",
+  "capturedAt": "2026-09-10",
+  "note": "Golden replay expectation: sha256 over canonical JSON of the model-free toy-mechanics rows (fixed seed 7) produced by selfbench/replay.mjs against a clean build of this tree. TRUSTED input for self-bench: candidates cannot overlay selfbench/** (not under src/**); a candidate that changes harness behavior a normal run depends on moves this digest and loses the golden-replay val unit. Re-capture ONLY via promote of a nominated self candidate (todo 10 flow)."
+}

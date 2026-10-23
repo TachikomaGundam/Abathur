@@ -1,0 +1,81 @@
+{
+  // abathur-self (plan todo 11): the harness evolving ITSELF.
+  //
+  // repoPath is stored as the UNRESOLVED env literal ${ABATHUR_SELF_REPO} so the
+  // spec bytes — hence the content fingerprint and registry stem — are identical
+  // on every machine (graft matching demands byte-equal specs). The variable
+  // points at the abathur harness repo itself and resolves ONLY at filesystem
+  // boundaries (effectiveRepoPath, src/core/spec.ts); unset/empty exits 2, never
+  // a silently created directory named `${ABATHUR_SELF_REPO}`. Installer/README
+  // registration story: todo 15. NOTE: registration is fail-closed until the
+  // graders/ contract directory exists (every seal glob must cover >= 1 file —
+  // todo 14 ships it), which is exactly why seed registration is not part of the
+  // default install yet.
+  //
+  // The sealed set (kernel.immutableGlobs) covers the audit/stats/ledger core,
+  // the bench adapters, the reflection mutator, EVERY genome spec, the grader
+  // contracts and the toolchain (package.json + tsconfig.json +
+  // scripts/copy-assets.mjs; unsealed files outside the overlaid src/** would
+  // ride into a promoted gen score-neutrally and silently reseal on installer
+  // re-add — plan round-2 #2). Consequence, stated plainly: v1 self-evolution
+  // CANNOT change dependencies or build configuration — a candidate touching any
+  // sealed file is rejected at the path stage and could never reseal the
+  // manifest (only human promote reseals). See docs/immutable-kernel.md.
+  //
+  // Scoring is the snapshot-overlay bench (src/core/evolve/self-snapshot.ts):
+  // TRUSTED tree = incumbent snapshot (sealed globs + src/test/** + this dir's
+  // selfbench/ fixtures + toolchain config); overlay = candidate src/** matching
+  // no seal and not under src/test/** (candidate test edits are DROPPED — the
+  // scorer always runs the incumbent-pinned suite; deletions are unrepresentable
+  // in a copy-only overlay, matching udiff v1's modify/create-only contract).
+  // Build runs the harness-pinned tsc against the harness's own node_modules
+  // (symlinked — never candidate build scripts, never npm ci). Timeout caps:
+  // build 180s, suite 900s (= bench.timeoutS), replay 120s; a build timeout is
+  // inconclusive, a suite/replay timeout scores nothing.
+  //
+  // stats: suite/replay unit scores are binary per rep, so with halfWidth 0.05 a
+  // nomination means "candidate src passes the incumbent-pinned test suite AND
+  // the golden toy-replay digest holds", repeated non-degenerately; minEffect 0
+  // is deliberate (improvement vs the incumbent's ALL-green baseline is
+  // unmeasurable in binary units — vacuous green is downgraded to
+  // 'indeterminate' by the overlay-empty guard, never nominated).
+  //
+  // bench.runCommand / graderCommand are inert descriptors: the self genome is
+  // never driven through the toy adapter (benchTarget delegates to selfBench
+  // before any adapter opens); the strings exist to satisfy the shared schema.
+  "label": "abathur-self",
+  "repoPath": "${ABATHUR_SELF_REPO}",
+  "bench": {
+    "type": "toy",
+    "units": [
+      { "id": "suite", "path": "src/test", "split": "train" },
+      { "id": "golden-replay", "path": "selfbench/expected.json", "split": "val" }
+    ],
+    "runCommand": "self-snapshot node --test dist/test/**/*.test.js",
+    "graderCommand": "self-snapshot golden-replay digest",
+    "timeoutS": 900,
+    "stats": { "halfWidth": 0.05, "minEffect": 0, "nReps": { "initial": 2, "max": 4 } }
+  },
+  "budget": {
+    "maxCandidates": 8,
+    "maxModelCalls": 16,
+    "maxTokens": 1000000,
+    "maxWallS": 7200
+  },
+  "kernel": {
+    "immutableGlobs": [
+      "src/core/stats.ts",
+      "src/core/ledger.ts",
+      "src/core/ids.ts",
+      "src/core/genome.ts",
+      "src/core/promote.ts",
+      "src/bench/toy.*",
+      "src/bench/fixture.*",
+      "graders/**",
+      "genomes/**",
+      "scripts/copy-assets.mjs",
+      "package.json",
+      "tsconfig.json"
+    ]
+  }
+}
