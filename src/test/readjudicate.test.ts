@@ -194,6 +194,25 @@ test("corrupt archive lines are notices, never a crash, and never poison the rep
 });
 
 // ------------------------------------------------------------------ historical anchor
+// Frozen sandbox input selection for the anchor replay: campaign data ledgers only,
+// dated on/before the replay date. The date field is the 10 chars preceding ".jsonl".
+export function frozenLedgers(names: readonly string[], replayDate: string): string[] {
+  return names.filter((n) => /^ledger\.campaign\d+-\d{4}-\d{2}-\d{2}\.jsonl$/.test(n) && n.slice(-16, -6) <= replayDate);
+}
+
+test("frozenLedgers: date boundary exact — 09-28 in, 09-29/09-30/2027 out, odd shapes out", () => {
+  const names = [
+    "ledger.campaign17-2026-09-25.jsonl", "ledger.campaign16-VOID-2026-09-25.jsonl",
+    "ledger.campaign20-2026-09-28.jsonl", "ledger.campaign21-2026-09-29.jsonl",
+    "ledger.campaign99-2026-09-30.jsonl", "ledger.campaign99-2027-01-01.jsonl",
+    "ledger.campaign17-18-promote-2026-09-30.jsonl", "ledger.campaign1-ROTATION-NOTE.txt",
+    "ledger.campaign30.jsonl", "ledger.jsonl",
+  ];
+  assert.deepEqual(frozenLedgers(names, "2026-09-28"), [
+    "ledger.campaign17-2026-09-25.jsonl", "ledger.campaign20-2026-09-28.jsonl",
+  ]);
+});
+
 // The incident replay: c17's real rows, judged first by the silently-downgraded engine
 // (culled), then re-adjudicated offline to NOMINATED gain 0.2917 (start-work L141).
 // A sandboxed copy of the real archives run through this command must reproduce that
@@ -215,16 +234,14 @@ test("anchor: real c17 archives replay to NOMINATED 0.2917 (copy, no mutation)",
     throw new Error(`ABATHUR_HISTORIAN_REPO=${hist} set but ${real} unreadable — wired sentinel with missing input, never skip silently`);
   }
   const REPLAY_DATE = "2026-09-28"; // the offline re-adjudication date, cross-pinned in now() below
-  // Frozen input pattern (round-2, sibyl audit sibyl-20261023T183519Z-4812): only
-  // campaign data ledgers named ledger.campaignN-YYYY-MM-DD.jsonl with a filename date
-  // on/before the replay date enter the sandbox — everything else (undated ledgers,
-  // promote/rotation ledgers of any shape) is excluded by default, fail closed. Rows
-  // appended after the replay date — the 2026-09-30 owner-promote ledger above all —
-  // legitimately flip the gate ('already promoted') against the September-world premise.
-  const archives = names.filter((n) => {
-    const m = /^ledger\.campaign\d+-\d{4}-\d{2}-\d{2}\.jsonl$/.exec(n);
-    return m !== null && n.slice(-15, -5) <= REPLAY_DATE;
-  });
+  // Frozen input pattern (round-2, sibyl audit sibyl-20261023T183519Z-4812; round-3
+  // off-by-one fix, sibyl-20261023T185125Z-d5ef): only campaign data ledgers named
+  // ledger.campaignN-YYYY-MM-DD.jsonl with a filename date on/before the replay date
+  // enter the sandbox — everything else (undated ledgers, promote/rotation ledgers of
+  // any shape) is excluded by default, fail closed. Rows appended after the replay
+  // date — the 2026-09-30 owner-promote ledger above all — legitimately flip the gate
+  // ('already promoted') against the September-world premise.
+  const archives = frozenLedgers(names, REPLAY_DATE);
   if (!archives.some((n) => n.includes("campaign17"))) {
     // env set = this machine is wired for the anchor; absent input is drift, never silence
     throw new Error("ABATHUR_HISTORIAN_REPO set but no campaign17 ledger matched the frozen input pattern — sentinel input drifted, investigate before trusting verdicts");
