@@ -215,7 +215,17 @@ test("anchor: real c17 archives replay to NOMINATED 0.2917 (copy, no mutation)",
     t.skip("historian .state/abathur not present on this machine");
     return;
   }
-  const archives = names.filter((n) => n.startsWith("ledger.") && n.endsWith(".jsonl"));
+  const archives = names
+    .filter((n) => n.startsWith("ledger.") && n.endsWith(".jsonl"))
+    // the replay is pinned at 2026-09-28 (the offline re-adjudication date): copy only
+    // ledgers whose filename date is on/before that day. Rows appended later — the
+    // 2026-09-30 owner-promote ledger above all — legitimately flip the gate
+    // ('already promoted') and would falsely convict the replay of the September world.
+    .filter((n) => {
+      const m = /(\d{4}-\d{2}-\d{2})/.exec(n);
+      const d = m?.[1];
+      return d === undefined || d <= "2026-09-28";
+    });
   if (!archives.some((n) => n.includes("campaign17"))) {
     t.skip("campaign17 archive not present");
     return;
