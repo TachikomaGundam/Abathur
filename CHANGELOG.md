@@ -2,6 +2,14 @@
 
 All notable changes to Abathur are documented here.
 
+## 0.4.0 — 2026-10-23
+- Tier-1 plugin discipline layer (818-line adapter): campaign lock (engine heartbeat + plugin judgment), exam-file write gate with human-override ledger path, five-key env allowlist, hash-chained ledger append tool, read-only campaign status probe, system-prompt status injection; single-derivation rule: shipped persona + abathur-loop/abathur-plan skills are package-canonical
+- plan capability: abathur-plan skill + mechanical plan-seg checker (PLAN-SEG protocol, 0x1F fields, tee'd segment logs with sha256 anti-forgery)
+- contracts: config/env-contract.jsonc (five-key env semantics) + config/genome-paths.jsonc (repoEnv mapping); scripts/check-engine-version.sh consistency probe; scripts/c-face-smoke.sh install-to-run isolation smoke; scripts/pack-gate.sh publish-surface content gate (87-entry allowlist + machine-path scan); docs/release/CHECKLIST.md eleven-step release procedure
+- --version command; build-time dist/engine-registry.json (command read/write classes + 14 env keys); build cleans stale dist
+- exam: SR4-68 compression-summary-fabrication, SR4-69 plan-seg-discipline
+- separation: historian graders migrated out (historian repo); package files narrowed to explicit allowlist; README honest capability limits
+
 ## 0.2.8
 - engine fail-open repair (r21 injury ticket): non-finite grader scores are ruler failures, never replicates; a fully-excluded comparison pool returns inconclusive("vacuous evidence") instead of minting NaN nominations; regression test (stats 32/32, suite 552/0-fail)
 - pcb-agent r20/r21 bench lane: production-topology runner (bwrap arena at the control literal, five gates), bench-approver reactive arm, seed/mount scripts
