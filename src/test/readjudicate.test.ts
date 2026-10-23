@@ -212,23 +212,22 @@ test("anchor: real c17 archives replay to NOMINATED 0.2917 (copy, no mutation)",
   try {
     names = readdirSync(real);
   } catch {
-    t.skip("historian .state/abathur not present on this machine");
-    return;
+    throw new Error(`ABATHUR_HISTORIAN_REPO=${hist} set but ${real} unreadable — wired sentinel with missing input, never skip silently`);
   }
-  const archives = names
-    .filter((n) => n.startsWith("ledger.") && n.endsWith(".jsonl"))
-    // the replay is pinned at 2026-09-28 (the offline re-adjudication date): copy only
-    // ledgers whose filename date is on/before that day. Rows appended later — the
-    // 2026-09-30 owner-promote ledger above all — legitimately flip the gate
-    // ('already promoted') and would falsely convict the replay of the September world.
-    .filter((n) => {
-      const m = /(\d{4}-\d{2}-\d{2})/.exec(n);
-      const d = m?.[1];
-      return d === undefined || d <= "2026-09-28";
-    });
+  const REPLAY_DATE = "2026-09-28"; // the offline re-adjudication date, cross-pinned in now() below
+  // Frozen input pattern (round-2, sibyl audit sibyl-20261023T183519Z-4812): only
+  // campaign data ledgers named ledger.campaignN-YYYY-MM-DD.jsonl with a filename date
+  // on/before the replay date enter the sandbox — everything else (undated ledgers,
+  // promote/rotation ledgers of any shape) is excluded by default, fail closed. Rows
+  // appended after the replay date — the 2026-09-30 owner-promote ledger above all —
+  // legitimately flip the gate ('already promoted') against the September-world premise.
+  const archives = names.filter((n) => {
+    const m = /^ledger\.campaign\d+-\d{4}-\d{2}-\d{2}\.jsonl$/.exec(n);
+    return m !== null && n.slice(-15, -5) <= REPLAY_DATE;
+  });
   if (!archives.some((n) => n.includes("campaign17"))) {
-    t.skip("campaign17 archive not present");
-    return;
+    // env set = this machine is wired for the anchor; absent input is drift, never silence
+    throw new Error("ABATHUR_HISTORIAN_REPO set but no campaign17 ledger matched the frozen input pattern — sentinel input drifted, investigate before trusting verdicts");
   }
   const { dir, state } = sandbox(t);
   for (const n of archives) copyFileSync(path.join(real, n), path.join(state, n));
@@ -236,7 +235,7 @@ test("anchor: real c17 archives replay to NOMINATED 0.2917 (copy, no mutation)",
   // spec: mirror the historian constitution's anchors exactly (stats/budget as registered)
   const spec = entryFor(dir);
   (spec.spec.bench as { stats: unknown }).stats = STATS;
-  const out = readjudicateGeneration({ entry: spec, configDir: cfg(t), genId: "g-20260925T150918Z-9969e4b6", now: () => new Date("2026-09-28T00:00:00Z") });
+  const out = readjudicateGeneration({ entry: spec, configDir: cfg(t), genId: "g-20260925T150918Z-9969e4b6", now: () => new Date(`${REPLAY_DATE}T00:00:00Z`) });
   assert.equal(out.verdict, "nominated", out.lines.join("\n"));
   const appended = lastRows(state).at(-1);
   assert.ok(appended?.readjudication !== undefined);
