@@ -83,3 +83,17 @@ test("packaged skill exists and references real loop paths", () => {
   const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
   assert.ok(pkg.files.includes("skills"), "package.json files must ship skills/");
 });
+
+test("package.json files is exactly the narrow D-face allowlist (0.2.8/0.2.9 pollution lesson)", () => {
+  const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
+  const expected = [
+    "dist/bench", "dist/cli.js", "dist/commands", "dist/config.js", "dist/core",
+    "dist/exit.js", "dist/genomes", "dist/jsonc.js", "dist/out.js",
+    "dist/release-state.js", "dist/util", "dist/version.js",
+    "dist/version-manifest.json", "dist/engine-registry.json",
+    "config/abathur.jsonc", "docs/immutable-kernel.md", "plugin", "skills",
+  ];
+  assert.deepEqual([...pkg.files].sort(), [...expected].sort(),
+    "files allowlist drifted — widening it reopens the foreign-material channel (0.2.9 shipped 25 pcb-agent files)");
+  assert.ok(!pkg.files.includes("graders"), "graders/ is per-line bench material — never shipped");
+});

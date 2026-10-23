@@ -26,15 +26,27 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "config",
-    "graders",
-    "docs",
+    "dist/bench",
+    "dist/cli.js",
+    "dist/commands",
+    "dist/config.js",
+    "dist/core",
+    "dist/exit.js",
+    "dist/genomes",
+    "dist/jsonc.js",
+    "dist/out.js",
+    "dist/release-state.js",
+    "dist/util",
+    "dist/version.js",
+    "dist/version-manifest.json",
+    "dist/engine-registry.json",
+    "config/abathur.jsonc",
+    "docs/immutable-kernel.md",
     "plugin",
     "skills"
   ],
   "scripts": {
-    "build": "tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
+    "build": "rm -rf dist && tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
     "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
     "prepack": "npm run build"
   },

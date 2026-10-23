@@ -1,6 +1,6 @@
 # 迁移工单：graders/pcb-agent/ 整体迁出阿巴瑟仓（2026-10-22，机主批准方案 4+5）
 
-**状态：待执行。门槛=PCB campaign（pid 478729，自 2026-10-22 19:29 起跑）结束后方可动手。** 提前执行会抽掉在跑考试脚下的尺（runCommand/graderCommand/mutate 均指向本仓路径，每次 spawn 时按文件系统解析）。
+**状态：已执行完毕（2026-10-23T13:04:05+0800）。campaign 于 2026-10-23 凌晨正常终态（DONE，wallS 预算耗尽）。执行回执见 INTENT-LEDGER 同时刻条目。** 提前执行会抽掉在跑考试脚下的尺（runCommand/graderCommand/mutate 均指向本仓路径，每次 spawn 时按文件系统解析）。
 
 ## 为什么迁
 
