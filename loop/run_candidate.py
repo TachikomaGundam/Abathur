@@ -62,4 +62,27 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # spawn-completion-receipt R2: start/exit pair for every exit path (incl.
+    # REFUSAL / INFRA_FAILED / crash). Registry failure never kills the runner.
+    import os
+
+    import run_registry as REG
+
+    _gen = sys.argv[1] if len(sys.argv) == 3 else None
+    _item = sys.argv[2] if len(sys.argv) == 3 else None
+    if _gen:
+        REG.append_event(_gen, _item, "candidate", "start", pid=os.getpid(), pgid=os.getpgrp())
+    _rc = 0
+    try:
+        main()
+    except SystemExit as exc:
+        _rc = exc.code if isinstance(exc.code, int) else 1
+        raise
+    except BaseException:
+        _rc = 1
+        raise
+    finally:
+        if _gen:
+            _state = L.harness_dir(_gen, _item) / "candidate_state.json"
+            REG.append_event(_gen, _item, "candidate", "exit", rc=_rc,
+                             state_path=_state if _state.exists() else None)
