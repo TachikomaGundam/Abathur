@@ -339,6 +339,7 @@ async function evolve(
       considered.push(finalVerdict);
       const data: GenerationRowData = {
         source: "candidate",
+        genomeFp,
         candidateId: c.candidateId,
         rationale: c.rationale,
         headCommit: opened.headCommit,
