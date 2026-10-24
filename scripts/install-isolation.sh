@@ -65,6 +65,12 @@ if [[ -z "$EXPD" || "$EXPD" == "never" ]]; then ok "密码不过期"
 elif [[ $(date -d "$EXPD" +%s 2>/dev/null || echo 0) -le $(date +%s) ]]; then
   bad "密码已过期（$EXPD）——收权后必死锁"; exit 2
 else ok "密码到期日 $EXPD"; fi
+# 收权后必须有「带密码」的 sudo 通路，否则人类连 sudo 都进不去（死锁类，机械判据）
+if printf '%s\n' "$(sudo -l -U "$SEATUSER" 2>/dev/null)" | grep -v 'NOPASSWD' | grep -qE '\(.*ALL.*\)'; then
+  ok "存在带密码 sudo 通路（收权后人类仍可 sudo 解锁）"
+else
+  bad "删除 NOPASSWD 后 $SEATUSER 将没有任何 sudo 通路——会死锁。先加密码式规则（如 %sudo ALL=(ALL:ALL) ALL 并确认在组内）"; exit 2
+fi
 echo "  目标 seat=$SEATUSER ($SEATHOME)  keyuser=$KEYUSER ($KEYHOME)"
 if [[ $APPLY -eq 1 ]]; then
   printf '  输入 YES 确认（另一终端已验 sudo 可解锁）: '; read -r C
