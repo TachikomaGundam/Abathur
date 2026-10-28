@@ -78,12 +78,14 @@
 ```
 人类入口          /usr/local/bin/abathur-ai  -> /usr/local/lib/abathur/launcher
 启动器            /usr/local/lib/abathur/launcher      sha256 3248ae19cd15da0b…  0755 root:root
-沙箱              /usr/local/lib/abathur/sandbox-exec  sha256 0e4f840e61a2a1a4…  0755 root:root
+沙箱              /usr/local/lib/abathur/sandbox-exec  sha256 550f485fafbe8866…  0755 root:root（v10：/tmp/opencode 跨调用持久）
 沙箱配置树        /usr/local/lib/abathur/xdg/opencode  63M  root:root  全树 a-w
 opencode 字节钉定 /etc/abathur/opencode.sha256         0644 root:root
 日志切片单元表    /etc/abathur/log-units.conf          0644 root:root（4 单元，一行一个）
 会话工作目录      /var/empty/abathur                   0755 root:root
 ```
+
+**座席权限现状（2026-10-28 实测）**：bash 工具的 `sudo*` 被 opencode 权限规则拒绝，座席无法自行提权；root 侧改动一律由人类执行。跨调用临时文件用 `/tmp/opencode/`（沙箱内已持久），其余 `/tmp` 每次调用都是私有 tmpfs。
 
 **关键运维规则**：
 - opencode 升级后必须同步 `/etc/abathur/opencode.sha256`，否则启动器 fail-closed 拒绝启动（R-D23，预期行为）。
