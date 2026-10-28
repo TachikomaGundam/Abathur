@@ -8,7 +8,9 @@
 
 ## 0. 三十秒交接
 
-**当前主线**：方案 D（单用户 + 工具面沙箱）已装好第一段。bash 工具从此走 bwrap 沙箱；**新会话必须用 `abathur-ai` 启动**，用 `opencode` 启动等于无沙箱。
+**当前主线**：方案 D（单用户 + 工具面沙箱）已装好第一段。bash 工具从此走 bwrap 沙箱，**正常 `opencode` 启动即生效**（插件已进 `~/.config/opencode/opencode.jsonc`，插件本体在 root 侧）。
+逃生阀：仅人类可用 `ABATHUR_SANDBOX=0 opencode`；座席无法关闭自己的沙箱。
+`abathur-ai` 作为可选入口保留（额外钉定 opencode 字节、屏蔽项目配置），不是必需。
 
 **下一位先做两件事**：
 1. 确认机主已轮换 npm token（硬链测试把 token 读进了会话记录）。
@@ -41,8 +43,9 @@
    网页 npmjs.com → Access Tokens → 吊销 → 重发 → `npm login` 更新 `~/.npmrc`。
    理由：硬链探针把 `~/.npmrc` 内容读进了会话转录。
 
-2. **用 `abathur-ai` 跑 1–2 天**，收集沙箱误伤清单。
+2. **重启一次 opencode**（插件在启动时加载，本窗开着的会话仍是旧的），然后正常使用，收集沙箱误伤清单。
    观察点：git 命令、npm 装包、python venv、nvidia-smi、systemctl 状态查询。
+   若某条命令确实需要裸执行，由人临时开 `ABATHUR_SANDBOX=0 opencode`，不要给座席开关。
 
 ### P1（方案 D 剩余两段）
 
@@ -84,7 +87,8 @@ opencode 字节钉定 /etc/abathur/opencode.sha256         0644 root:root
 
 **关键运维规则**：
 - opencode 升级后必须同步 `/etc/abathur/opencode.sha256`，否则启动器 fail-closed 拒绝启动（R-D23，预期行为）。
-- 改配置要改 root 副本 `/usr/local/lib/abathur/xdg/opencode/…`（先 `chmod u+w`，改完 `a-w`）；改 `~/.config/opencode` 对新会话无效。
+- 插件本体在 root 侧：`/usr/local/lib/abathur/xdg/opencode/plugins/sandbox-bash.js`（改它要 sudo）。人类配置里只放一行引用，见 `~/.config/opencode/opencode.jsonc`（备份 `opencode.jsonc.bak-20261028-sandbox-plugin`）。
+- `abathur-ai` 入口用的是 root 侧整份配置快照（63M，一次性快照无自动同步）；日常用普通 `opencode` 即可。
 - 当前配置副本是**一次性快照**，没有自动同步机制；这是个已知缺口，见 P1 之后的待办。
 
 **常用探测**：
