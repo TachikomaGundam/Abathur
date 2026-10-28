@@ -368,7 +368,7 @@ test("AC(a): honest cross-instance graft re-benches LOCALLY and nominates; peer 
 
   // human gate consumes the nomination (graft itself promoted NOTHING):
   assert.equal(incumbentSha(dst), null, "graft never auto-promotes");
-  const promote = cli(dst, "promote", "toy-smoke", candidate.genId);
+  const promote = cli(dst, "promote", "toy-smoke", candidate.genId, "--confirm", candidate.genId);
   assert.equal(promote.status, 0, `promote the graft nomination: ${promote.stderr}`);
   assert.equal(incumbentSha(dst), candidate.data.commitSha);
 

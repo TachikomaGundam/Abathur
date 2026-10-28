@@ -20,7 +20,7 @@ import {
   readManifestFile,
   serializeManifest,
 } from "./kernel.js";
-import { acquireGenomeLock, acquireLock, LEDGER_KIND_PROMOTE, Ledger, ledgerPath } from "./ledger.js";
+import { acquireGenomeLock, acquireLock, LEDGER_KIND_PROMOTE, Ledger, ledgerLineHash, ledgerPath } from "./ledger.js";
 import { gitOpts, requireSha } from "./genome-paths.js";
 import type { WorktreeEnv, WorktreeOptions } from "./genome-paths.js";
 import { snapshotCommit } from "./snapshot.js";
@@ -33,6 +33,12 @@ export interface PromoteRequest {
   readonly entry: RegistryEntry;
   readonly configDir: string;
   readonly genId: string;
+  /** Batch-2B dual-sign: the human re-typed genId from the CLI --confirm flag.
+   *  Recorded verbatim on the promote row (second signature; first signature is
+   *  nomRowHash below binding the promote to the EXACT gate row, immune to a
+   *  forged duplicate nominated row). Core keeps it optional so adjudication
+   *  tooling and tests can exercise the pipeline; the CLI makes it mandatory. */
+  readonly humanConfirm?: string | undefined;
   readonly env?: WorktreeEnv | undefined;
 }
 
@@ -168,7 +174,14 @@ export async function promoteGeneration(req: PromoteRequest): Promise<PromoteOut
   ledger.append({
     kind: LEDGER_KIND_PROMOTE,
     genId: req.genId,
-    data: { actor: "cli", genId: req.genId, from: ff.fromSha, to: ff.toSha },
+    data: {
+      actor: "cli",
+      genId: req.genId,
+      from: ff.fromSha,
+      to: ff.toSha,
+      nomRowHash: ledgerLineHash(lastRow),
+      ...(req.humanConfirm === undefined ? {} : { humanConfirm: req.humanConfirm }),
+    },
   });
 
   return {

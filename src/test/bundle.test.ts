@@ -357,7 +357,7 @@ test("AC(happy): export promoted lineage → inspect OK, manifest exact, determi
   const rows = await evolve(f);
   const nominated = rows.find((r) => r.data.verdict === "nominated");
   assert.ok(nominated !== undefined && nominated.data.commitSha !== undefined);
-  assert.equal(cli(f, "promote", "toy-smoke", nominated.genId).status, 0);
+  assert.equal(cli(f, "promote", "toy-smoke", nominated.genId, "--confirm", nominated.genId).status, 0);
 
   const out = bundleDir(f);
   const run = cli(f, "bundle", "export", "toy-smoke", "--gen", nominated.genId, "--out", out);

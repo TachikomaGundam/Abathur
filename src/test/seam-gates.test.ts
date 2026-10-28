@@ -73,7 +73,7 @@ function assertNoLiteralOrEnoent(r: SpawnSyncReturns<string>): void {
 
 test("promote with env-literal repoPath: exported ⇒ blocked naming the RESOLVED repo path", async (t) => {
   const f = await fixture(t, "seam-gate-promote");
-  const r = cli(f, ["promote", f.label, "g-nonexistent"], { [LIT_VAR]: f.repo });
+  const r = cli(f, ["promote", f.label, "g-nonexistent", "--confirm", "g-nonexistent"], { [LIT_VAR]: f.repo });
   assert.equal(r.status, 1, `stdout: ${r.stdout}\nstderr: ${r.stderr}`);
   assertNoLiteralOrEnoent(r);
   assert.ok(
@@ -100,7 +100,7 @@ test("promote with env-literal repoPath: unset ⇒ clean exit 2 naming the varia
   const f = await fixture(t, "seam-gate-promote-unset");
   const env: Record<string, string | undefined> = {};
   env[LIT_VAR] = undefined;
-  const r = cli(f, ["promote", f.label, "g-nonexistent"], env);
+  const r = cli(f, ["promote", f.label, "g-nonexistent", "--confirm", "g-nonexistent"], env);
   assert.equal(r.status, 2, `stdout: ${r.stdout}\nstderr: ${r.stderr}`);
   assert.ok(r.stderr.includes(LIT_VAR), `exit-2 message must name the env var:\n${r.stderr}`);
   assert.ok(!r.stderr.includes("ENOENT"), `misleading ENOENT leaked into output:\n${r.stderr}`);

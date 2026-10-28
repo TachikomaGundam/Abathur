@@ -12,11 +12,17 @@ import { resolveUniqueEntry } from "./run.js";
 const USAGE = "usage: abathur promote <label> <genId>";
 
 async function runPromote(args: readonly string[]): Promise<ExitCode> {
-  const [label, genId] = args;
-  if (label === undefined || genId === undefined || args.length !== 2) cannotAnswer(`promote: expected exactly <label> <genId>`, USAGE);
+  // Batch-2B dual-sign: a promote needs TWO signatures — the engine gate row
+  // (verdict nominated, bound by nomRowHash inside the ledger row) and THIS
+  // human re-type: --confirm <genId> repeating the exact generation id.
+  if (args.length !== 4 || args[2] !== "--confirm") {
+    cannotAnswer(`promote: ${USAGE} --confirm <genId>  (human confirmation is the second signature; the flag must repeat the exact genId)`);
+  }
+  const [label, genId, , confirm] = args;
+  if (label === undefined || genId === undefined || confirm === undefined || confirm !== genId) cannotAnswer(`promote: expected exactly <label> <genId>`, USAGE);
   const configDir = resolveConfigDir();
   const entry = resolveUniqueEntry(configDir, label, "promote");
-  const outcome = await promoteGeneration({ entry, configDir, genId });
+  const outcome = await promoteGeneration({ entry, configDir, genId, humanConfirm: confirm });
   for (const line of outcome.lines) writeStdout(line);
   return EXIT_OK;
 }
