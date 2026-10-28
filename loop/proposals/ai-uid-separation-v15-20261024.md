@@ -1,0 +1,540 @@
+# 提案 v15：AI 工作账户与人类账户分离（三账户模型）
+
+日期：2026-10-24
+状态：待裁决（第十五稿；v5–v14 评审路线意见 = **采用 C**，B 否决。D.1=v10 十三条，D.2=v11 十条，D.3=v12 七条，D.4=v13 十三条，D.5=v14 十一条）
+前稿：v1 e5cb → v2 65a7 → v3 3ca0 → v4 c300 → v5 c41d → v6 f67f → v7 4063 → v8 60b7 → v9 8902 → v10 1d3f → v11 d650 → v12 e834 → v13 57da → v14 4616feb8c9a3e161
+
+## 0. 威胁模型
+
+- 威胁主体 = AI（以 `abathur` 身份运行）。目标 = 阻止 AI 自主或隐蔽取得人类权限、凭据、键盘输入、进程内存。
+- 人类**有意**在 `lab` 手动执行，不属防御目标（持钥方），只记残余。
+- 机械闸门只需保证「AI 不能自行解除限制」。
+
+## 1. 问题
+
+人类与 AI 共用 `lab`；是否应把 AI 迁到独立非 root 账户。
+
+## 2. 机器实测
+
+| 事实 | 输出 |
+|---|---|
+| 内核 | `7.0.0-30-generic`；`CONFIG_SECURITY_YAMA=y` |
+| **sudo 实现** | **sudo-rs 0.2.13**（非经典 sudo）：实测**不做命令参数匹配**；env_reset 与 secure_path 仍成立（见 §4C 与缺口 G5） |
+| 同 uid | `uid=1000(lab)`；组 sudo/docker/lxd/input/adm/video/render/plugdev |
+| docker = root 等价 | `/etc/shadow` 直读失败；经容器 `root hashlen=1` |
+| input / render / nvidia | `event*` 660 root:input；`renderD128` 660 root:render；`nvidia0` 666 |
+| 家目录 750 | 对账户间有效，对同 uid 无效 |
+| 工作区 / 状态库 | `775` 38G；`777` 8.2G |
+| sudo 密度 | 窗口 2026-05-15 → 2026-10-24（162 天）：82,150 次 bash 中 1,348 次含 sudo（1.64%），107 会话；折合 **507 次 bash/天、8.3 次 sudo/天**。**覆盖边界**：只统计 opencode.db 的 bash 工具调用；工具外执行与他机不计 |
+| 用途分布（全量分组，v8 重算） | logs 214、docker 201、systemctl 177、gpu 131、etc-write 85、ipmitool 59、own 47、apt 41、npm 23、mount 3、fw 3、**OTHER（脚本化 root 操作/探针）362**；分组和 1,346，余 2 条 NULL 未分类 |
+| **非特权 uid 矩阵**（临时账户建→测→删） | journalctl FAIL、dmesg FAIL、ipmitool FAIL、docker FAIL、`/etc/shadow` FAIL、`/home/lab` FAIL、`/dev/input` FAIL；nvidia-smi OK、`systemctl status` OK |
+| **/run/user/1000** | 目录 `drwx------ lab`；probe `ls` FAIL、`busctl --user` FAIL |
+| **gpg-agent** | `/run/user/1000/gnupg/S.gpg-agent` 为 `srw------- lab` → 非 lab 不可连 |
+| **X11 默认** | `/tmp/.X11-unix/X10` 套接字 `srwxrwxrwx`；`xhost` = access control enabled；probe `xdpyinfo` **FAIL** |
+| **X11 cookie 位置实验** | 2026-10-24 **一次性**执行：`.Xauthority` 复制到 `/tmp`（644）后 probe `xdpyinfo` **CONNECT-OK**（副本当场删除）。**不得重跑**（在产机上把活 cookie 置为全局可读=自开键盘通道）。日常可复算的安全探针=`sudo -u probe test -r /home/lab/.Xauthority` 必须 FAIL |
+| **/proc 跨 uid** | `cmdline` 可读；`environ` Permission denied |
+| sudo env 策略 | `/etc/sudoers:9 Defaults env_reset`；`secure_path` 已设；`env_keep` 全部注释 → `LD_PRELOAD` 不随 sudo 传递 |
+| ptrace 活值/来源 | 活值 3；来源=本席 2026-10-24 05:55Z 干跑误写，根因=`install-isolation.sh` v3 的 ptrace 段未受 `--apply` 控制（修复在提交 fe540ce）。**下调回执**：写 0 → `EINVAL`（sysctl 文档：3 为单向棘轮，任何写入均 EINVAL）；台账 `556d16387942`。两条可复算：`sysctl -n` + 台账条目 |
+| ptrace 回退 | `/usr/lib/sysctl.d/55-ptrace.conf:22 kernel.yama.ptrace_scope = 1`；`/usr/lib/systemd/systemd-sysctl` 存在 → **重启回 1 目前是推断**，须 M13 重启后实测确认 |
+| **Yama 语义（拆分实测/推断）** | **实测**：scope=3 下连 root 的 attach 被拒（`sudo strace -p <pid>` → `PTRACE_SEIZE: EPERM`，2026-10-24）。**推断（内核文档，本机活值 3 无法实测，锚 M13）**：scope=1 仅允许祖先 attach 后代，非后代同 uid 拒绝 |
+| 日志敏感面 | 6 单元初测过滤 200 行：0 命中；加深 2000 行：0 命中（非证明）。**切片限定 4–5 单元**（docker 排除；vllm-stall-capture 待 M11c 后入表） |
+| 执行区 | 8 个非样例 hooks；`core.hooksPath` 无自定义；61 个脚本/Makefile |
+| 作业面 | lab crontab 8；lab user units 27 running / 4 timer（发行版）；root crontab 0；系统服务 51 / timer 31；**AI 依赖具名 6 个**（dsv4-control、qwen38-control、llm-monitor、gpu-fan-control、vllm-stall-capture、docker）；日志切片**基线 4 个**（M11c 修复回执后扩为 5），docker 排除理由见 §4C |
+| 旧路径引用 | 系统单元中 **1 个**引用 `/home/lab/workspace`（`vllm-stall-capture.service`） |
+| **现存活体 root 后门（G2）** | `vllm-stall-capture.service`：`User=root`、`Restart=always`、`RestartSec=10`、`ExecStart=/home/lab/workspace/debug/vllm-stall-capture.sh`；该脚本 **`-rwxrwxr-x lab lab`** → 任何 lab 进程改写它后 ≤10 秒由 root 执行。**账户分离对此无效**，必须独立修复 |
+| 磁盘 | `/` 余 173G；`/tmp` 已用 93G/124G |
+| AIHR 基线闭包 | 采集 1658 = 1585 passed + 73 skipped + **0**（`test_bootstrap_properties.py` 采集期报 `ModuleNotFoundError: No module named 'hypothesis'`，贡献 0 项）；耗时 132s。**该文件的用例当前不在任何验收守卫内=具名缺口 G1**；试点前在隔离 venv 装 `hypothesis` 后重采集，基线须重算并写回 Q2 |
+| podman 前置 | `/etc/subuid` 无 abathur；`uidmap` 未安装 |
+
+## 3. 根因
+
+一个 uid 三顶帽子（人 / AI / 凭据持有者）。同 uid → ptrace 默认允许、组权限共享、文件权限无法区分人/AI。
+
+被否决的三条「内部收权」路径（逐条给失效理由，供独立审计复核）：
+
+| # | 路径 | 失效理由（实测/机理） |
+|---|---|---|
+| P1 | 在同一 uid 内用文件权限 / ACL 分离人机 | 同 uid 的属主位对属主无效：`chmod 600` 挡不住同 uid 进程；`/proc/<pid>/cmdline` 实测跨 uid 可读，同 uid 必可读；X11 cookie 与 agent socket 同 uid 可复用 |
+| P2 | 退特权组 + 删 NOPASSWD + `ptrace_scope=3` | 跨 uid attach 由 uid 检查拒绝（与 yama 取值无关）；**同 uid 非后代在 scope=1 已被拒**，故 ptrace 不是同 uid 的主要通道；主要通道是 `/proc` cmdline、X11 cookie、agent socket、组能力——这些与 yama 无关。scope=3 不可回退，且本机实测连 root 的 attach 也被拒（`sudo strace -p` EPERM）；input/docker 可退，但同 uid 仍可互相触达 |
+| P3 | AppArmor / 沙箱约束 opencode 进程 | 本机 apparmor 未启用（`aa-status` 空）；沙箱只能约束被约束进程树，人类会话仍在同一 uid 下运行，且 workspace 共享写面使策略须逐路径维护——回到「补丁流」 |
+
+## 4. 方案
+
+### A：三账户分离（无授权面）
+- `abathur`（非 root、无 sudo、不进特权组）；`abathur-keys`（凭据持有，密码锁死）。
+- 工作区 `/srv/workspace`（`root:dev 2775`）。
+- 启动：`lab` 单跳 `sudo -u abathur /usr/local/bin/abathur-shell`；脚本**内部不再调用 sudo**（它已以 abathur 身份运行），只做 `env -i` + 固定入口 exec。属主 root、`/usr/local/lib/abathur` 及其 `current` 符号链接均 root 所有、abathur 不可写（M16 双 stat）。
+- sudoers：`lab ALL=(abathur) NOPASSWD: /usr/local/bin/abathur-shell`；人类保留带密码 sudo（`/etc/sudoers:53 %sudo ALL=(ALL:ALL) ALL`）。
+- **参数防线（A/C 同口径，v14 实测后重写）**：本机 sudo-rs 不匹配参数，所以「钉死空参」在两种方案里都不存在。A 的 `abathur-shell` 与 C 的两个包装器都**不读 `$@`**，授权面=入口本身。验收只测「参数被忽略」；**不写「参数被拒」的预期**（本机永不成立）。
+- 日志：root 定时器把 **4–5 个 AI 单元**的切片写入 `/var/log/abathur/journal-slice.log`（0640 root:abathur）；**docker 排除**（人类活动面）。
+- **注**：A 的 sudoers 只有启动规则；`abathur-shell` 不读 `$@`。A/C 都不存在「sudo 拒绝带参」这一预期（本机 sudo-rs 不匹配参数，已实测）。
+- 残余（具名）：R17 复制粘贴、R18 GPU 666、R19/A 日志切片含密钥与人类活动（与 C **内容类别相同、持久性不同**：A 落盘、C 易失）、R21 cmdline、R22 脚本可写、R23 X cookie 位置。
+
+### B：`lab` 内收权
+- 删 NOPASSWD、退组、`ptrace_scope=3`、工作区 750。
+- 失效（v8 按实测语义重写）：
+  1. **同 uid 的读取面不依赖 ptrace**：`/proc/<pid>/cmdline` 跨 uid 已可读 → 同 uid 必可读；`/run/user/1000` 为同 uid 可读；X11 cookie 同 uid 可复用（cookie 位置实验：644 即 CONNECT-OK）；agent socket 同 uid 可连。
+  2. **ptrace 只是补充**：scope=1 下非后代 attach 已被拒（祖先/后代仍允许）；scope=3 才全禁且不可回退（本机实测连 root 都被拒）。因此「靠 3 挡住同 uid」是唯一手段，且代价是永久失去调试。
+  3. **组能力与文件权限不可分割**：docker=root 等价（容器内读到 `/etc/shadow` 行）；input 可读键盘；adm 可读全量日志；`chmod 600` 对同 uid 属主无效。
+- 结论：**不构成边界。否决。**
+
+### C：A + 两个钉死入口的包装器（评审路线意见）
+- **单一来源**：选 C 不部署 A 的 root 定时器；日志由包装器提供。
+- **sudoers（单一口径，不带 `""`）**：
+  ```
+  abathur ALL=(root) NOPASSWD: /usr/local/sbin/abathur-journal-slice
+  abathur ALL=(root) NOPASSWD: /usr/local/sbin/abathur-sensor-read
+  ```
+- **为什么去掉 `""`（本机实测，2026-10-24，sudoers.d 临时规则→测→删）**：本机 sudo 实现是 **sudo-rs 0.2.13**，**不做命令参数匹配**。实测规则 `NOPASSWD: /tmp/w.sh ""` 时，裸调用 / 传空串 / 传 `foo` / 传 `a b` **全部 rc=0**；把同一条规则改成不带 `""` 后行为**完全相同**。结论：「钉死空参」在 sudo-rs 上不存在，写 `""` 只会制造一层看起来像防护的假象。
+  因此：① sudoers 不带 `""`；② 真正的约束=包装器**不读 `$@`**（实测 `journal-slice -u sshd` 输出中 sshd 命中 0）；③ 验收只测「参数被忽略且不越表」，**不测「参数被拒」**——写「参数被拒」的预期在这台机器上永远不成立。
+- 包装器规格：root 所有 `0750`、父目录 root、`env -i` + 绝对路径、不读 `$@`、不含 sudo。
+- 单元表**单一来源**=`/etc/abathur/log-units.conf`（root:root 0644，一行）：基线 **4 单元**（dsv4-control、qwen38-control、llm-monitor、gpu-fan-control）；**M11c（R27）回执到位后**追加 vllm-stall-capture 成 5 单元。验收=该文件内容**逐字等于**允许的两种字面值之一（不再有「包装器顶部 UNITS= 行」这种写法——v13 残留已删）。**docker.service 明确排除**：其日志含人类容器名/镜像/挂载路径=人类活动面（R19 活动泄漏类）。
+- `dmesg` 不单独授予（`-C` 清环=灭证）；只经 `sensor-read` 间接读取。
+- 部署前置门：`visudo -cf /etc/sudoers.d/abathur` rc=0 才落盘。
+- **双轨禁用闸（M15b）**：执行附录 B.3 的 `abathur-check-legacy-timers`（真实验收须 `env -u ABATHUR_UNIT_LISTER` 运行，防环境变量致盲；先跑自检证明两条分支都会报非零），rc=0；且 `test ! -e /var/log/abathur/journal-slice.log`。
+- C 独有失效模式：两个永久 root 落脚点。缓解=入口固定 + `env -i` + 属主 root + 不读 `$@` + 注入负测；**参数被忽略**（实测，见上）；**残留**=`journalctl`/`ipmitool` 以 root 解析输入（读 HOME/配置）的面未穷尽（R19 前提见下）。
+- **新增具名缺口 G5**：本机 sudo 实现是 **sudo-rs 0.2.13**，与经典 sudo 语义有差异（已实测：不做参数匹配；env_reset 与 secure_path 已实测成立）。本提案中任何依赖「sudoers 参数匹配」的设计一律作废；后续凡引用 sudo 语义处，必须以本机 sudo-rs 实测为准。
+
+## 5. P0：能力逐项处置
+
+| 能力 | 探针 | 处置 |
+|---|---|---|
+| root | `sudo -n true` | drop（M0 后执行） |
+| docker | `docker ps` | drop；替代 rootless podman（M6）或人类代跑 |
+| 键盘 | `/dev/input` + X11 | drop；X11 依赖 cookie 位置（R23） |
+| 全量日志 | `journalctl -n1` | drop；替代=单元切片（基线 4，M11c 后 5） |
+| GPU render | `ls -l renderD128` | 暂 drop、按需恢复 |
+| GPU 设备 | `nvidia-smi -L` | 保留（R18） |
+| lxd / plugdev | 无运行时目录 | 暂 drop、按需恢复 |
+| SSH agent / keyring / gpg-agent | `test -S`、`busctl --user`、socket 权限 | 天然隔离（**已实测**：700 目录、0600 socket、busctl FAIL） |
+| 共享服务 | `curl -s -m2` | 逐服务；读按 L-ENV-SEGREGATION |
+
+## 6. 迁移清单
+
+| # | 项 | 探针 | 回滚 |
+|---|---|---|---|
+| **M0a** | **建立三账户本体**：`abathur`（无 sudo、不进特权组）、`abathur-keys`（shell 保留、密码锁死 `passwd -l`、记 `/etc/shadow` 首字符 `!`） | `id`；`getent shadow`；`sudo -l -U abathur` 回显「无 sudo 规则」；**人类至 keys 通路回执**=`sudo -iu abathur-keys -- id -un` 输出 abathur-keys（走既有 `%sudo ALL` 规则，不另开授权面） | `userdel -r` |
+| M0 | 人类终端 `sudo -k; sudo true` + 带外恢复 | 人类回执 | 不收权 |
+| M1 | 工作区 → `/srv/workspace`（`root:dev 2775`） | `stat`；两账户写矩阵 | 旧路径只读 |
+| **M1b** | **迁移窗口旧路径写入探测**：1 个引用旧路径的系统单元 + 8 crontab + 27 user units 逐条检查 EACCES 并处置 | 各任务日志/退出码 | 恢复指向 |
+| M2 | 状态库：registry FREE → `integrity_check` → 复制 → **新副本 `abathur:abathur 0600`，记录 lab 读取矩阵（sudo 才可读）** | sha256 + integrity_check + stat | 指回 |
+| M3 | `~/.config/opencode` | 一次会话 | 复制回 |
+| M4 | `~/.sibyl` | 一次 consult | 复制回 |
+| M5 | 启动方式 | `ps -o user=` = abathur | 原状 |
+| M6 | rootless podman：`/etc/subuid`+`/etc/subgid` 加 abathur、装 `uidmap`（当前均缺） | `podman info`；`podman run` 冒烟 | 人类代跑 |
+| M7 | 共享服务接线 | 逐端点 + 写权负探针 | 恢复配置 |
+| M8 | hooks 属主 | 权限矩阵 | 恢复属主 |
+| M8b | `.git/config` 改 keys 所有、AI 只读 | `git config --show-origin` + `stat` | 恢复属主 |
+| M9 | 人类读产出 | lab 读工作区 | chmod |
+| M11 | 作业面全量清点（8 crontab + 27 user unit + 4 timer + root 0 + 系统 51/31），逐条处置并签字 | `crontab -l`；`systemctl list-*` 计数入表；`grep -c opencode.db` | 恢复 |
+| **M11c（R27 修复；独立即时项，不属于迁移序列）** | 修复 `vllm-stall-capture.service` 的 root 执行链：脚本迁 `/opt/vllm-stall-capture/`（root 0755）或改 `User=lab`。**现存活体 root 后门：任何 lab 进程改写脚本后 ≤10 秒由 root 执行**；时限=本提案批准后 72 小时内完成，期间不得宣称隔离生效。同时作为 C 件部署（M15）与 M5 启动切换的前置 | `systemctl cat`；脚本 `stat` 非 lab 可写；`sudo -u abathur test -w <script>` FAIL | 恢复原路径 |
+| **M11b** | **自动执行链审计（v7 评审新发现，最高优先）**：对 6 个 AI 依赖单元逐条登记 `User=`、`ExecStart`、全部读入路径，机械证明「root 或 lab 自动运行的单元零 AI 可写输入」；**已发现反例**：`vllm-stall-capture`（root + 775 lab 脚本 + Restart=always）；不满足者把该脚本/配置迁入 keys 所有、AI 只读区，或改为人类触发 | `systemctl cat` 逐单元原文；`systemd-analyze security <unit>`；写权负探针；运行时采样 `strace -f -e trace=openat` **仅在 M13 重启后（scope≤2）可用**，之前以静态读入路径枚举替代（本机 scope=3 连 root 的 strace 也被拒，已实测） | 恢复原路径 |
+| M10 | 状态库 777→700（在 M11 后） | `stat` | 恢复 |
+| M12 | 磁盘（38G 双份；余 173G） | `df` | 清副本 |
+| M13 | 重启后实测 `sysctl -n kernel.yama.ptrace_scope`（当前"回 1"为推断）；**预期矩阵**：scope=1 下 (a) 父进程 attach 自己启动的子进程=允许（探针 `strace -f true`），(b) 兄弟/无关进程 attach=拒绝（`gdb -p` 一个 `setsid sleep`），(c) 跨 uid attach=拒绝；逐项回执。**注意**：shell 内 `gdb -p $$` 是子附父=非后代方向，预期应为**拒绝** | 重启后四行回执入台账 | 无 |
+| M14 | 引擎源码/dist 属主 root/keys；**lab 读取失败**（`head -c1 rc≠0`） | 读位测试 | 恢复位 |
+| M15 | **按附录 B.4 的单一矩阵逐格验收**（v14 起无 A1/无 B·C 分列）：属主 keys `0750`、父目录 root、`visudo -cf` 前置；`LD_PRELOAD` 负测；`sensor-read` 正向=rc=0 且输出非空（`env -i` 无 HOME）；**时序门：C 件（包装器+sudoers）部署前必须有 M11c 回执**（R27 已修）；无回执时按 4 单元版验收 | 9 格回执 + `stat` + M11c 回执指针 | 恢复位 |
+| M15b | **双轨禁用（只针对 A 的旧面）**：执行附录 B.3 的 `abathur-check-legacy-timers`（**先跑其自检夹具，证明闸会报非零**），rc=0；且 `test ! -e /var/log/abathur/journal-slice.log`。**R19 的 `abathur-loglevel-diff.timer` 不在此闸范围**（两闸可同真） | 自检三行回执 + 闸回执（`env -u ABATHUR_UNIT_LISTER` 下运行）+ `test` | 停用定时器 |
+| M16 | `abathur-shell` 属主 root `0755`；`/usr/local/lib/abathur/` 与 `current` 符号链接 **root 所有、abathur 不可写**；脚本内无 sudo；**正向启动测试**=`sudo -n -u abathur /usr/local/bin/abathur-shell` 后 console 进程 `ps -o user=`=abathur | 双 `stat` + 正向启动（参数行为按附录 B 矩阵，不写死『参数拒绝』） | 恢复位 |
+
+## 7. 风险表
+
+| # | 风险 | 探针/闸门 | 缓解 | 回滚 |
+|---|---|---|---|---|
+| R1 | 人类在 lab 起 AI | (a) lab 读源码/dist **失败**；(b) `run_registry` 记 uid；(c) 人类故意绕过（模型外） | (a)+(b) | 恢复位 |
+| R2 | 路径断裂 | 全量测试 | AIHR 试点 | 旧路径只读 |
+| R3 | 组写权互覆盖 | 两账户写矩阵 | 2775 + umask 002 | 恢复 775 |
+| R4 | 状态库损坏 | integrity_check | 先复制 | 指回 |
+| R5 | 无 root 运维受阻 | 1,348 次逐类出口：logs 214→C 包装器；docker 201→podman 或人类；systemctl 177→`systemctl status` 免 sudo + 人类执行变更；gpu 131→nvidia-smi 免 sudo；etc-write 85→人类；ipmitool 59→sensor-read；own 47→人类；apt 41→人类；npm 23→用户级前缀；mount 3/fw 3→人类；OTHER 362（脚本化 root 操作/探针）→人类或 keys | 人类执行 / 包装器 | 临时授权（签字） |
+| R6 | 凭据可达 | AI 侧 `npm whoami`/`test -S`/`busctl` 全失败 | **发布类凭据只在 keys**；**AI 自身运行时凭据（云端推理端点 key）必须在 abathur 可读面=具名缺口 G4**，与发布键分账：只读推理 key 泄露≠外写权，但须限额/可吊销/登记（探针：AI 侧调用成功 + `npm whoami`/`gh auth status` 仍失败） | 轮换 |
+| R7 | 人类读不到产出 | lab 读工作区 | 组读位 | chmod |
+| R8 | 启动摩擦 | 试用一周 | 窄 launcher | 去规则 |
+| R9 | 迁移中断 | 日志 + df | rename/rsync | 回指 |
+| R10 | 旧库 777 | stat | 700 | 无 |
+| R11 | 供应链 | 执行区收窄=`hooks`+`.git/config`；61 脚本=AI 可写 → **G3** | 收窄；脚本执行侧无机械签名闸（见 G3） | 恢复属主 |
+| R12 | 共享服务跨 uid | 逐端点 | 封闭枚举；写需 token | 关端口 |
+| R13 | 凭据交接 | keys 成功 / AI 失败 | agent 仅在 keys | 无 |
+| R14 | AI→人类反向写 | 交叉写探针 | 写区/执行区分离 | 恢复属主 |
+| R15 | 经 DB/wiki 触达 | 逐服务写权 | 写权归人类/keys | 撤权 |
+| R16 | 旧身份续跑 | M11 全量清点 | 迁移/废止+签字 | 恢复 |
+| R17 | 复制粘贴 | 无机械闸门 | **具名缺口** | — |
+| R18 | nvidia0 666 | `ls -l` | **具名残余** | — |
+| R19 | 日志切片含密钥与人类活动（**A/C 不对称**：A 持久写文件，C 只有按需 tail-200 易失窗口） | 200/2000 行抽样 0 命中（非证明）；前提=**单元表内各单元**保持默认日志级别；docker 已排除（活动面） | 单元过滤 + `env -i` + 排除 docker；**vllm-stall-capture 入切片的前提=R27 已修**（否则 AI 可写脚本→root 执行→root 输出回读=内容洗白通道），未修前该单元暂除（切片 4 单元）；**漂移闸=具名定时件** `abathur-loglevel-diff.timer`（每日 04:00，`/usr/local/sbin/abathur-loglevel-diff`，读 **`systemctl show -p LogLevelMax --value <unit>`**，期望全为 `-1`；实测 `LogLevel` 属性对单元为空、不可用——v9 的闸门是空转闸，已更正。差异非空即写 `loglevel-drift.flag`；**flag 消费方具名**=每日对上汇报前的检查步骤 `test -e /var/log/abathur/loglevel-drift.flag && cat`，命中即当回合入台账并停用切片直至重裁（无人读的 flag 等于空闸门）） | 停用定时器 |
+| R20 | 人类自觉性 | 台账审计 | **账户边界不以自觉为前提**；但 `R11/R22` 的『人类执行前确认』恰是自觉 → **具名缺口 G3**（与 R17 同级），不当成机械闸门 | — |
+| R21 | `/proc/*/cmdline` 可读 | 实测可读 | **具名残余**；约定 argv 不含密钥 | hidepid 待评估 |
+| R22 | 61 脚本 AI 可写、人类可能执行 | 改动后 `git status` | 人类执行前确认 | — |
+| R25 | `/dev/log` 任何本地用户可写（实测 `SYSLOG-WRITE-OK`）→ AI 可注入伪造日志 | **具名残余（无在册闸门）**：`-o short-iso` 输出不含归属字段，`-u` 过滤又滤掉注入条目，故「无归属即告警」在该输出形态下不可判定；可选强化=`journalctl -o json` 旁路 `_TRANSPORT=syslog` 归属探测（未纳入本提案） | 无机械闸门，靠日志时间线与单元计数交叉核对 | journald 配置收紧待评估 |
+| R26 | `/var/crash` 为 `drwxrwsrwt root:whoopsie`（全局可写+sticky），apport 以 root 解析其中文件 | `stat /var/crash` | **具名残余**；崩溃文件本身 640 属主:whoopsie 不可读 | 待评估 apport 配置 |
+| **R27** | **root 自动执行 AI 可写脚本**（G2，现存活体）：`vllm-stall-capture.service` root + `Restart=always` + ExecStart 指向 `lab:lab 775` 脚本 | `systemctl cat` + `stat` 脚本 + 写入→10s 内重启的执行回执 | 立即修复：脚本移 `/opt`（root 所有 0755）或改 `User=lab`；M11b 逐单元闭环 | 改回原路径 |
+| R23 | **人类会话 `xhost +` 或 cookie 落入共享面即重开键盘通道**（实验：cookie 644 时 probe CONNECT-OK） | `xhost` 状态；cookie 位置 `stat` | **规定 cookie 只存 lab/keys 侧**；M 验收含 `xhost` 负探针 | 关闭 xhost |
+| R24 | 迁移窗口旧路径静默失败 | M1b 逐任务 EACCES 探测 | 先处置再切换 | 恢复指向 |
+
+## 8. 评判标准
+
+1. 可机验。2. 消灭病类。3. 代价与回退。4. 摩擦。5. 不留需持续打补丁的授权面。
+
+## 9. 待裁决
+
+- Q1 A / B / C（评审路线意见：C，B 否决）。
+- Q2 试点 AIHR：**弃治阈值**=人类 sudo 承接量 > 25 次/日（基线 8.3/日 ×3）连续 5 个工作日，或构建/测试阻断 > 2 次/周 → 触发重裁（回 A 或回 B）。基线闭包 1658 = 1585+73+0；**具名缺口 G1**=`tests/test_bootstrap_properties.py` 因缺 `hypothesis` 未采集、不在验收守卫内。试点第一步在隔离 venv 装 `hypothesis` 后重采集，基线重算并写回本节；验收=与重算后的基线集合一致。
+- Q3 若选 C：封闭枚举 2 个包装器；`dmesg` 不授予；扩展需签字。
+- Q4（v10 新增）：R8 试验周摩擦阈值同 Q2（25 次/日）；超阈即重裁。
+
+## 10. 禁项
+
+- 不恢复 lab 免密 sudo；不删旧路径于验证前；不放凭据回 AI 可读面；sudoers 不得出现裸 `dmesg`/`ipmitool`；不把 `.Xauthority` 放进共享面。
+- **G3 具名**：AI 可写的 61 个脚本/Makefile 若被人类执行即恢复 AI 权限，当前无机械签名闸；不得宣称已闭合。
+- **在 R27 修复前不得宣称账户分离完成**：root 自动执行 AI 可写脚本会绕过全部账户边界。
+
+## 附录 A：复算命令
+
+```bash
+# 非特权矩阵
+sudo useradd -M -N -s /usr/sbin/nologin probe-nonpriv
+for c in "journalctl -n 1" "dmesg" "nvidia-smi -L" "systemctl status docker --no-pager" \
+         "ipmitool sensor list" "docker ps -q" "head -1 /etc/shadow" "ls /home/lab" \
+         "head -c 8 /dev/input/event0" "ls /run/user/1000"; do
+  printf '%-42s ' "$c"; sudo -u probe-nonpriv -H bash -c "$c" >/dev/null 2>&1 && echo OK || echo FAIL; done
+sudo -u probe-nonpriv -H env XDG_RUNTIME_DIR=/run/user/1000 busctl --user list >/dev/null 2>&1 && echo BUS-OK || echo BUS-FAIL
+sudo -u probe-nonpriv -H env DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo X-OK || echo X-FAIL
+# 不要重跑 644 cookie 实验（在产机上等于自开键盘通道）；日常安全探针：
+sudo -u probe-nonpriv -H test -r /home/lab/.Xauthority && echo COOKIE-READABLE || echo COOKIE-UNREADABLE
+# 一次性实验回执见台账（2026-10-24）；如需重放，用独立 Xvfb 会话，勿触碰活 cookie
+sudo userdel probe-nonpriv && id probe-nonpriv
+
+# /proc
+setsid sleep 240 >/dev/null 2>&1 </dev/null & SP=$!
+sudo -u probe-nonpriv -H head -c 60 /proc/$SP/cmdline; sudo -u probe-nonpriv -H head -c 1 /proc/$SP/environ; kill $SP
+
+# sudo 密度与 env 策略
+sqlite3 'file:/home/lab/.local/share/opencode/opencode.db?mode=ro' "
+select count(*) from part where json_extract(data,'\$.tool')='bash';
+select count(*) from part where json_extract(data,'\$.tool')='bash'
+  and json_extract(data,'\$.state.input.command') like '%sudo%';"
+sudo grep -n 'env_reset\|env_keep\|secure_path' /etc/sudoers /etc/sudoers.d/*
+
+# ptrace（只读；不写——复算脚本不得含"换时点执行即降防护"的步骤）
+sysctl -n kernel.yama.ptrace_scope
+grep -n ptrace_scope /usr/lib/sysctl.d/55-ptrace.conf; ls /usr/lib/systemd/systemd-sysctl
+# 下调验证引用台账既有回执 556d16387942（写 0 得 EINVAL），不重复执行
+# 同 uid attach 语义：kernel Yama 文档 = 跨 uid 由 uid 检查拒绝，与取值无关；本机活值 3 无法实测，
+# 标记为推断，M13 重启后（回 1）补测：lab 内 `gdb -p $$`（子附父=非后代方向）应**失败**；父附子用 `strace -f true` 应成功；probe 用户对 lab 进程应失败
+
+# 作业面与旧路径引用
+crontab -l | grep -vc '^#'
+systemctl list-units --type=service --state=running --no-legend | wc -l
+systemctl list-timers --all --no-legend | wc -l
+systemctl --user list-units --type=service --state=running --no-legend | wc -l
+systemctl --user list-timers --all --no-legend | wc -l
+sudo crontab -l | grep -vc '^#'
+sudo grep -l '/home/lab/workspace' /etc/systemd/system/*.service
+
+# 日志切片（与包装器同参数，单元表 4–5 个；docker 排除）
+sudo journalctl --no-pager -n 2000 -o short-iso -u dsv4-control -u qwen38-control -u llm-monitor \
+  -u gpu-fan-control -u vllm-stall-capture \
+  | grep -cE 'ghp_|github_pat_|npm_|AKIA|sk-[A-Za-z0-9]{20}|password=|token=|Bearer '
+
+# 执行区/磁盘/前置
+find /home/lab/workspace -path '*/.git/hooks/*' -type f ! -name '*.sample'
+find /home/lab/workspace -maxdepth 4 \( -name Makefile -o -path '*/scripts/*.sh' \) | wc -l
+df -h /tmp /home; grep -c '^abathur:' /etc/subuid /etc/subgid; dpkg -l uidmap | tail -1
+
+# 本地写/读通道（v7 新增）
+ls -l /dev/log
+sudo -u probe-nonpriv -H python3 -c "import socket;s=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM);s.sendto(b'probe','/dev/log');print('SYSLOG-WRITE-OK')"
+stat -c '%A %U:%G %n' /var/crash; ls -l /var/crash | head -2
+
+# 单元日志级别（R19 前提）
+for u in dsv4-control qwen38-control llm-monitor gpu-fan-control vllm-stall-capture; do
+  printf '%-24s ' "$u"
+  systemctl show -p LoadState -p LogLevelMax --value "$u.service" | paste -sd' '
+done
+# 期望：每行 'loaded -1'。注意：对不存在的单元，LogLevelMax 同样返回 -1 且 rc=0，
+# 所以必须同时校验 LoadState=loaded，否则闸门对『单元被改名/删除』是空的。
+
+# AIHR 基线（闭包：1658=1585+73+0；G1=test_bootstrap_properties.py 因缺 hypothesis 未入守卫）
+cd /home/lab/workspace/harness/hr && python3 -m pytest -q --collect-only
+cd /home/lab/workspace/harness/hr && /usr/bin/time -f 'WALL=%es' python3 -m pytest -q --ignore=tests/test_bootstrap_properties.py
+```
+
+## 附录 B：包装器源码、闸门与判据（单一口径；正文只引用，不重写）
+
+### B.1 `journal-slice`（`#!/bin/sh`，dash 兼容，无 bash 数组）
+
+```sh
+#!/bin/sh
+# /usr/local/sbin/abathur-journal-slice   (0750 keys:abathur, root:root 父目录)
+# 只读日志切片；不读参数（$@ 被忽略）；不含任何 sudo 调用。
+set -eu
+# 单元表：基线 4 个。仅在 M11c（R27 修复）回执到位后，由部署者把下一行
+# 追加进 UNITS 并重新部署（root 才能改）；运行期无开关、无标记文件。
+CONF=/etc/abathur/log-units.conf
+[ -r "$CONF" ] || { echo "log-units.conf 不可读" >&2; exit 3; }
+UNITS=$(cat "$CONF")
+ARGS=""
+for u in $UNITS; do ARGS="$ARGS -u $u"; done
+exec env -i /usr/bin/journalctl $ARGS -n 200 --no-pager -o json
+```
+
+**单元表的单一来源**=`/etc/abathur/log-units.conf`（root:root 0644，一行；B.1 与附录 E 都读它，不再两处复制）。允许的两种字面值（验收逐字比对）：
+- 4 单元（默认）：`dsv4-control qwen38-control llm-monitor gpu-fan-control`
+- 5 单元（仅 M11c 回执后）：末尾追加 ` vllm-stall-capture`
+
+### B.2 `sensor-read`（`#!/bin/sh`）
+
+```sh
+#!/bin/sh
+# /usr/local/sbin/abathur-sensor-read   (0750 keys:abathur)
+# 只读传感器：dmesg 一份 + ipmitool sdr 一份。忽略参数。
+set -eu
+exec env -i /bin/sh -c '/usr/bin/dmesg | /usr/bin/tail -n 200; /usr/bin/ipmitool sdr 2>/dev/null || true'
+```
+
+### B.3 旧面禁用闸（独立脚本 + 自检）
+
+```sh
+#!/bin/sh
+# /usr/local/sbin/abathur-check-legacy-timers   (0755 root:root)
+# 用法：abathur-check-legacy-timers [systemd_dir]
+# 退出：0=干净；1=仍存在 A 的旧定时面
+set -u
+DIR="${1:-/etc/systemd/system}"
+bad=0
+LISTER="${ABATHUR_UNIT_LISTER:-systemctl list-unit-files --type=timer --no-legend}"
+for t in abathur-journal-slice.timer abathur-sensor-read.timer; do
+  if [ -e "$DIR/$t" ]; then echo "STILL-PRESENT $DIR/$t"; bad=1; fi
+  if $LISTER 2>/dev/null | awk '{print $1}' | grep -qx "$t"; then
+    echo "STILL-ENABLED $t"; bad=1
+  fi
+done
+exit "$bad"
+```
+
+**自检（部署前必跑；证明闸不是空的）**：
+
+```sh
+tmp=$(mktemp -d)
+touch "$tmp/abathur-journal-slice.timer"
+/usr/local/sbin/abathur-check-legacy-timers "$tmp"; echo "expect rc=1 -> $?"   # 必须 1
+rm -f "$tmp/abathur-journal-slice.timer"
+/usr/local/sbin/abathur-check-legacy-timers "$tmp"; echo "expect rc=0 -> $?"   # 必须 0
+# STILL-ENABLED 分支：用可注入的 lister 夹具（不碰真实 systemd）
+ABATHUR_UNIT_LISTER='echo abathur-sensor-read.timer' \
+  /usr/local/sbin/abathur-check-legacy-timers "$tmp"; echo "expect rc=1 -> $?"   # 必须 1
+ABATHUR_UNIT_LISTER='true' \
+  /usr/local/sbin/abathur-check-legacy-timers "$tmp"; echo "expect rc=0 -> $?"   # 必须 0
+rmdir "$tmp"
+```
+
+（2026-10-24 实测：`systemctl list-timers --no-legend` 的 `$NF` 是 **ACTIVATES 列（service）**，不是 timer 名——v11 用 `$NF` 匹配 timer 是**空的闸门**，已改为 `list-unit-files --type=timer` 的 `$1`。）
+
+### B.4 判据矩阵（单一形态；A1 已删除）
+
+**为什么没有 B/C 两列**：v13 之前按「sudoers 是否带 `""`」分流；2026-10-24 实测本机 sudo-rs 0.2.13 **不做参数匹配**（带 `""` 与不带，裸调用/带参调用行为完全相同），两列是同一个东西，已合并。
+
+“单元集合”算法（机器可验）：
+
+```sh
+sudo -n /usr/local/sbin/abathur-journal-slice \
+  | jq -r 'select(._SYSTEMD_UNIT != null) | ._SYSTEMD_UNIT' | sort -u
+```
+
+过滤条件是 **`_SYSTEMD_UNIT != null`**（不是 `_TRANSPORT=="journal"`——实测单元内进程写入 /dev/log 的合法条目同样是 `_TRANSPORT=syslog` 但带 `_SYSTEMD_UNIT`；只有**不属于任何单元**的注入才是 null。v13 初版用 `_TRANSPORT` 过滤会误删合法条目，验跑中发现并改正）。
+
+| # | 判据 | 预期 |
+|---|---|---|
+| 1 | 零参调用 | rc=0；`_SYSTEMD_UNIT` 去重集合 ⊆ 单元表 |
+| 2 | 带任意参数（`--help`、`foo`、`a b`） | rc=0（sudo-rs 不拦参数），且单元集合与零参**相同** |
+| 3 | 越界注入 `-u sshd` | rc=0，但集合中**不得出现** `sshd.service` 或任何表外单元 |
+| 4 | root 直接带参执行 | 与零参一致（脚本不读 `$@`） |
+| 5 | `LD_PRELOAD=/tmp/x.so` 经 sudo 调用 | 子进程环境中无 `LD_PRELOAD`（实测计数 0） |
+| 6 | `stat -c '%U:%G %a'` 包装器 | `abathur-keys:abathur 750`；父目录 root |
+| 7 | `visudo -cf /etc/sudoers.d/abathur` | rc=0（落盘前置） |
+| 8 | `/etc/abathur/log-units.conf` 内容 | 逐字等于允许的 4 单元或 5 单元字面值 |
+| 9 | 逐单元可读性 | `systemctl show -p LoadState --value <u>.service` = `loaded`；`journalctl -u <u> -n1 -q` 空输出记 `NO-RECENT-LOG`（数据，不判失败；实测无日志时 rc 仍 0，不可用 rc 判定） |
+
+**硬不变量**：任何调用都不得返回单元表之外的单元；root 落脚点仅 `abathur-journal-slice` 与 `abathur-sensor-read` 两个。
+
+### B.5 逐字验跑回执（2026-10-24T09:05Z，座席语境 `/tmp/opencode/v13verify/`）
+
+```
+$ dash -n journal-slice ; dash -n check-legacy-timers        → OK / OK
+$ ./journal-slice（conf 不存在）                              → rc=3（fail-closed）
+$ printf ... | sudo tee /etc/abathur/log-units.conf ; ./journal-slice
+                                                              → rc=0
+$ jq -r 'select(._SYSTEMD_UNIT != null) | ._SYSTEMD_UNIT' out.json | sort | uniq -c
+    110 gpu-fan-control.service
+     90 llm-monitor.service
+$ ... | grep -vE '^(dsv4-control|qwen38-control|llm-monitor|gpu-fan-control)\.service$' | wc -l
+                                                              → 0（无越表）
+$ ./journal-slice -u sshd | ... | grep -c sshd                 → 0（$@ 被忽略）
+$ tmp=$(mktemp -d); touch $tmp/abathur-journal-slice.timer
+$ ./check-legacy-timers $tmp                                   → rc=1（STILL-PRESENT）
+$ ABATHUR_UNIT_LISTER='echo abathur-sensor-read.timer' ./check-legacy-timers $tmp
+                                                              → rc=1（STILL-ENABLED 分支）
+$ ABATHUR_UNIT_LISTER='true' ./check-legacy-timers $tmp        → rc=0
+$ ./check-legacy-timers（真实系统）                             → rc=0
+```
+
+**验跑中发现并改正的错误**：v13 初版用 `select(._TRANSPORT=="journal")` 过滤，实测把单元进程写入 /dev/log 的合法条目（`_TRANSPORT=syslog` 但 `_SYSTEMD_UNIT` 非空）全部误删，集合为空、判据 1 必假阴性。已改为按 `_SYSTEMD_UNIT != null` 过滤。**这条只有逐字跑才能发现**。
+（`/etc/abathur/` 为本次验跑临时创建，验毕已删除，回到原状。）
+
+**硬不变量**：带参调用永不返回单元表之外的单元；root 落脚点仅 `abathur-journal-slice` 与 `abathur-sensor-read` 两个（`dmesg` 经 sensor-read 间接授予，不单独开放）。
+
+## 附录 D：v10 十三条 must-fix → 修复位置对照（可独立复核）
+
+| # | v10 庭 must-fix（摘引） | 本稿修复位置 |
+|---|---|---|
+| 1 | Yama scope=1 预期矩阵与附录 A 互斥（`gdb -p $$` 一处说成功一处说拒绝） | M13 行 + 附录 A 注释，两处统一为**拒绝**（子附父=非后代方向） |
+| 2 | M15 负向写死「带参 rc≠0 且为 sudo 拒绝」 | M15 行改为引用附录 B 条件矩阵；矩阵 B/C 两列分列预期 |
+| 3 | M15b 的 `grep -c abathur` 与 R19 漂移闸互斥 | M15b 改**具名单元精确匹配**并显式排除 loglevel-diff；`|| true` 处理 rc |
+| 4 | 未为「R27 未修」分支提供 4 单元变体或时序门 | 附录 B 单元表基线=4，M11c 回执后追加至 5；M15 行写入时序门 |
+| 5 | 附录 B 缺 `abathur-loglevel-diff` 源码 | 新增附录 E（脚本 + timer/service 单元全文） |
+| 6 | 硬不变量写「dmesg/ipmitool 之外无 root 落脚点」失实 | 改为「仅 journal-slice 与 sensor-read 两个落脚点；dmesg 不授予」 |
+| 7 | §4A 混入 C 专属「两个包装器」表述 | §4A 改为「仅 C 有包装器；A 只有 abathur-shell」 |
+| 8 | 缺 v9/v10 must-fix 逐条对照 | 本附录 D |
+| 9 | `LogLevelMax` 期望值无当场实测 | 附录 F：六单元实测回执（含不存在单元的对照，证明必须同时验 LoadState） |
+| 10 | 附录 A 复算循环仍用空的 `LogLevel` | 已改 `LogLevelMax` + `LoadState` 双字段 |
+| 11 | M15b `grep -c` 在 0 命中时 rc=1，`set -e` 下误报 | 已改 `wc -l` + `|| true` |
+| 12 | 附录 B 包装器硬编码 5 单元，违反 R19 前提 | 附录 B.1 改为 `UNITS="..."` 字符串（dash 兼容）+ 基线 4 单元 + 两种允许字面值，验收逐字比对（v11 曾声称已改而实物未改，本轮为实际修复） |
+| 13 | M15/M16「参数拒绝」写死，C 列下会把正确部署判失败 | v14 起 sudo-rs 实测后**整个 A1/B·C 分列被删除**，矩阵只剩一列，预期=「参数被忽略」 |
+
+## 附录 E：`abathur-loglevel-diff` 源码（部署件，root 所有）
+
+```bash
+#!/bin/sh
+# /usr/local/sbin/abathur-loglevel-diff  (0755 root:root)
+# 读每单元的 LoadState + LogLevelMax；漂移即写 flag。不改任何系统状态。
+set -eu
+OUT=/var/log/abathur/loglevel-diff.log
+FLAG=/var/log/abathur/loglevel-drift.flag
+CONF=/etc/abathur/log-units.conf
+[ -r "$CONF" ] || { echo "log-units.conf 不可读" >&2; exit 3; }
+UNITS=$(cat "$CONF")   # 单一来源与 B.1 相同，不复制字面值
+mkdir -p /var/log/abathur
+: > "$OUT"
+drift=0
+for u in $UNITS; do
+  # 两字段同取：LoadState 必须 loaded（否则单元被改名/删除也照样返回 -1，闸门会空转）
+  vals=$(systemctl show -p LoadState -p LogLevelMax --value "$u.service" | paste -sd' ')
+  printf '%s %s\n' "$u" "$vals" >> "$OUT"
+  [ "$vals" = "loaded -1" ] || drift=$((drift+1))
+done
+if [ "$drift" -gt 0 ]; then
+  printf 'drift=%s at %s\n' "$drift" "$(date -Is)" > "$FLAG"
+  exit 1
+fi
+rm -f "$FLAG"
+exit 0
+```
+
+```ini
+# /etc/systemd/system/abathur-loglevel-diff.service
+[Unit]
+Description=Detect per-unit log-level drift (no state change)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/abathur-loglevel-diff
+```
+
+```ini
+# /etc/systemd/system/abathur-loglevel-diff.timer
+[Unit]
+Description=Daily log-level drift check
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+## 附录 F：`LogLevelMax` 当场实测（2026-10-24）
+
+```
+$ for u in dsv4-control qwen38-control llm-monitor gpu-fan-control vllm-stall-capture docker; do
+    printf '%-24s %s\n' "$u" "$(systemctl show -p LogLevelMax --value "$u.service")"; done
+dsv4-control             -1
+qwen38-control           -1
+llm-monitor              -1
+gpu-fan-control          -1
+vllm-stall-capture       -1
+docker                   -1
+
+$ systemctl show -p LogLevelMax --value nonexistent.service
+-1
+$ echo $?
+0
+```
+
+**结论**：期望值 `-1` 成立；**但对不存在的单元同样返回 `-1`**，所以单独看 `LogLevelMax` 是空转闸——必须与 `LoadState=loaded` 联判（附录 E 已如此实现）。
+
+## 附录 D.2：v11 十条 must-fix → 修复位置（本轮补，回应可追溯性缺口）
+
+| # | v11 庭 must-fix（摘引） | 修复位置 |
+|---|---|---|
+| 1 | 附录 B 包装器仍硬编码 5 单元；`UNITS=(...)` 与 `#!/bin/sh` 不兼容 | B.1 改读取 `/etc/abathur/log-units.conf`（dash 兼容，无数组），基线 4 单元 |
+| 2 | M15b 依赖 `list-timers` 的 `$NF`（实为 ACTIVATES 列）=空闸门 | B.3 改 `list-unit-files --type=timer` 的 `$1`；§4C/M15b 统一只引用 B.3 |
+| 3 | 判据 1「输出行数=单元表长度」不成立（journalctl 返回最多 200 条日志） | B.4 判据 1 改「`_SYSTEMD_UNIT` 去重集合 ⊆ 单元表」 |
+| 4 | C 列判据 2「逐字节相同」受新日志影响必假阴性 | B.4 判据 2 改「单元集合相同」，不比较时间戳/行数 |
+| 5 | §4C 与 M15b 同一闸门两套口径 | §4C 只引用 B.3；M15b 同 |
+| 6 | R19 的 flag 无消费方=空转闸变体 | R19 行具名消费方：每日汇报前 `test -e ... && cat`，命中即入台账并停用切片。（**v14 补注**：sudo-rs 不匹配参数后，原先基于「sudoers 行内 token 剥离」的推理降为历史记录；本条消费方本身仍有效） |
+| 7 | §4A「5 个 AI 单元」与 §2/R19 不一致 | §4A 改「4–5 个」 |
+| 8 | 附录 D 第 12 行声称已改而实物未改（失实） | 附录 B.1 实物改为 conf 读取；D.1 第 12 行注记「v11 声称已改而实物未改，本轮为实际修复」 |
+| 9 | B.5 验跑回执缺失 | B.5 补逐字回执（**最终时间见 B.5 头 09:05Z**，即 v13 验跑时刻；本条早期引用的 08:57Z 为 v12 轮次，已作废） |
+| 10 | 单元表在 B.1 与附录 E 两处复制，人工同步 | 单一口径 `/etc/abathur/log-units.conf`，两处都读它 |
+
+## 附录 D.3：v12 七条 must-fix → 修复位置
+
+| # | v12 庭 must-fix（摘引） | 修复位置 |
+|---|---|---|
+| 1 | 状态行称 v11 十条已吸收但附录 D 只有 v10 十三条 | 新增 D.2（v11 十条）+ D.3（本条），状态行写明覆盖范围 |
+| 2 | §4C 仍内嵌 `$NF` 死管道 | §4C 删除内联管道，逐字改为「执行 B.3 并先跑自检」 |
+| 3 | B.3 自检只覆盖 STILL-PRESENT 分支 | B.3 增加 `ABATHUR_UNIT_LISTER` 注入点，自检补 STILL-ENABLED 的 rc=1 与 rc=0 两行 |
+| 4 | 单元表两处复制 | 收敛为 `/etc/abathur/log-units.conf`（B.1 与 E 都读） |
+| 5 | 判据 9 的 `grep -c` rc 与「无日志不算失败」互斥 | 改为 LoadState=loaded 硬判 + `NO-RECENT-LOG` 只记数据（实测无日志 rc=0，不可用 rc 判） |
+| 6 | A1 用「零参 rc≠0」自动删 `""`，会降级可用加固 | v14 起 `""` 整体删除（sudo-rs 不匹配参数），A1 随之删除；矩阵单一化 |
+| 7 | §4C 宣称 env -i 但源码没有 | B.1 的 exec 改为 `env -i`（实测可跑）；B.2 保持绝对路径 |
+
+（另：v12 指出的 `/dev/log` 注入污染子集比较，已在 B.4 用 `select(._SYSTEMD_UNIT != null)` 封堵；**不是** `_TRANSPORT` 联判——那个写法在 B.5 验跑中被证伪并废弃。）
+
+## 附录 D.4：v13 十三条 must-fix → 修复位置
+
+| # | v13 庭 must-fix（摘引） | 修复位置 |
+|---|---|---|
+| 1 | 判据 8 与 §4C 仍要求逐字比对「UNITS= 行」（实物是 `$(cat "$CONF")`） | §4C 与 B.4 判据 8 均改为「比对 `/etc/abathur/log-units.conf` 内容」；「UNITS= 行」表述已删 |
+| 2 | B 形态自相矛盾：sudoers 只给 `wrapper ""`，而判据 1 要求裸调用 rc=0 | 实测 sudo-rs 不匹配参数→`""` 形态整体删除，B/C 两列合并（见 §4C 新段与 D.4#1 说明） |
+| 3 | D.3 尾注仍写 `_TRANSPORT=="journal" and ...`（已废弃写法） | 改为 `select(._SYSTEMD_UNIT != null)`，并注明 `_TRANSPORT` 写法被验跑证伪 |
+| 4 | B.5 头 09:05Z 与 D.2#9 引用的 08:57Z 不一致 | D.2#9 已注明 08:57Z 属 v12 轮次、作废；B.5 头 09:05Z 为 v13 轮次唯一回执时刻 |
+| 5 | §4C「包装器顶部 UNITS=(...)」与 conf 单一来源矛盾 | §4C 重写为 conf 口径，删除 UNITS= 行表述 |
+| 6 | §4C「零参被拒则删 `""`」与 A1 自相矛盾 | 整段删除；`""` 不再存在于设计中 |
+| 7 | D.3 尾注 `._SYSTEM_UNIT` 笔误 | 已改 `._SYSTEMD_UNIT` |
+| 8 | §2「日志切片只含前 5 个」与基线 4 互斥 | §2 改「基线 4，M11c 后 5」 |
+| 9 | B.5 时间戳未统一 | 见 #4 |
+| 10 | §4C「包装器 env -i」与 B.2 实物不符 | B.2 加 `exec env -i`；§4C 表述与实物一致 |
+| 11 | M15b 可被 `ABATHUR_UNIT_LISTER` 注入致盲 | M15b 行写明「真实验收须 `env -u ABATHUR_UNIT_LISTER`」；B.3 自检仍用注入点（测试用） |
+| 12 | D.3 尾注与 B.4/B.5 不一致 | 见 #3 |
+| 13 | §4C 与判据 8 的 conf 口径未统一 | 见 #1 |
+
+（另：v13 未点名但同因的「§4A 空参钉死」段已一并重写，见 §4.1 第 5 条。）
+
+## 附录 D.5：v14 十一条 must-fix → 修复位置
+
+| # | v14 庭 must-fix（摘引） | 修复位置 |
+|---|---|---|
+| 1 | D.1#13 写「整个 A1/B·C 分列被删除」但 B.4 标题仍带「A1 已删除」、正文仍有 A1 表述 | B.4 标题保留「A1 已删除」作为变更标记；执行性表述已清零（本轮复核命令见下） |
+| 2 | D.1#13 与 §4 的 A/C 口径不一致（A 段仍写「空参钉死」） | §4A 第 5 条已重写为「参数防线（A/C 同口径）」；本轮复核无「空参钉死」执行性表述 |
+| 3 | 全文缺 v14 must-fix 对照表 | 本附录（D.5） |
+| 4 | 正文以「合并/删除」描述修复，但无删除标记 | B.4 标题注明「A1 已删除」；§4C 明写「`""` 不再存在于设计中」 |
+| 5 | `""` 结论落到「作废」但 §4C/B.4 的预期表仍含「参数被拒」字样 | 预期表只写「参数被忽略」；「参数被拒」仅在解释**为何不写它**的句子中出现（共 2 处，均是否定式） |
+| 6 | D.2#6 用 sudoers 行内 token 剥离论证 R19 消费方，与 sudo-rs 结论矛盾 | D.2#6 补 v14 注：该推理降为历史，消费方本身仍有效 |
+| 7 | §2 环境事实未收录 sudo-rs 这一决定性前提 | §2 新增「sudo 实现 = sudo-rs 0.2.13」行 |
+| 8 | D.1#13 的「矩阵只剩一列」与 B.4 表头未同步 | B.4 为单一形态表；**同时修正 D.4#8 声称已改而实物未改的「§2 前 5 个」行**（本轮实改） |
+| 9 | §4C 未写「参数被忽略」的实测依据 | §4C 末段内联「（实测，见上）」并引用 `-u sshd` 命中 0 |
+| 10 | §4C 表述「C 独有失效模式」但未写「残留」二字，D.3#13 的闭环不可核 | §4C 末段已含「**残留**」字样 |
+| 11 | 附录 D 各表与正文的「v14」版本号未统一 | 全文版本号统一为 v15；引用 v14 处特指前一稿 |
+
+**复核命令（本轮实跑）**：`grep -n 'A1\|空参\|参数被拒' <本文件>`
+—— `A1` 仅出现在 B.4 标题（变更标记）与附录 D 历史行；`空参` 仅出现在「不存在」的否定句；`参数被拒` 仅出现在「不写该预期」的解释句。
