@@ -7,7 +7,15 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { canonicalJson } from "../core/ids.js";
-import { LEDGER_KIND_GENERATION_COMPLETE, Ledger, LedgerError, ledgerPath } from "../core/ledger.js";
+import {
+  LEDGER_GENESIS_HASH,
+  LEDGER_KIND_GENERATION_COMPLETE,
+  Ledger,
+  LedgerError,
+  ledgerLineHash,
+  ledgerPath,
+  type LedgerRecord,
+} from "../core/ledger.js";
 import { FIXED_CLOCK, freshPair, rawLines } from "./testutil.js";
 
 function seedLedgerFile(genome: string, text: string): void {
@@ -43,6 +51,7 @@ test("append stamps ts from the injected clock and fails closed on invalid recor
     ts: "2026-09-09T12:00:00.000Z",
     kind: "k",
     genId: "g-1",
+    prevHash: LEDGER_GENESIS_HASH,
     data: { z: [1, { b: 2, a: 3 }] },
   });
   assert.throws(() => ledger.append({ kind: "" }), Error);
@@ -128,4 +137,58 @@ test("lastCompleteGeneration: null when empty or no matching kind, latest genera
   assert.equal(ledger.lastCompleteGeneration(), "g-b");
   // A fresh instance sees the same state — resume reads the file, not memory.
   assert.equal(Ledger.open(genome, FIXED_CLOCK).lastCompleteGeneration(), "g-b");
+});
+
+// -------------------------------- hash chain (owner batch-2A ticket 2026-10-23)
+
+test("chain: first append anchors genesis, later appends anchor the previous record", async (t) => {
+  const { genome } = await freshPair(t);
+  const ledger = Ledger.open(genome, FIXED_CLOCK);
+  const r1 = ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 1 } });
+  const r2 = ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 2 } });
+  assert.equal(r1.prevHash, LEDGER_GENESIS_HASH);
+  assert.equal(r2.prevHash, ledgerLineHash(r1));
+  assert.equal(Ledger.open(genome, FIXED_CLOCK).readAll().length, 2);
+});
+
+test("chain: rewriting a middle line breaks the next line's anchor on reopen", async (t) => {
+  const { genome } = await freshPair(t);
+  const ledger = Ledger.open(genome, FIXED_CLOCK);
+  ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 1 } });
+  ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 2 } });
+  ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 3 } });
+  const file = ledgerPath(genome);
+  const tampered = rawLines(file).map((line, i) => {
+    if (i !== 1) return line;
+    const rec = JSON.parse(line) as LedgerRecord;
+    rec.data = { n: 99 };
+    return canonicalJson(rec);
+  });
+  writeFileSync(file, `${tampered.join("\n")}\n`, "utf8");
+  assert.throws(
+    () => Ledger.open(genome, FIXED_CLOCK).readAll(),
+    (err: unknown) => err instanceof LedgerError && /chain broken/.test((err as Error).message),
+  );
+});
+
+test("chain: legacy unchained prefix stays readable; new appends chain onto its tail", async (t) => {
+  const { genome } = await freshPair(t);
+  const legacyText = canonicalJson({ v: 1, ts: "2026-01-01T00:00:00.000Z", kind: LEDGER_KIND_GENERATION_COMPLETE, data: { legacy: true } });
+  seedLedgerFile(genome, `${legacyText}\n`);
+  const ledger = Ledger.open(genome, FIXED_CLOCK);
+  const rec = ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 2 } });
+  assert.equal(rec.prevHash, ledgerLineHash(JSON.parse(legacyText) as LedgerRecord));
+  assert.equal(Ledger.open(genome, FIXED_CLOCK).readAll().length, 2);
+});
+
+test("chain: an unchained record inside the chained region is rejected", async (t) => {
+  const { genome } = await freshPair(t);
+  const ledger = Ledger.open(genome, FIXED_CLOCK);
+  ledger.append({ kind: LEDGER_KIND_GENERATION_COMPLETE, data: { n: 1 } });
+  const bogus = canonicalJson({ v: 1, ts: "2026-01-01T00:00:00.000Z", kind: "promote", data: {} });
+  writeFileSync(ledgerPath(genome), `${readFileSync(ledgerPath(genome), "utf8")}${bogus}\n`, "utf8");
+  assert.throws(
+    () => Ledger.open(genome, FIXED_CLOCK).readAll(),
+    (err: unknown) => err instanceof LedgerError && /drops the hash chain/.test((err as Error).message),
+  );
 });

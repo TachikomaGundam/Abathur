@@ -7,6 +7,7 @@
 // mid-file corruption is an integrity error, never a silent skip.
 
 import { closeSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync, writeSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { z } from "zod";
 
@@ -27,6 +28,7 @@ export const ledgerRecordSchema = z.strictObject({
   kind: z.string().min(1),
   genId: z.string().min(1).optional(),
   runId: z.string().min(1).optional(),
+  prevHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   data: z.record(z.string(), z.unknown()),
 });
 export type LedgerRecord = z.infer<typeof ledgerRecordSchema>;
@@ -59,6 +61,20 @@ export function ledgerPath(genomeRepo: string): string {
   // ledger seam so no caller can ever read an empty ledger under a literal
   // path and report a misleading downstream error again.
   return path.join(effectiveRepoPath(genomeRepo), ".state", "abathur", "ledger.jsonl");
+}
+
+/** Hash-chain (owner batch-2A ticket 2026-10-23): every NEW record carries
+ * prevHash = sha256 of the previous record's canonical serialization (genesis
+ * anchor for the first chained line). Read-time validation proves no line was
+ * rewritten, inserted, or deleted inside the chained region; pre-chain legacy
+ * lines are accepted ONLY as a contiguous prefix. Tail truncation is NOT
+ * detectable from inside the file — that anchor lands with promote-time dual
+ * signing (batch-2B). Single-writer discipline per ledger holds via the
+ * genome lock; concurrent appends on one ledger are out of contract. */
+export const LEDGER_GENESIS_HASH = "0".repeat(64);
+
+export function ledgerLineHash(record: LedgerRecord): string {
+  return createHash("sha256").update(canonicalJson(record), "utf8").digest("hex");
 }
 
 function buildRecord(input: LedgerRecordInput, now: () => Date): LedgerRecord {
@@ -107,8 +123,23 @@ function validateCompleteLines(prefix: Buffer, filePath: string): LedgerRecord[]
   const lines = prefix.toString("utf8").split("\n");
   if (lines.at(-1) === "") lines.pop();
   const records: LedgerRecord[] = [];
+  let prev: LedgerRecord | undefined;
+  let chained = false;
   lines.forEach((line, index) => {
-    records.push(parseLine(line, filePath, index + 1));
+    const rec = parseLine(line, filePath, index + 1);
+    if (rec.prevHash === undefined) {
+      if (chained) {
+        throw new LedgerError("integrity", `${filePath}: line ${index + 1} drops the hash chain mid-file (legacy-shaped record inside the chained region)`);
+      }
+    } else {
+      const expect = prev === undefined ? LEDGER_GENESIS_HASH : ledgerLineHash(prev);
+      if (rec.prevHash !== expect) {
+        throw new LedgerError("integrity", `${filePath}: line ${index + 1} prevHash does not anchor the previous record (chain broken: rewrite, insertion, or deletion)`);
+      }
+      chained = true;
+    }
+    prev = rec;
+    records.push(rec);
   });
   return records;
 }
@@ -158,7 +189,12 @@ export class Ledger {
   }
 
   append(input: LedgerRecordInput): LedgerRecord {
-    const record = buildRecord(input, this.now);
+    const base = buildRecord(input, this.now);
+    const prev = loadValidated(this.filePath, this.now).at(-1);
+    const record = ledgerRecordSchema.parse({
+      ...base,
+      prevHash: prev === undefined ? LEDGER_GENESIS_HASH : ledgerLineHash(prev),
+    });
     appendSerialized(this.filePath, record);
     return record;
   }
