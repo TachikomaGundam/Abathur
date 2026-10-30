@@ -20,6 +20,9 @@ const STAGES = {
   seed: "loop/seed_item.py",
   candidate: "loop/run_candidate.py",
   judge: "loop/run_judge.py",
+  harvest: "loop/harvest_gen.py",
+  // Fixed-argv ledger append; target paths are constants inside loop/ledger_job.py.
+  ledger: "loop/ledger_job.py",
 }
 const GEN_RE = /^G[0-9]+[A-Z]*$/
 const ITEM_RE = /^SR4-[0-9]+$/
