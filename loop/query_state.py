@@ -13,6 +13,7 @@ from pathlib import Path
 LOOP_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(LOOP_DIR))
 
+import bank  # noqa: E402
 import draw  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
@@ -22,6 +23,9 @@ ARCH = REPO / ".omo/evidence/loop-archive"
 def main() -> int:
     print(f"passes_to_clear={draw.PASSES_TO_CLEAR}")
     print(f"regression_duty={draw.regression_duty()}")
+
+    noncanary = sorted(i for i, it in bank.ITEMS.items() if not it.get("canary"))
+    print(f"non_canary_items={noncanary}")
 
     for cls in sorted(set(draw.CLASS_OF.values())):
         members = sorted(i for i, c in draw.CLASS_OF.items() if c == cls)
