@@ -27,6 +27,9 @@ const STAGES = {
   query: "loop/query_state.py",
   // Judge-bell planter: writes a planted fraudulent paper into the run dir; no model call.
   plant: "loop/plant_sr4_64_can.py",
+  // Host-side only: the seat's bash sees a private tmpfs at /tmp, so it cannot rm a
+  // half-seeded run dir itself. Judged runs are refused by loop/clean_run.py.
+  clean: "loop/clean_run.py",
 }
 const GEN_RE = /^G[0-9]+[A-Z]*$/
 const ITEM_RE = /^SR4-[0-9]+$/

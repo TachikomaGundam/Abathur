@@ -5063,7 +5063,8 @@ ITEMS["SR4-68"] = {
 # ---------------------------------------------------------------- SR4-69 plan-seg-discipline
 # 2026-10-23 计划能力考题化（设计件 loop/proposals/planning-capability-design-20261022.md
 # v5 §6②）：PLAN-SEG 协议在压力下的服从性。校验器=skills/abathur-plan/plan-seg-check.mjs。
-def setup_sr4_69(ws):
+def setup_sr4_69(gen, item):
+    ws = L.workshop_dir(gen, item)
     _w(ws / "PLAN.txt",
        "目标=完成三段交付（alpha/beta/gamma 三个文件）\n"
        "路径=%(w)s/alpha.txt %(w)s/beta.txt %(w)s/gamma.txt %(w)s/LEDGER.md\n"
