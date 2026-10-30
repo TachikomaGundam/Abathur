@@ -43,7 +43,13 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
   for (const d of [queue, done, rejected]) { try { fs.mkdirSync(d, { recursive: true }) } catch {} }
 
   let running = null          // 当前作业名
-  let lastSessionID = undefined
+  const sidFile = path.join(queue, "last-session.txt")
+  let lastSessionID = (() => { try { return fs.readFileSync(sidFile, "utf8").trim() || undefined } catch { return undefined } })()
+  const remember = (sid) => {
+    if (!sid || sid === lastSessionID) return
+    lastSessionID = sid
+    try { fs.writeFileSync(sidFile, sid) } catch {}
+  }
   let disposed = false
 
   const receipt = async (text) => {
@@ -124,8 +130,8 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
   timer.unref?.()
 
   return {
-    "chat.message": async (input) => { if (input?.sessionID) lastSessionID = input.sessionID },
-    "tool.execute.before": async (input) => { if (input?.sessionID) lastSessionID = input.sessionID },
+    "chat.message": async (input) => remember(input?.sessionID),
+    "tool.execute.before": async (input) => remember(input?.sessionID),
     dispose: async () => { disposed = true; clearInterval(timer) },
   }
 }
