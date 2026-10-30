@@ -1,0 +1,55 @@
+#!/bin/sh
+# abathur 启动器（可移植版）：钉定 opencode 字节、采集禁面 inode、拒绝工作区硬链，然后 exec opencode。
+# 运行身份=调用者（非 root）。安装位置 /usr/local/lib/abathur/launcher，入口 /usr/local/bin/abathur-ai
+set -u
+XROOT=${ABATHUR_PREFIX:-/usr/local/lib/abathur}
+DENY=${ABATHUR_DENY:-${XDG_RUNTIME_DIR:-/tmp}/abathur-deny-inodes}
+WORKSPACE=${WORKSPACE:-${ABATHUR_WORKSPACE:-$HOME/workspace}}
+OPENCODE=${ABATHUR_OPENCODE:-$(command -v opencode 2>/dev/null || true)}
+if [ -z "$OPENCODE" ]; then
+  for c in "$HOME/.npm-global/bin/opencode" /usr/local/bin/opencode /usr/bin/opencode; do [ -x "$c" ] && { OPENCODE=$c; break; }; done
+fi
+[ -n "$OPENCODE" ] || { echo "abathur: 找不到 opencode（可用 ABATHUR_OPENCODE 指定）" >&2; exit 2; }
+CWD=${ABATHUR_CWD:-}
+if [ -z "$CWD" ] || [ ! -d "$CWD" ]; then
+  CWD=$(mktemp -d "${TMPDIR:-/tmp}/.abathur-cwd.XXXXXX") || { echo "abathur: 无法创建会话工作目录" >&2; exit 2; }
+  CLEAN_CWD=1
+fi
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/.abathur-work.XXXXXX") || { echo "abathur: 无法创建临时工作区" >&2; exit 2; }
+trap 'rm -rf "$WORK"; [ "${CLEAN_CWD:-0}" = 1 ] && rm -rf "$CWD"' EXIT INT TERM
+: > "$DENY" || { echo "abathur: deny-inodes 不可写（$DENY），拒绝启动" >&2; exit 2; }
+ABSENT=0; COLLECTED=0
+for p in "$HOME/.ssh" "$HOME/.gnupg" "$HOME/.npmrc" "$HOME/.config/gh" "$HOME/.docker" "$HOME/.aws" \
+         "$HOME/.local/share/keyrings" "$HOME/.local/share/opencode/auth.json" "$HOME/.Xauthority"; do
+  if [ ! -e "$p" ]; then ABSENT=$((ABSENT+1)); continue; fi
+  if ! find "$p" -type f -print0 > "$WORK/find"; then
+    echo "abathur: 采集失败 $p，拒绝启动" >&2; exit 2
+  fi
+  if ! xargs -0 -r stat -c '%d:%i' < "$WORK/find" >> "$DENY"; then
+    echo "abathur: stat 失败 $p，拒绝启动" >&2; exit 2
+  fi
+  COLLECTED=$((COLLECTED+1))
+done
+if [ -d "$WORKSPACE" ]; then
+  find "$WORKSPACE" -xdev -type f -links +1 -print0 > "$WORK/hl" || { echo "abathur: 硬链扫描失败，拒绝启动" >&2; exit 2; }
+  if [ -s "$WORK/hl" ]; then
+    xargs -0 -r stat -c '%d:%i %n' < "$WORK/hl" > "$WORK/hl2"
+    if awk 'NR==FNR{d[$0]=1;next} ($1 in d){print}' "$DENY" "$WORK/hl2" > "$WORK/hit" && [ -s "$WORK/hit" ]; then
+      echo "abathur: 工作区存在指向禁面的硬链，拒绝启动：" >&2; cat "$WORK/hit" >&2; exit 2
+    fi
+  fi
+fi
+rm -rf "$WORK"
+echo "sandbox=on cwd=$CWD deny_inodes=$(wc -l < "$DENY") absent=$ABSENT collected=$COLLECTED" >&2
+if [ -z "${ABATHUR_OPENCODE:-}" ] && [ -r /etc/abathur/opencode.sha256 ]; then
+  REAL=$(readlink -f "$OPENCODE") || { echo "abathur: opencode 不可解析" >&2; exit 2; }
+  WANT=$(cat /etc/abathur/opencode.sha256)
+  GOT=$(sha256sum "$REAL" | cut -d" " -f1)
+  [ "$WANT" = "$GOT" ] || { echo "abathur: opencode 字节与出厂钉定不符，拒绝启动" >&2; exit 2; }
+fi
+cd "$CWD" || exit 2
+[ -d "$XROOT/xdg/opencode" ] && export XDG_CONFIG_HOME="$XROOT/xdg"
+export XDG_CACHE_HOME=${XDG_CACHE_HOME:-${TMPDIR:-/tmp}/abathur-cache}
+[ -f "$XROOT/xdg/opencode/opencode.jsonc" ] && export OPENCODE_CONFIG="$XROOT/xdg/opencode/opencode.jsonc"
+export OPENCODE_DISABLE_PROJECT_CONFIG=1
+exec "$OPENCODE" "$@"
