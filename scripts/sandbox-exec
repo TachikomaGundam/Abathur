@@ -34,6 +34,9 @@ set -- --die-with-parent --new-session --unshare-all --unshare-user --disable-us
   --dir /tmp/opencode --bind /tmp/opencode /tmp/opencode \
   --bind "$SHMD" /dev/shm \
   --ro-bind "$GITCONFIG" "$GITCONFIG"
+# 工具链只读挂载：uv 管理的解释器（venv 的 python 符号链接指向这里）；不含秘密
+TOOLCHAIN=${TOOLCHAIN:-"$SBX_HOME/.local/share/uv"}
+for d in $TOOLCHAIN; do [ -e "$d" ] && set -- "$@" --ro-bind "$d" "$d"; done
 [ "$NPM_CACHE" = on ] && set -- "$@" --ro-bind "$SBX_HOME/.npm/_cacache" "$SBX_HOME/.npm/_cacache"
 for d in $DEVS; do [ -e "$d" ] && set -- "$@" --dev-bind "$d" "$d"; done
 TARGET=$PWD
