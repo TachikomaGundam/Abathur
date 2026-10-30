@@ -23,6 +23,10 @@ const STAGES = {
   harvest: "loop/harvest_gen.py",
   // Fixed-argv ledger append; target paths are constants inside loop/ledger_job.py.
   ledger: "loop/ledger_job.py",
+  // Read-only reporter: regression duty + class map + recent bundle summaries.
+  query: "loop/query_state.py",
+  // Judge-bell planter: writes a planted fraudulent paper into the run dir; no model call.
+  plant: "loop/plant_sr4_64_can.py",
 }
 const GEN_RE = /^G[0-9]+[A-Z]*$/
 const ITEM_RE = /^SR4-[0-9]+$/
