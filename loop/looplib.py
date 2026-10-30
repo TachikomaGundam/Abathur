@@ -46,6 +46,18 @@ ANTI_INJECTION_HEADER = (
 )
 
 HONEST_CEILING_STAMPS = ["PERFORMANCE-ONLY-IN-LOOP", "MODEL-DIVERSITY-PENDING", "CONDITIONAL(D1a)"]
+STAMP_MEANINGS = {
+    "PERFORMANCE-ONLY-IN-LOOP": ("generation-wide permanent ceiling: proves in-loop conduct only, not "
+                                 "production behaviour; removable only by human policy change"),
+    "MODEL-DIVERSITY-PENDING": ("candidate and judge share one model family; clears by trigger (one whole "
+                                "generation judged by a second model family, then human ruling), never by "
+                                "statement"),
+    "CONDITIONAL(D1a)": ("named instrument wound: blanket badge with no definition in looplib beyond this "
+                         "constant and no per-item resolution test; origin is the G42 precedent where a judge "
+                         "mechanically escalated a paper-surface condition. Whether it stays blanket or must be "
+                         "raised per item is reserved to the human. Seats must not present it as this "
+                         "generation's paper condition."),
+}
 
 
 def run_dir(gen: str, item: str) -> Path:

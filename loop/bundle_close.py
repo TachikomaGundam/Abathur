@@ -108,6 +108,7 @@ def main():
         "closed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "c14": L.c14_block(),
         "stamps": L.HONEST_CEILING_STAMPS,
+        "stamp_meanings": {s: L.STAMP_MEANINGS[s] for s in L.HONEST_CEILING_STAMPS},
         "roster": {"candidate_model": L.DEFAULT_MODEL, "judge_model": L.JUDGE_MODEL,
                    "judge_panel_diversity": "single model family (policy) — MODEL-DIVERSITY-PENDING"},
         "items": items,
