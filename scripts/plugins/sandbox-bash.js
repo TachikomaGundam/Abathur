@@ -121,11 +121,17 @@ export const SandboxBash = async ({ directory }) => {
   }
 
   log(`BOOT bwrap=${bwrap} net=${net} dir=${directory}`);
+  const COPY_MARKERS = ["--die-with-parent", "--unshare-all", "--unshare-user", "/usr/bin/bwrap ", "bwrap --"];
   return {
     "tool.execute.before": async (input, output) => {
       if (input?.tool !== "bash") return;
       const args = output?.args;
       if (!args || typeof args.command !== "string") return;
+      const marker = COPY_MARKERS.find((m) => args.command.includes(m));
+      if (marker) {
+        log(`REFUSE copied-prefix marker=${marker}`);
+        throw new Error("SANDBOX-PREFIX-COPIED: this command already carries a sandbox prefix (usually pasted back from earlier output). Send the bare command only — wrapping is the plugin's job.");
+      }
       args.command = wrapCommand({ bwrap, workspace: directory, cmd: args.command, net });
     },
   };

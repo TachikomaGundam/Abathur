@@ -20,6 +20,19 @@ ARCH = ROOT / ".omo/evidence/loop-archive"
 LEDGER = ROOT / ".omo/evidence/INTENT-LEDGER.md"
 
 
+def approval_stamp(text: str, gen: str) -> str:
+    tokens = {gen, gen.split("R")[0]}
+    pattern = "|".join(rf"\b{re.escape(t)}\b" for t in sorted(tokens, key=len, reverse=True))
+    lines = [ln.strip() for ln in text.splitlines()]
+    stamped = [ln for ln in lines if ln.startswith("APPROVED") and re.search(pattern, ln)]
+    mentions = [ln for ln in lines if "APPROVED" in ln]
+    if len(stamped) == 1:
+        return stamped[0][:160]
+    if len(stamped) > 1:
+        return f"AMBIGUOUS_APPROVAL_STAMPS(count={len(stamped)})"
+    return f"NO_APPROVAL_STAMP_FOUND(prose_mentions={len(mentions)})"
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(__doc__)
@@ -40,9 +53,7 @@ def main() -> int:
         out["bundle"] = {k: j.get(k) for k in ("terminal_state", "nominatable", "canaries_killed")}
     nom = d / "NOMINATION.md"
     if nom.is_file():
-        txt = nom.read_text()
-        m = re.search(r"APPROVED[^\n]*", txt)
-        out["nomination_approved_line"] = m.group(0)[:120] if m else "NO APPROVAL STAMP FOUND"
+        out["nomination_approved_line"] = approval_stamp(nom.read_text(), gen)
     mh = d / "manifest-hashes.txt"
     if mh.is_file():
         out["sealed_manifest"] = mh.read_text().splitlines()[:1]
