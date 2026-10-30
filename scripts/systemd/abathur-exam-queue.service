@@ -1,0 +1,13 @@
+[Unit]
+Description=Abathur exam queue runner (host side, outside the agent sandbox)
+Documentation=file:///home/lab/workspace/harness/Abathur/scripts/exam-queue.py
+
+[Service]
+Type=simple
+WorkingDirectory=/home/lab/workspace/harness/Abathur
+ExecStart=/usr/bin/python3 /home/lab/workspace/harness/Abathur/scripts/exam-queue.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
