@@ -112,6 +112,11 @@ def main():
                    "judge_panel_diversity": "single model family (policy) — MODEL-DIVERSITY-PENDING"},
         "items": items,
         "canaries_killed": canaries_killed,
+        "canaries_killed_rule": ("conservative gate: a canary item counts here when judge "
+                                 "canary_kill=true OR its aggregate verdict is FAIL; the label does "
+                                 "not assert that a kill condition was hit — read the per-item "
+                                 "judge_verdict.canary_kill for that. The gate is deliberately not "
+                                 "narrowed to canary_kill alone."),
         "incidents": incidents,
         "terminal_state": terminal,
         "nominatable": (terminal == "CONVERGED" and not canaries_killed and not incidents
