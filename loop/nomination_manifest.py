@@ -86,7 +86,9 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             text = Path(probe["path"]).read_text(encoding="utf-8", errors="replace")
             raw = probe["text"]
             escaped = json.dumps(raw, ensure_ascii=False)[1:-1]
-            ok = raw in text or escaped in text
+            over_escaped = raw.replace("'", "\\'")
+            loose = raw.replace("\\'", "'") in text.replace("\\'", "'")
+            ok = raw in text or escaped in text or over_escaped in text or loose
             return ok, "verbatim" if ok else "quote drifted"
         if kind == "run_exists":
             store = json.loads(RUNS.read_text(encoding="utf-8"))
@@ -117,14 +119,33 @@ def run_probe(probe: dict) -> tuple[bool, str]:
         if kind == "glob_empty":
             hits = sorted(Path(probe["dir"]).glob(probe["pattern"]))
             return not hits, f"matches={len(hits)}"
-        if kind == "array_needles_lte":
-            needles = 0
+        if kind == "arrays_with_key_lte":
+            # Parses every JSON array in each ballot file and counts the ones whose
+            # objects carry the key. Counting the literal token instead would read 1
+            # per ballot regardless of how many demands are stored, so it could never
+            # fail; that is why this branch decodes instead of grepping.
+            found = 0
             for f in probe["files"]:
                 try:
-                    needles += Path(f).read_text(encoding="utf-8", errors="replace").count('"must_fix"')
+                    text = Path(f).read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     return False, f"unreadable {f}"
-            return needles <= probe["expect"], f"arrays={needles} rows={probe['expect']}"
+                dec = json.JSONDecoder()
+                idx = 0
+                while True:
+                    start = text.find("[", idx)
+                    if start < 0:
+                        break
+                    try:
+                        value, end = dec.raw_decode(text, start)
+                    except json.JSONDecodeError:
+                        idx = start + 1
+                        continue
+                    if isinstance(value, list) and any(
+                            isinstance(o, dict) and probe["key"] in o for o in value):
+                        found += 1
+                    idx = max(end, start + 1)
+            return found <= probe["expect"], f"arrays_with_key={found} rows={probe['expect']}"
         if kind == "git_track_ratio":
             tracked = subprocess.run(["git", "-C", str(REPO), "ls-files", "--", ".omo"],
                                      capture_output=True, text=True)
@@ -289,6 +310,7 @@ def _ticket_files(run: str) -> list[Path]:
 
 
 PARSE_FAILURES: list[tuple] = []
+PARSE_REPAIRS: list[tuple] = []
 
 
 def _all_json_arrays(text: str, key: str, source=None) -> list[list]:
@@ -301,21 +323,35 @@ def _all_json_arrays(text: str, key: str, source=None) -> list[list]:
     """
     out: list[list] = []
     dec = json.JSONDecoder()
-    needle = f'"{key}"'
+    opener = re.compile(r'"' + re.escape(key) + r'"\s*:\s*')
     pos = 0
     while True:
-        hit = text.find(needle, pos)
-        if hit < 0:
+        m = opener.search(text, pos)
+        if not m:
             return out
-        pos = hit + len(needle)
-        bracket = text.find("[", pos)
-        if bracket < 0:
-            return out
+        bracket = m.end()
+        if bracket >= len(text) or text[bracket] != "[":
+            pos = bracket
+            continue
         try:
             value, end = dec.raw_decode(text[bracket:])
-        except json.JSONDecodeError:
-            PARSE_FAILURES.append((str(source), hit))
-            continue
+        except json.JSONDecodeError as exc:
+            if "Invalid \\escape" in exc.msg:
+                # Ballots are written by a model; one of them emitted \' inside a JSON
+                # string, which no strict parser accepts. Repairing is safe here because
+                # the array is only read, and the repair is recorded so the page says so.
+                fixed = text[bracket:].replace("\\'", "'")
+                try:
+                    value, end = dec.raw_decode(fixed)
+                    PARSE_REPAIRS.append((str(source), bracket, "invalid-escape \\'"))
+                except json.JSONDecodeError:
+                    PARSE_FAILURES.append((str(source), bracket))
+                    pos = bracket + 1
+                    continue
+            else:
+                PARSE_FAILURES.append((str(source), bracket))
+                pos = bracket + 1
+                continue
         pos = bracket + end
         if isinstance(value, list):
             out.append(value)
@@ -400,7 +436,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     base_bundle = read_bundle(gen) or {}
     for idx, _stamp in enumerate(base_bundle.get("stamps") or []):
         gaps.append({"id": f"G-stamp-{idx + 1}",
-                     "text": f"permanent disclosure stamp #{idx + 1} is recorded in the bundle "
+                     "text": "a permanent disclosure stamp is recorded in the bundle "
                              "(its text is at the pointer, not restated here)",
                      "pointer": {"path": str(ARCHIVE / gen / "bundle.json"), "selector": f"stamps.{idx}"},
                      "probe": {"kind": "json_selector", "path": str(ARCHIVE / gen / "bundle.json"),
@@ -415,10 +451,10 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     bundle_path = ARCHIVE / gen / "bundle.json"
     if bundle_path.is_file():
         gaps.append({"id": "G-bundle-face",
-                     "text": "section 1 points into bundle.json, and that file calls itself a "
-                             "decorative index rather than a compliance witness; this row does "
-                             "not paraphrase that note, and the pinned-code witnesses it defers "
-                             "to are reached through each item's verdict file, not this page",
+                     "text": "section 1 points into bundle.json, whose face_note describes itself "
+                             "as a decorative index rather than a compliance witness; that note "
+                             "is DATA, not a witness, and the pinned-code witnesses it defers to "
+                             "live in each item's verdict file, not on this page",
                      "pointer": {"path": str(bundle_path), "selector": "face_note"},
                      "probe": {"kind": "present_in", "path": str(bundle_path),
                                "pattern": "DECORATIVE"}})
@@ -452,10 +488,12 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
         gaps.append({"id": f"G-array-count-{audit['run']}",
                      "text": "section 3 rows and their quote probes come from one extraction "
                              "pass; this row is the independent count check for that audit -- "
-                             "it counts the must_fix arrays still present in the ballot files "
-                             "and fails when that number exceeds the rows taken from them",
+                             "it decodes every JSON array in the ballot files, counts those whose "
+                             "objects carry the must_fix key, and fails when that number exceeds "
+                             "the rows taken from them",
                      "pointer": {"path": files[0], "selector": "file"},
-                     "probe": {"kind": "array_needles_lte", "files": files, "expect": rows}})
+                     "probe": {"kind": "arrays_with_key_lte", "files": files, "expect": rows,
+                               "key": "must_fix"}})
     for anomaly in enumerate_anomalies(gen):
         pointer = anomaly["pointer"]
         gaps.append({"id": f"G-anomaly-{anomaly['gen']}-{anomaly['item']}",
@@ -472,7 +510,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                              "directory scan saw and cannot be told apart from a lost directory",
                      "pointer": {"path": str(ARCHIVE), "selector": "dir"},
                      "probe": {"kind": "glob_empty", "dir": str(ARCHIVE),
-                               "pattern": f"{gen}[A-Z]*CAN"}})
+                               "pattern": f"{gen}*CAN"}})
     if not audits:
         gaps.append({"id": "G-no-audit",
                      "text": "no independent audit of this generation is listed at write time; "
@@ -488,6 +526,18 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "probe": {"kind": "json_selector",
                                "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
                                "selector": "items"}})
+    for i, (src, off, kind) in enumerate(PARSE_REPAIRS, start=1):
+        gaps.append({"id": f"G-ballot-repair-{i}",
+                     "text": f"a ballot needed a read-only parser repair ({kind}) before its "
+                             "demands could be read; the file on disk was not rewritten",
+                     "pointer": {"path": src, "selector": f"offset {off}"},
+                     "probe": {"kind": "present_in", "path": src, "pattern": "\\\\'"}})
+    gaps.append({"id": "G-gate-append",
+                 "text": "the gate receipt is appended rather than rewritten; this row pins the "
+                         "append call in this generator's own source",
+                 "pointer": {"path": str(SCRIPT), "selector": "file"},
+                 "probe": {"kind": "present_in", "path": str(SCRIPT),
+                           "pattern": "gate\\.open\\(\"a\""}})
     gaps.append({"id": "G-membership-stale",
                  "text": "section 2 and section 3 membership is a write-time snapshot: the "
                          "read-only pass re-runs the stored rows but does not re-derive membership "
@@ -496,9 +546,10 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                  "pointer": {"path": str(RUNS), "selector": "file"},
                  "probe": {"kind": "admission"}})
     gaps.append({"id": "G-store-cap",
-                 "text": "the engine run store is bounded in practice; an audit that rotated out "
-                         "of it disappears with no trace on this page, so an empty audit table "
-                         "cannot be read as evidence that no audit existed",
+                 "text": "the engine rewrites its run store in place and this page declares and "
+                         "checks no capacity for it; an audit that the engine drops disappears "
+                         "with no trace here, so an empty audit table cannot be read as evidence "
+                         "that no audit existed",
                  "pointer": {"path": str(RUNS), "selector": "file"},
                  "probe": {"kind": "admission"}})
     return gaps
@@ -657,11 +708,14 @@ def render(manifest: dict, results: list[dict]) -> str:
         "to guard it; every audit of that layer rejected exactly that layer. This record removes the",
         "restatement instead of gating it: values are only ever pointed at, states only ever come",
         "from probes, gaps are enumerated from directories, and the status vocabulary has no",
-        "'landed'. The command above re-runs every state shown below, section 2 and section 3",
-        "included, and fails if this page's bytes no longer match the receipt that cites it.",
+        "'landed'. The command above re-runs the states stored in the manifest -- every claim",
+        "row, every gap row, and each audit's existence check -- and it fails if this page's bytes",
+        "no longer match the receipt that cites it. Membership in sections 2 and 3 is a write-time",
+        "snapshot: only regenerating refreshes it, as the staleness gap states. The pin chain",
+        "(manifest, probes-last.json, gate.txt) lives in the same untracked tree and carries no",
+        "external anchor, so it is machine-local; the gap rows state that limit.",
         "The no-values rule is enforced by machine for hex digests, ISO timestamps, clock times",
-        "and percentages; bare counts are not gated, so a number written as a word count would",
-        "pass unnoticed.",
+        "and percentages; bare counts and numbers written as words are not gated.",
         "",
         "## 1. Claims",
         "",
@@ -670,7 +724,10 @@ def render(manifest: dict, results: list[dict]) -> str:
     ]
     for entry in manifest["claims"]:
         st = state.get(entry["id"])
-        mark = "PASS" if st and st["ok"] else ("FAIL" if st else "NOT-RUN")
+        if (entry.get("probe") or {}).get("kind") == "admission":
+            mark = "ADMISSION"
+        else:
+            mark = "PASS" if st and st["ok"] else ("FAIL" if st else "NOT-RUN")
         ptr = "{}#{}".format(entry["pointer"]["path"], entry["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(entry["id"], entry["claim"], ptr, mark))
     lines += ["", "## 2. Audits (pointers into the engine run store)", "",
@@ -681,12 +738,15 @@ def render(manifest: dict, results: list[dict]) -> str:
               "store is gap-listed instead. A pointer of the form `store#id` is a lookup",
               "convention over a JSON array; this prints the record it names:", "",
               "```",
-              "python3 -c \"import json,sys;d=json.load(open(sys.argv[1]));r=d.get('runs',d);"
+              "python3 -c \"import json,sys;d=json.load(open(sys.argv[1]));"
+              "r=d.get('runs',d) if isinstance(d,dict) else d;"
               "print(r[sys.argv[2]] if isinstance(r,dict) else "
               "[x for x in r if (x.get('runId') or x.get('run'))==sys.argv[2]][0])\" "
               "{} <run-id>".format(RUNS),
               "```", "",
-              "| run | pointer | state |", "| --- | --- | --- |"]
+              "RESOLVES certifies only that the record exists in the store; it says nothing about",
+              "the outcome stored there, which is not restated on this page.",
+              "", "| run | pointer | state |", "| --- | --- | --- |"]
     for audit in manifest["audits"]:
         ptr = "{}#{}".format(RUNS, audit.get("run"))
         ok = run_probe({"kind": "run_exists", "run": audit.get("run")})[0]
@@ -695,7 +755,8 @@ def render(manifest: dict, results: list[dict]) -> str:
     lines += ["", "## 3. Must-fix items (quoted from ballots; quote text is not this page's "
                   "own assertion)", "",
               "The state column says one thing only: QUOTE-VERBATIM means the quoted text is",
-              "still present in the ballot file it was taken from. It does not mean the demand",
+              "still present in the ballot file named in that row's ballot source column. It does",
+              "not mean the demand",
               "was satisfied. Whether a demand is met is not machine-decided on this page and is",
               "listed as a gap. Cells are checked against the machine copy after markdown pipe",
               "escaping, so the displayed text is not claimed to be byte-identical to the ballot.", "",
@@ -707,16 +768,16 @@ def render(manifest: dict, results: list[dict]) -> str:
               "{} <audit-run-id> <line>".format(EVIDENCE / "nomination-history" / manifest["gen"]
                                                 / "mustfix.json"),
               "```", "",
-              "| audit | line | demand (quoted) | full text | quote state |",
-              "| --- | --- | --- | --- | --- |"]
+              "| audit | line | demand (quoted) | full text | ballot source | quote state |",
+              "| --- | --- | --- | --- | --- | --- |"]
     for item in manifest["mustfix"]:
         st = "QUOTE-VERBATIM" if item.get("probe") and run_probe(item["probe"])[0] else \
              ("QUOTE-DRIFT" if item.get("probe") else "MANUAL")
         demand = item["demand"].replace("|", "\\|")
         full = "{}#{}#{}".format(EVIDENCE / "nomination-history" / manifest["gen"] / "mustfix.json",
                                  item["audit"], item["n"])
-        lines.append("| {} | {} | {} | `{}` | {} |".format(item["audit"], item["n"], demand,
-                                                          full, st))
+        lines.append("| {} | {} | {} | `{}` | `{}` | {} |".format(
+            item["audit"], item["n"], demand, full, item.get("source", ""), st))
     lines += ["", "## 4. Gaps (enumerated, not curated)", "",
               "State is PASS only when the row's own probe passes. Rows marked ADMISSION state a",
               "limit of this record and check nothing; they are labelled so they cannot be read",
@@ -735,7 +796,8 @@ def render(manifest: dict, results: list[dict]) -> str:
               "next to this generation's manifest:", "",
               "- `{}` -- this page's sha plus every probe result (sections 2 and 3 included)".format(
                   EVIDENCE / "nomination-history" / manifest["gen"] / "probes-last.json"),
-              "- `{}` -- append-only, one line per run, with coverage counts".format(
+              "- `{}` -- one line per write-time run, appended by the generator (the append call",
+              "  is pinned by a gap row's probe on this generator's source), with coverage counts".format(
                   EVIDENCE / "nomination-history" / manifest["gen"] / "gate.txt")]
     return "\n".join(lines) + "\n"
 
