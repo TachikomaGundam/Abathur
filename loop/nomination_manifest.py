@@ -387,13 +387,13 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     manifest_hits = sorted(MANIFESTS.glob(f"{gen}-*.sha256")) if MANIFESTS.is_dir() else []
     if not manifest_hits:
         gaps.append({"id": "G-manifest", "text": "no git-tracked evidence manifest for this "
-                                                 "generation (earlier generations had one)",
+                                                 "generation",
                      "pointer": {"path": str(MANIFESTS), "selector": "dir"},
                      "probe": {"kind": "glob_empty", "dir": str(MANIFESTS),
                                "pattern": f"{gen}-*.sha256"}})
     gate = EVIDENCE / "nomination-history" / gen / "gate.txt"
-    gaps.append({"id": "G-gate", "text": "gate receipts are append-only but live under .omo, which "
-                                         "git does not track: they survive on this machine only",
+    gaps.append({"id": "G-gate", "text": "gate receipts live under .omo, which git does not "
+                                         "track: they survive on this machine only",
                  "pointer": {"path": str(gate), "selector": "file"},
                  "probe": {"kind": "git_untracked",
                            "path": str(gate.relative_to(REPO))}})
@@ -416,9 +416,9 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     if bundle_path.is_file():
         gaps.append({"id": "G-bundle-face",
                      "text": "section 1 points into bundle.json, and that file calls itself a "
-                             "decorative index rather than a compliance witness; the page never "
-                             "restates that note, and the pinned-code witnesses it defers to are "
-                             "reached through each item's verdict file, not through this page",
+                             "decorative index rather than a compliance witness; this row does "
+                             "not paraphrase that note, and the pinned-code witnesses it defers "
+                             "to are reached through each item's verdict file, not this page",
                      "pointer": {"path": str(bundle_path), "selector": "face_note"},
                      "probe": {"kind": "present_in", "path": str(bundle_path),
                                "pattern": "DECORATIVE"}})
@@ -428,15 +428,22 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
         for space in sorted(spaces.iterdir()):
             if not space.is_dir() or space.name in listed:
                 continue
-            hits = [p for p in space.glob("*.md")
-                    if gen in p.read_text(encoding="utf-8", errors="replace")]
+            hits = []
+            pattern = gen_boundary(gen)
+            for p in sorted(space.glob("*.md")):
+                text = p.read_text(encoding="utf-8", errors="replace")
+                match = pattern.search(text)
+                if match:
+                    hits.append(p)
             if not hits:
                 continue
             gaps.append({"id": f"G-ballot-store-{space.name}",
-                         "text": f"ballot store {space.name} mentions {gen} but is not listed "
-                                 "in section 2; its tickets are not quoted on this page",
+                         "text": f"a ballot file in store {space.name} has a word-boundary match "
+                                 f"for this generation but the store is not listed in section 2; "
+                                 "the matched text stays at the pointer, not on this page",
                          "pointer": {"path": str(hits[0]), "selector": "file"},
-                         "probe": {"kind": "present_in", "path": str(hits[0]), "pattern": gen}})
+                         "probe": {"kind": "present_in", "path": str(hits[0]),
+                                   "pattern": pattern.pattern}})
     for audit in audits:
         files = [str(f) for f in _ticket_files(str(audit["run"]))]
         if not files:
@@ -457,6 +464,43 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "pointer": pointer,
                       "probe": {"kind": "nonempty_text", "path": pointer["path"],
                                 "selector": pointer["selector"]}})
+    bells = enumerate_bells(gen)
+    if not bells:
+        gaps.append({"id": "G-no-bells",
+                     "text": "no bell archive exists for this generation, so the judge was not "
+                             "exercised against a planted paper here; emptiness is what the "
+                             "directory scan saw and cannot be told apart from a lost directory",
+                     "pointer": {"path": str(ARCHIVE), "selector": "dir"},
+                     "probe": {"kind": "glob_empty", "dir": str(ARCHIVE),
+                               "pattern": f"{gen}[A-Z]*CAN"}})
+    if not audits:
+        gaps.append({"id": "G-no-audit",
+                     "text": "no independent audit of this generation is listed at write time; "
+                             "this is the enumeration result, not evidence that none was rejected",
+                     "pointer": {"path": str(RUNS), "selector": "file"},
+                     "probe": {"kind": "file_exists", "path": str(RUNS)}})
+    if not mustfix:
+        gaps.append({"id": "G-no-mustfix",
+                     "text": "no must-fix demand was extracted for this generation at write time; "
+                             "an empty extraction cannot be distinguished from a lost ballot store",
+                     "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
+                                 "selector": "items"},
+                     "probe": {"kind": "json_selector",
+                               "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
+                               "selector": "items"}})
+    gaps.append({"id": "G-membership-stale",
+                 "text": "section 2 and section 3 membership is a write-time snapshot: the "
+                         "read-only pass re-runs the stored rows but does not re-derive membership "
+                         "from the engine run store, so a run recorded after generation is not "
+                         "listed until the page is regenerated",
+                 "pointer": {"path": str(RUNS), "selector": "file"},
+                 "probe": {"kind": "admission"}})
+    gaps.append({"id": "G-store-cap",
+                 "text": "the engine run store is bounded in practice; an audit that rotated out "
+                         "of it disappears with no trace on this page, so an empty audit table "
+                         "cannot be read as evidence that no audit existed",
+                 "pointer": {"path": str(RUNS), "selector": "file"},
+                 "probe": {"kind": "admission"}})
     return gaps
 
 
@@ -501,7 +545,13 @@ def build(gen: str) -> dict:
         base = str(ARCHIVE / name / "bundle.json")
         is_base = name == gen
         for field, expected in CONTRACT.items():
-            if is_base:
+            if is_base and field == "canaries_killed" and not enumerate_bells(gen):
+                claims.append(claim(f"{name}.{field}",
+                                    f"{name} records canaries_killed (value at the pointer); "
+                                    "NOT-TESTED, because no bell archive exists for this generation",
+                                    {"path": base, "selector": field},
+                                    {"kind": "admission"}))
+            elif is_base:
                 claims.append(claim(f"{name}.{field}", f"{name} bundle field {field} equals the "
                                                      "promotion contract",
                                     {"path": base, "selector": field},
@@ -511,7 +561,8 @@ def build(gen: str) -> dict:
                 claims.append(claim(f"{name}.{field}", f"{name} bell killed at least one canary",
                                     {"path": base, "selector": field},
                                     {"kind": "nonempty_list", "path": base, "selector": field}))
-        claims.append(claim(f"{name}.closed_at", f"{name} bundle records a close timestamp",
+        claims.append(claim(f"{name}.closed_at", f"{name} bundle records a value at closed_at "
+                                                "(timestamp shape is not validated here)",
                             {"path": base, "selector": "closed_at"},
                             {"kind": "json_selector", "path": base, "selector": "closed_at"}))
         expected_verdict = "PASS" if is_base else "FAIL"
@@ -696,9 +747,31 @@ def main() -> int:
     ap.add_argument("--run-probes", metavar="MANIFEST")
     args = ap.parse_args()
     if args.run_probes:
-        manifest = json.loads(Path(args.run_probes).read_text(encoding="utf-8"))
+        manifest_path = Path(args.run_probes)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         results = run_probes(manifest)
         bad = [r for r in results if not r["ok"]]
+        manifest_check = {"checked": False}
+        gate_path = manifest_path.parent / "gate.txt"
+        if gate_path.is_file():
+            last = gate_path.read_text(encoding="utf-8").strip().splitlines()[-1:]
+            pinned = None
+            if last:
+                found = re.search(r"manifest_sha256=([0-9a-f]{64})", last[0])
+                pinned = found.group(1) if found else None
+            if pinned:
+                got_manifest = sha256_file(manifest_path)
+                manifest_check = {"checked": True, "matches": got_manifest == pinned,
+                                  "gate_line": last[0][:80]}
+                if got_manifest != pinned:
+                    bad.append({"id": "manifest-integrity",
+                                "detail": "manifest bytes differ from the sha pinned in the "
+                                          "gate receipt; the states reprinted from it are not "
+                                          "chained to the run that wrote them"})
+        if not manifest_check["checked"]:
+            bad.append({"id": "manifest-integrity",
+                        "detail": "no gate receipt line pins this manifest; cannot chain the "
+                                  "reprinted states to a recorded run"})
         page = ARCHIVE / str(manifest.get("gen")) / "NOMINATION.md"
         receipt = Path(args.run_probes).parent / "probes-last.json"
         page_check = {"checked": False}
