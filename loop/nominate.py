@@ -76,7 +76,14 @@ class Facts:
 
     def note(self, literal, source: str, how: str):
         if literal not in (None, ""):
-            self.map[str(literal)] = {"source": source, "how": how}
+            key = str(literal)
+            holder = self.map.get(key)
+            # Priority: a primary source (disk file / git) must not be downgraded by a later
+            # quote inside the author-declared disposition ledger; the reverse upgrade is allowed
+            # because the ledger is rendered before the sections that cite primary receipts.
+            if holder is None or ("dispositions.json" in holder["source"]
+                                  and "dispositions.json" not in source):
+                self.map[key] = {"source": source, "how": how}
         return literal
 
     def file_sha(self, path: str) -> str:
@@ -87,6 +94,11 @@ class Facts:
     def field(self, path: str, value, name: str):
         self.note(value, path, f"field {name}")
         return value
+
+    def any_text(self, text: str, source: str, how: str) -> str:
+        for lit in SHA.findall(text) + SHA_PREFIX.findall(text) + ISO.findall(text):
+            self.note(lit, source, how)
+        return text
 
 
 def archive_files(gen: str) -> list[str]:
@@ -151,6 +163,88 @@ def tally_ballots(space: str) -> tuple[dict, dict, int, int]:
     return ballots, sessions, approve, reject
 
 
+def judge_receipt(gen: str, item: str) -> dict | None:
+    done = os.path.join(REPO, ".omo", "exam-queue", "done")
+    if not os.path.isdir(done):
+        return None
+    for name in sorted(os.listdir(done), reverse=True):
+        if not name.endswith(".result.json"):
+            continue
+        path = os.path.join(done, name)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if rec.get("gen") != gen or rec.get("item") != item or rec.get("stage") != "judge":
+            continue
+        tail = str(rec.get("tail", ""))
+        session = ""
+        for token in tail.split():
+            if token.startswith("session="):
+                session = token.split("=", 1)[1].strip()
+        return {"path": path, "sha": sha256_file(path), "session": session,
+                "elapsed": rec.get("elapsed_s")}
+    return None
+
+
+def last_commit_utc(path_rel: str) -> str:
+    proc = subprocess.run(["git", "log", "-1", "--format=%cI", "--", path_rel],
+                          cwd=REPO, capture_output=True, text=True)
+    raw = proc.stdout.strip()
+    if not raw:
+        return ""
+    return datetime.fromisoformat(raw).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def computed_disclosures(bundle: dict, bells: list, facts: "Facts") -> list[str]:
+    out: list[str] = []
+    n = 0
+    if bells:
+        n += 1
+        gens = ", ".join(b["gen"] for b in bells)
+        out.append(f"D{n} 铃测独立性：{gens} 由提名席自己计划、播种、封包，无独立盲审席参与"
+                   "（G62 先例为独立盲审 + 独立判定）。铃响只证明该判卷路径能杀假卷，不证明判卷席独立。")
+    closed = str(bundle.get("closed_at", ""))
+    drifted = []
+    for rel in ("loop/run_judge.py", "loop/looplib.py", "loop/bundle_close.py"):
+        when = last_commit_utc(rel)
+        if when and closed and when > closed:
+            drifted.append(f"{rel}（{facts.any_text(when, os.path.join(REPO, rel), 'git log -1 --format=%cI')}）")
+    receipt = os.path.join(EVIDENCE, "g66-tooling-blob-hashes.txt")
+    if drifted:
+        n += 1
+        if os.path.isfile(receipt):
+            with open(receipt, encoding="utf-8") as fh:
+                text = fh.read()
+            facts.any_text(text, receipt, "verbatim in blob-hash receipt")
+            for full in SHA.findall(text):
+                facts.note(f"{full[:8]}…", receipt, "prefix of the full hash on a receipt line")
+            out.append(f"D{n} 封包后工装漂移：{', '.join(drifted)} 的最后提交晚于封包时刻 {closed}；"
+                       f"本次判卷使用的版本与当前盘面不同，两时点哈希回执在 {receipt}"
+                       f"（{facts.file_sha(receipt)}）。封包时刻的 run_judge.py 哈希系由 `7a5871b^` blob "
+                       "加回执时序推断，不是 closed_at 时刻拍下的快照")
+        else:
+            out.append(f"D{n} 封包后工装漂移：{', '.join(drifted)} 的最后提交晚于封包时刻 {closed}，"
+                       "且未找到两时点哈希回执")
+    for b in bells:
+        bpath = b.get("path") or os.path.join(ARCHIVE, b["gen"], "bundle.json")
+        if not os.path.isfile(bpath):
+            continue
+        try:
+            with open(bpath, encoding="utf-8") as fh:
+                bb = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        for it in bb.get("items", []):
+            anomalies = str((it.get("judge_verdict") or {}).get("anomalies", "")).strip()
+        if anomalies:
+            n += 1
+            out.append(f"D{n} {b['gen']}/{it.get('item','')} 判卷 anomalies 原文："
+                           f"{facts.any_text(anomalies, bpath, 'judge_verdict.anomalies')}")
+    return out
+
+
 def main() -> int:
     argv = sys.argv[1:]
     if not argv:
@@ -191,8 +285,31 @@ def main() -> int:
     facts = Facts()
     facts_dir = os.path.join(EVIDENCE, "nomination-history", gen)
     facts_path = os.path.join(facts_dir, "facts.json")
+    disp_path = os.path.join(facts_dir, "dispositions.json")
     if not dry:
         os.makedirs(facts_dir, exist_ok=True)
+        if not audits:
+            print("nominate: refusing to write a page that cites no audit", file=sys.stderr)
+            return 1
+        if not os.path.isfile(disp_path):
+            print(f"nominate: refusing to write without {disp_path} "
+                  "(one disposition per ballot must-fix; deletions must be declared)", file=sys.stderr)
+            return 1
+        with open(disp_path, encoding="utf-8") as fh:
+            loaded = json.load(fh)
+        dispositions = loaded.get("runs", loaded) if isinstance(loaded, dict) else {}
+        for run in audits:
+            rows_d = dispositions.get(run) or []
+            if not rows_d:
+                print(f"nominate: dispositions missing for audit {run}", file=sys.stderr)
+                return 1
+            for row_d in rows_d:
+                if row_d.get("status") not in ("landed", "superseded", "open"):
+                    print(f"nominate: disposition {run}/{row_d.get('id')} status "
+                          f"{row_d.get('status')!r} not in landed|superseded|open", file=sys.stderr)
+                    return 1
+    else:
+        dispositions = {}
     stamp_path = os.path.join(EVIDENCE, f"nomination-{gen}.genstamp.txt")
     stamp_ts = utc_now()
     if not dry:
@@ -201,19 +318,21 @@ def main() -> int:
     facts.note(stamp_ts, stamp_path, "generated_at in genstamp file (written before render)")
 
     rows = []
-    for it in bundle.get("items", []):
+    for idx, it in enumerate(bundle.get("items", [])):
         item = it.get("item", "")
         vpath = os.path.join(adir, item, "verdict.json")
         has = os.path.isfile(vpath)
         jv = it.get("judge_verdict") or {}
         rows.append({
             "item": item,
-            "verdict": it.get("verdict", ""),
-            "aggregate": jv.get("aggregate", it.get("verdict", "")),
-            "canary_kill": jv.get("canary_kill"),
-            "memory": it.get("memory_diff", ""),
+            "verdict": facts.field(bpath, it.get("verdict", ""), f"items[{idx}].verdict"),
+            "aggregate": facts.field(bpath, jv.get("aggregate", it.get("verdict", "")),
+                                     f"items[{idx}].judge_verdict.aggregate"),
+            "canary_kill": facts.field(bpath, jv.get("canary_kill"), f"items[{idx}].judge_verdict.canary_kill"),
+            "memory": facts.field(bpath, it.get("memory_diff", ""), f"items[{idx}].memory_diff"),
             "vpath": vpath if has else "",
             "vsha": facts.file_sha(vpath) if has else "",
+            "judge_receipt": judge_receipt(gen, item),
         })
 
     items = [r["item"] for r in rows]
@@ -236,11 +355,14 @@ def main() -> int:
     add("## 一、包面")
     add("")
     add(f"- 世代：{gen}")
-    add(f"- 终态：{bundle.get('terminal_state','')}｜可提名：{facts.field(bpath, bundle.get('nominatable'), 'nominatable')}")
+    add(f"- 终态：{facts.field(bpath, bundle.get('terminal_state',''), 'terminal_state')}"
+        f"｜可提名：{facts.field(bpath, bundle.get('nominatable'), 'nominatable')}")
     add(f"- 封包时刻：{facts.field(bpath, bundle.get('closed_at',''), 'closed_at')}")
     add(f"- 铃测击杀表：{facts.field(bpath, json.dumps(bundle.get('canaries_killed', []), ensure_ascii=False), 'canaries_killed')}")
-    add(f"- 三章戳：{' + '.join(bundle.get('stamps', []))}")
-    add(f"- 选手模型：{bundle.get('roster',{}).get('candidate_model','')}｜判卷模型：{bundle.get('roster',{}).get('judge_model','')}")
+    add(f"- 三章戳：{facts.field(bpath, ' + '.join(bundle.get('stamps', [])), 'stamps')}")
+    roster = bundle.get("roster", {}) or {}
+    add(f"- 选手模型：{facts.field(bpath, roster.get('candidate_model',''), 'roster.candidate_model')}"
+        f"｜判卷模型：{facts.field(bpath, roster.get('judge_model',''), 'roster.judge_model')}")
     c = commit_of(bpath)
     c_label = facts.note(c, bpath, "git log -1 --format=%h -- <bundle>") if c != "UNTRACKED" else "不在 git 跟踪面（.omo 被 .gitignore 排除）"
     add(f"- `bundle.json`：sha256 `{facts.file_sha(bpath)}`；最后提交 {c_label}")
@@ -251,6 +373,20 @@ def main() -> int:
     add("|---|---|---|---|---|---|---|")
     for r in rows:
         add(f"| {r['item']} | {r['verdict']} | {r['aggregate']} | {r['canary_kill']} | {r['memory']} | {r['vpath'] or '（归档无此件）'} | {r['vsha'] or '—'} |")
+    add("")
+    add("判卷回执（宿主侧作业记录，非模型自述）：")
+    add("")
+    for r in rows:
+        jr = r.get("judge_receipt")
+        if not jr:
+            add(f"- {r['item']}：未找到宿主侧判卷回执（这是缺口，不得写成「有回执」）。")
+            continue
+        sid = ""
+        if jr.get("session"):
+            sid = f"，session=`{facts.note(jr['session'], jr['path'], 'tail 里的 session= token')}`"
+        add(f"- {r['item']}：`{jr['path']}`（sha256 "
+            f"`{facts.note(jr['sha'], jr['path'], 'sha256sum of result json')}`，"
+            f"耗时 {jr.get('elapsed')}s{sid}）")
     add("")
     add("## 三、债务与轮换")
     add("")
@@ -283,7 +419,24 @@ def main() -> int:
             else:
                 add("  - 票面未能解析（TERMINALS.txt 缺失或格式变动）——不得据 A0/R0 推断任何裁定的方向。")
         add("")
-        add("本生成器只填票面与出处，不代填裁定原文与 must-fix 处置；那部分须逐条引票件。")
+        add("### must-fix 处置账（逐票逐条；删改须具名声明，不得静默消失）")
+        add("")
+        ledger_path = os.path.join(EVIDENCE, "INTENT-LEDGER.md")
+        if os.path.isfile(ledger_path):
+            add(f"跨代上下文：G65 提名经审计 `sibyl-20261031T073920Z-3fc9` 裁定 REJECT 1A/2R；"
+                f"台账锚 `INTENT-LEDGER.md:1011`"
+                f"（run id 经 `{facts.any_text('sibyl-20261031T073920Z-3fc9', ledger_path, 'verbatim at INTENT-LEDGER.md:1011')}` 在同文件内逐字命中）。")
+            add("")
+        add("| 审计 | 条目 | 要求（票件摘录） | 处置 | 痕迹 |")
+        add("|---|---|---|---|---|")
+        for run in audits:
+            for row_d in dispositions.get(run, []):
+                add(f"| `{run}` | {row_d.get('id','')} | "
+                    f"{facts.any_text(str(row_d.get('demand','')), disp_path, 'dispositions.json demand')} | "
+                    f"{row_d.get('status','')} | "
+                    f"{facts.any_text(str(row_d.get('trace','')), disp_path, 'dispositions.json trace')} |")
+        add("")
+        add("处置词义固定：landed=已落实并给痕迹；superseded=随旧版作废并说明为何不影响结论；open=仍未落实（留人类裁）。")
     else:
         add("未附审计 id。")
     add("")
@@ -291,6 +444,13 @@ def main() -> int:
     add("")
     for g in gaps:
         add(f"- {g}")
+    auto = computed_disclosures(bundle, bells, facts)
+    if auto:
+        add("")
+        add("以下各条由生成器从磁盘自动列入，不由人工缺口清单决定（从本页删除即越权）：")
+        add("")
+        for line in auto:
+            add(f"- {line}")
     add("")
     add("## 七、归档清单（sha256 逐件）")
     add("")
@@ -298,6 +458,13 @@ def main() -> int:
     add("")
     for rel, sha in file_rows:
         add(f"- `{rel}`：`{sha}`")
+    add("")
+    add("## 八、闸回执（生成器自述与覆盖边界）")
+    add("")
+    add("闸 1（页内每个字面值必须在旁车登记）覆盖 = 登记动作本身；它不能证明登记值正确，只证明没有未登记的字面值。")
+    add("闸 2 按每个字面值登记的来源逐条核对：能重算的（文件 sha256、git 最后提交时间）当场重算，其余核对「原文出现在登记来源里」。")
+    add(f"闸 2 的完整 stdout 与 RC 落在 `{facts_dir}/gate.txt`（每次生成覆盖写，末行 `RC=` 为判据）。")
+    add("旁车 `facts.json` 与旧版页面都在检查根之外，避免旧页把值回声进对账（这是 2026-10-31 审计抓出的洞）。")
     add("")
     page = "\n".join(L) + "\n"
 

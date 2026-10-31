@@ -109,7 +109,7 @@ def _facts_verdict(probe: str, entry: dict) -> tuple[str, str]:
     source = str(entry.get("source", ""))
     how = str(entry.get("how", ""))
     path = Path(source)
-    if how.startswith("sha256 of file bytes"):
+    if how.startswith("sha256"):
         if not path.is_file():
             return "MISMATCH", f"source missing {source}"
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -117,11 +117,15 @@ def _facts_verdict(probe: str, entry: dict) -> tuple[str, str]:
             return "RECOMPUTED", f"sha256 {source}"
         return "MISMATCH", f"{source} hashes to {digest[:16]}"
     if how.startswith("git log -1"):
-        proc = subprocess.run(["git", "log", "-1", "--format=%h", "--", source],
+        wants_time = ISO.fullmatch(probe) is not None
+        fmt = "%cI" if wants_time else "%h"
+        proc = subprocess.run(["git", "log", "-1", f"--format={fmt}", "--", source],
                               cwd=str(REPO), capture_output=True, text=True)
         got = proc.stdout.strip()
+        if wants_time and got:
+            got = datetime.fromisoformat(got).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         if proc.returncode == 0 and got and (got == probe or got.startswith(probe)):
-            return "RECOMPUTED", f"git commit of {source}"
+            return "RECOMPUTED", f"git {'commit time' if wants_time else 'commit'} of {source}"
         return "MISMATCH", f"{source} last commit is {got or 'none'}"
     if path.is_file() and probe in path.read_text(encoding="utf-8", errors="replace"):
         return "PRESENT", source

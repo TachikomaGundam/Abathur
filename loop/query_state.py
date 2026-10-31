@@ -73,6 +73,27 @@ def nominate_preflight() -> bool:
         print(f"nominate_preflight| unusable spec: {exc}")
         return False
     gen = spec.get("gen") or ""
+    dump = spec.get("dump") or ""
+    if dump and not gen:
+        runs = [dump] if isinstance(dump, str) else [str(x) for x in dump]
+        out = REPO / ".omo/evidence" / f"sibyl-{'-'.join(r.split('-')[-1] for r in runs)}.txt"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("w", encoding="utf-8") as fh:
+            for run in runs:
+                space = Path.home() / ".sibyl" / "spaces" / run
+                fh.write(f"########## {run} :: {space} ##########\n")
+                if not space.is_dir():
+                    fh.write("(no such space)\n")
+                    continue
+                for name in sorted(space.iterdir()):
+                    if name.suffix not in (".md", ".txt"):
+                        continue
+                    fh.write(f"===== {name.name} =====\n")
+                    fh.write(name.read_text(encoding="utf-8", errors="replace"))
+                    fh.write("\n")
+        spec_path.unlink()
+        print(f"nominate_preflight| dumped {len(runs)} space(s) -> {out} ({out.stat().st_size}B)")
+        return True
     if not gen:
         return False
     import subprocess as _sp
@@ -146,6 +167,7 @@ def draw_preflight() -> bool:
     print(f"draw_preflight gen={gen} items={items} verdict={'ACCEPTED' if ok else 'REFUSED'}")
     for m in msgs:
         print(f"draw_preflight| {m}")
+    pending.unlink(missing_ok=True)
     return True
 
 
