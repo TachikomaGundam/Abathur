@@ -22,6 +22,8 @@ ARCH = REPO / ".omo/evidence/loop-archive"
 
 
 def main() -> int:
+    if literals_preflight():
+        return 0
     if draw_preflight():
         return 0
     session_census()
@@ -48,6 +50,40 @@ def main() -> int:
               f"nominatable={j.get('nominatable')} killed={j.get('canaries_killed')} items={rows}")
     fixture_reachability()
     return 0
+
+
+def literals_preflight() -> bool:
+    """If .omo/pending-literals.json names a page, run the literal reconciler and stop.
+
+    Why: nominations shipped memory-written literals twice, and the seat cannot
+    reach a shell reliably enough to run the checker by hand. This makes the
+    check a queue job: write {"page": "<path>", "roots": ["<dir>", ...]} and ask
+    for a query; output comes back through the receipt channel.
+    """
+    import json
+    import subprocess
+
+    spec_path = REPO / ".omo" / "pending-literals.json"
+    if not spec_path.is_file():
+        return False
+    try:
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"literals_preflight| unusable spec: {exc}")
+        return False
+    page = spec.get("page") or ""
+    roots = spec.get("roots") or []
+    if not page or not roots:
+        return False
+    cmd = [sys.executable, str(REPO / "loop" / "verify_nomination_literals.py"), page,
+           "--roots", *roots]
+    proc = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=120)
+    for line in (proc.stdout or "").strip().splitlines()[-14:]:
+        print(f"literals| {line}")
+    for line in (proc.stderr or "").strip().splitlines()[-4:]:
+        print(f"literals_err| {line}")
+    print(f"literals_preflight page={page} rc={proc.returncode}")
+    return True
 
 
 def draw_preflight() -> bool:

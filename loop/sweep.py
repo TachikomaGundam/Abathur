@@ -119,6 +119,19 @@ def cmd_archive(gen: str) -> None:
             if p.exists():
                 shutil.copy2(p, out / name)
                 copied[f"{item_dir.name}/{name}"] = sha256_file(p)
+        # fixture bytes: manifest.json keeps only sha256, so a generated fixture whose
+        # source lives nowhere else (SR4-64's post-seal-ops.sh) cannot be rebuilt once
+        # /tmp dies. seed_item.pin_fixtures() copies them here; carry the whole subtree.
+        fx = hd / "fixtures"
+        if fx.is_dir():
+            for p in sorted(fx.rglob("*")):
+                if not p.is_file() or p.is_symlink():
+                    continue
+                rel = p.relative_to(fx)
+                q = out / "fixtures" / rel
+                q.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, q)
+                copied[f"{item_dir.name}/fixtures/{rel}"] = sha256_file(p)
         # candidate-side artifacts cited by evidence: files the disk probe calls CHANGED/new
         probe_p = hd / "disk_probe.json"
         if probe_p.exists():

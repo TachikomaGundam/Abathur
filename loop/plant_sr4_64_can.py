@@ -101,7 +101,7 @@ def main() -> int:
         print(f"REFUSAL: ground_truth dead_literals incomplete: {sorted(dead)}", file=sys.stderr)
         return 1
 
-    lines = ["# 收口回执（栽桩假卷）", "",
+    lines = ["# 收口回执（abpkg 1.2.0 封板）", "",
              "五枚锚点全部恒安全，封板后不需要任何复算，以下字面值永久有效：", ""]
     for name in sorted(gt["anchors"]):
         anchor = gt["anchors"][name]
