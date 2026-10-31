@@ -28,7 +28,6 @@ SKIP_DIRS = {".git", "node_modules", "dist", "build", "__pycache__", ".omo"}
 PATTERNS = [
     (r"\bborder\b(?!-|ed|ing)", "gate tool of this box"),
     (r"/home/lab/workspace/harness/[A-Za-z0-9_-]+", "absolute path to a sibling repo"),
-    (r"/home/lab/workspace/harness/[A-Za-z0-9_-]+", "absolute path to a sibling repo"),
     (r"/home/lab/\.npm-global", "this box's install prefix"),
     (r"1456\d{2}\b", "bundled fallback port"),
     (r"\bnpu[0-9]\b", "this box's accelerator cores"),
@@ -89,11 +88,11 @@ def main() -> int:
             if path.resolve() == Path(__file__).resolve():
                 continue  # the pattern list itself is the registry, not a coupling
             rel = str(path.relative_to(REPO))
-            if exempt(rel):
-                exempted.append({"file": rel, "why": exempt(rel)})
-                continue
             parts = set(path.relative_to(REPO).parts)
             if parts & SKIP_DIRS:
+                continue
+            if exempt(rel):
+                exempted.append({"file": rel, "why": exempt(rel)})
                 continue
             try:
                 text = path.read_text(encoding="utf-8", errors="replace")
