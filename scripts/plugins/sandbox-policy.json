@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "comment": "工具执行沙箱策略（Tier1 由插件自读；Tier2 由 root 侧启动器钉定）。本文件哈希每次调用记入沙箱日志，变更写 POLICY-CHANGED 行。",
+  "network": "none",
+  "workspace": "$WORKSPACE",
+  "workspaceFallback": "/home/lab/workspace",
+  "scratch": "/tmp/opencode",
+  "limits": { "nproc": 256, "vmem_kb": 8388608, "fsize_blocks": 2097152 },
+  "mask": ["/etc/abathur", "/var/log", "/var/spool/cron", "/root"],
+  "roMounts": ["/usr", "/etc"],
+  "devices": ["/dev/nvidia0", "/dev/nvidia1", "/dev/nvidiactl", "/dev/nvidia-uvm", "/dev/nvidia-uvm-tools", "/dev/nvidia-modeset", "/dev/dri"],
+  "gitconfig": "$HOME/.gitconfig",
+  "toolchain": ["$HOME/.local/share/uv"],
+  "tz": "Asia/Shanghai"
+}
