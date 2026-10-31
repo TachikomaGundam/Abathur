@@ -33,6 +33,10 @@ def main() -> int:
         return 2
     gen = sys.argv[1]
     item = sys.argv[2] if len(sys.argv) > 2 else "SR4-64"
+    if item == "SR4-69":
+        from plant_sr4_69_can import main as plant_69
+
+        return plant_69()
     if item != "SR4-64":
         print(f"REFUSAL: planter covers SR4-64 only, got {item}", file=sys.stderr)
         return 2
