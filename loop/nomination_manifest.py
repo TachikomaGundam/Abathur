@@ -530,7 +530,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
         gaps.append({"id": f"G-ballot-repair-{i}",
                      "text": f"a ballot needed a read-only parser repair ({kind}) before its "
                              "demands could be read; the file on disk was not rewritten",
-                     "pointer": {"path": src, "selector": f"offset {off}"},
+                     "pointer": {"path": src, "selector": "file"},
                      "probe": {"kind": "present_in", "path": src, "pattern": "\\\\'"}})
     gaps.append({"id": "G-gate-append",
                  "text": "the gate receipt is appended rather than rewritten; this row pins the "
@@ -854,6 +854,16 @@ def main() -> int:
             bad.append({"id": "page-integrity", "detail": "page or receipt missing; the "
                                                           "manifest cannot be cited until the "
                                                           "generator has written both"})
+        if page.is_file():
+            page_own = "\n".join(ln for ln in page.read_text(encoding="utf-8").splitlines()
+                                 if not ln.startswith("| sibyl-"))
+            own_hits = (HEX_RUN.findall(page_own) + ISO_RUN.findall(page_own)
+                        + CLOCK_RUN.findall(page_own) + PCT_RUN.findall(page_own))
+            if own_hits:
+                bad.append({"id": "own-value-like-literals",
+                            "detail": f"page carries {len(own_hits)} value-like literal(s) "
+                                      "outside section 3; a clean write cannot be told from a "
+                                      "violating one"})
         print(json.dumps({"probes": len(results), "failed": len(bad), "failures": bad,
                           "page_integrity": page_check}, ensure_ascii=False, indent=1))
         return 0 if not bad else 1
@@ -902,6 +912,21 @@ def main() -> int:
                           "note": "rendered rows do not byte-match the machine copy; "
                                   "refusing to write"}, ensure_ascii=False))
         return 1
+    own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
+    copies = (HEX_RUN.findall(own) + ISO_RUN.findall(own) + CLOCK_RUN.findall(own)
+              + PCT_RUN.findall(own))
+    quoted = len(HEX_RUN.findall(rendered)) + len(ISO_RUN.findall(rendered)) - len(copies)
+    if copies:
+        gate = history / "gate.txt"
+        with gate.open("a", encoding="utf-8") as fh:
+            fh.write("manifest-refused {} reason=own-value-like-literals count={} "
+                     "page_not_written=1 manifest={} manifest_sha256={}\n".format(
+                         manifest["generated_at_utc"], len(copies), manifest_path,
+                         sha256_file(manifest_path)))
+        print(json.dumps({"gen": args.gen, "refused": "own value-like literals",
+                          "count": len(copies), "sample": copies[:5],
+                          "note": "the page was not written; fix the template"}, ensure_ascii=False))
+        return 1
     page.write_text(rendered, encoding="utf-8")
     receipt = history / "probes-last.json"
     receipt.write_text(json.dumps({"gen": args.gen, "run_at_utc": manifest["generated_at_utc"],
@@ -910,17 +935,14 @@ def main() -> int:
     gate = history / "gate.txt"
     with gate.open("a", encoding="utf-8") as fh:
         fh.write("manifest-run {} probes={} failed={} coverage=claims:{}+gaps:{}+audits:{}+"
-                 "mustfix:{} page={} page_sha256={} receipt={} receipt_sha256={} "
-                 "manifest={} manifest_sha256={}\n".format(
+                 "mustfix:{} own_value_like_literals={} page={} page_sha256={} receipt={} "
+                 "receipt_sha256={} manifest={} manifest_sha256={}\n".format(
                      manifest["generated_at_utc"], len(results), len(bad),
                      len(manifest["claims"]), len(manifest["gaps"]),
                      len(manifest.get("audits") or []), len(manifest.get("mustfix") or []),
+                     len(copies),
                      page, sha256_file(page), receipt, sha256_file(receipt),
                      manifest_path, sha256_file(manifest_path)))
-    own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
-    copies = (HEX_RUN.findall(own) + ISO_RUN.findall(own) + CLOCK_RUN.findall(own)
-              + PCT_RUN.findall(own))
-    quoted = len(HEX_RUN.findall(rendered)) + len(ISO_RUN.findall(rendered)) - len(copies)
     print(json.dumps({"gen": args.gen, "claims": len(manifest["claims"]),
                       "gaps": len(manifest["gaps"]), "probes": len(results),
                       "failed": len(bad), "own_value_like_literals": len(copies),
