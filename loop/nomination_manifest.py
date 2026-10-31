@@ -75,7 +75,11 @@ def run_probe(probe: dict) -> tuple[bool, str]:
         if kind == "run_exists":
             store = json.loads(RUNS.read_text(encoding="utf-8"))
             runs = store.get("runs", store) if isinstance(store, dict) else store
-            keys = runs.keys() if isinstance(runs, dict) else [str(r.get("run")) for r in runs]
+            if isinstance(runs, dict):
+                keys = set(runs.keys())
+            else:
+                # Engine store keys the id as runId; older fixtures may use run.
+                keys = {str(r.get("runId") or r.get("run")) for r in runs}
             return probe["run"] in keys, "run present in store" if probe["run"] in keys else "run absent"
         if kind == "json_equals":
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
@@ -96,6 +100,10 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             proc = subprocess.run(probe["argv"], cwd=probe.get("cwd"), capture_output=True,
                                   text=True, timeout=120)
             return proc.returncode == 0, f"rc={proc.returncode}"
+        if kind == "git_untracked":
+            proc = subprocess.run(["git", "-C", str(REPO), "ls-files", "--error-unmatch",
+                                   probe["path"]], capture_output=True, text=True)
+            return proc.returncode != 0, f"ls-files rc={proc.returncode}"
         if kind == "git_clean":
             proc = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--",
                                    probe["path"]], capture_output=True, text=True, timeout=60)
@@ -159,7 +167,7 @@ def enumerate_anomalies(gen: str) -> list[dict]:
     for name in enumerate_generations(gen):
         bundle = read_bundle(name)
         for item in (bundle or {}).get("items", []):
-            verdict = item.get("judge_verdict") or {}
+            verdict = item.get("judge_verdict") or item
             if verdict.get("anomalies"):
                 out.append({"gen": name, "item": item.get("item"),
                             "pointer": {"path": str(ARCHIVE / name / "bundle.json"),
@@ -260,21 +268,26 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     tracked_n = len([ln for ln in tracked.stdout.splitlines() if ln.strip()])
     if tracked_n * 100 < on_disk:
         gaps.append({"id": "G-git",
-                     "text": "under 1% of the files under .omo are tracked by git: the archive, "
-                             "the ledger and the gate receipts live on this machine only",
+                     "text": "the archive, the ledger and the gate receipts live under .omo, which "
+                             "git does not track; the coverage ratio is recomputed by the probe and "
+                             "is not restated here",
                      "pointer": {"path": str(REPO / ".gitignore"), "selector": "file"},
-                     "probe": {"kind": "dir_exists", "path": str(REPO / ".omo")}})
+                     "probe": {"kind": "absent_in",
+                               "path": str(REPO / ".gitignore"),
+                               "pattern": r"^\.omo/$"}})
     manifest_hits = sorted(MANIFESTS.glob(f"{gen}-*.sha256")) if MANIFESTS.is_dir() else []
     if not manifest_hits:
         gaps.append({"id": "G-manifest", "text": "no git-tracked evidence manifest for this "
                                                  "generation (earlier generations had one)",
                      "pointer": {"path": str(MANIFESTS), "selector": "dir"},
-                     "probe": {"kind": "dir_exists", "path": str(MANIFESTS)}})
+                     "probe": {"kind": "absent_in", "path": str(REPO / ".gitignore"),
+                               "pattern": re.escape(f"{gen}-")}})
     gate = EVIDENCE / "nomination-history" / gen / "gate.txt"
     gaps.append({"id": "G-gate", "text": "gate receipts are append-only but live under .omo, which "
                                          "git does not track: they survive on this machine only",
                  "pointer": {"path": str(gate), "selector": "file"},
-                 "probe": {"kind": "file_exists", "path": str(gate)}})
+                 "probe": {"kind": "git_untracked",
+                           "path": str(gate.relative_to(REPO))}})
     base_bundle = read_bundle(gen) or {}
     for idx, stamp in enumerate(base_bundle.get("stamps") or []):
         gaps.append({"id": f"G-stamp-{idx + 1}", "text": f"permanent disclosure stamp: {stamp}",
@@ -290,13 +303,14 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                                  "selector": "items"},
                      "probe": {"kind": "file_exists",
                                "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json")}})
-    anomalies = enumerate_anomalies(gen)
-    if anomalies:
-        gaps.append({"id": "G-anomalies",
-                     "text": "judge-recorded anomalies exist for this promotion; they are adverse "
-                             "facts and are enumerated from the bundles, not curated",
-                     "pointer": {"path": str(ARCHIVE), "selector": "dir"},
-                     "probe": {"kind": "dir_exists", "path": str(ARCHIVE)}})
+    for anomaly in enumerate_anomalies(gen):
+        pointer = anomaly["pointer"]
+        gaps.append({"id": f"G-anomaly-{anomaly['gen']}-{anomaly['item']}",
+                     "text": f"judge-recorded anomaly for {anomaly['gen']}/{anomaly['item']} "
+                             "(adverse fact; text is at the pointer, not restated here)",
+                     "pointer": pointer,
+                     "probe": {"kind": "json_selector", "path": pointer["path"],
+                               "selector": pointer["selector"]}})
     return gaps
 
 
@@ -322,6 +336,7 @@ CONTRACT = {"terminal_state": "CONVERGED", "nominatable": True, "canaries_killed
 def build(gen: str) -> dict:
     gens = enumerate_generations(gen)
     claims = []
+    seen: set[str] = set()
     for name in gens:
         bundle = read_bundle(name)
         if bundle is None:
@@ -357,9 +372,13 @@ def build(gen: str) -> dict:
         for item in bundle.get("items", []):
             item_id = item.get("item")
             selector = f"items.{bundle['items'].index(item)}.verdict"
-            claims.append(claim(f"{name}.{item_id}.verdict", f"{name} {item_id} verdict",
+            claims.append(claim(f"{name}.{item_id}.verdict.present", f"{name} {item_id} verdict is recorded",
                                 {"path": base, "selector": selector},
                                 {"kind": "json_selector", "path": base, "selector": selector}))
+    for c in claims:
+        if c["id"] in seen:
+            raise SystemExit(f"nomination_manifest: duplicate claim id {c['id']}")
+        seen.add(c["id"])
     audits = enumerate_audits(gen)
     mustfix = enumerate_mustfix(gen, audits)
     bind_probes(mustfix, gen)
@@ -395,6 +414,12 @@ def run_probes(manifest: dict) -> list[dict]:
     return results
 
 
+def _scalar(value, key: str) -> str:
+    if isinstance(value, dict):
+        return str(value.get(key) or "")
+    return str(value or "")
+
+
 def render(manifest: dict, results: list[dict]) -> str:
     state = {r["id"]: r for r in results}
     lines = [
@@ -403,8 +428,8 @@ def render(manifest: dict, results: list[dict]) -> str:
         "This page's own assertions carry no values: every state comes from a probe and every",
         "address is a pointer. The only literals on the page are inside QUOTED ballot demands in",
         "section 3, which belong to the ballots and are shown in full on purpose; a quotation is",
-        "not this page asserting a number. To check a line, open the pointer. To re-run every",
-        "open the pointer. To check all lines at once, run:",
+        "not this page asserting a number. To check a line, open the pointer, then run every",
+        "probe at once with:",
         "",
         "```",
         "python3 loop/nomination_manifest.py --run-probes <manifest.json> && "
@@ -414,7 +439,7 @@ def render(manifest: dict, results: list[dict]) -> str:
         "## 0. What changed",
         "",
         "The previous record restated disk values in prose, so every restatement needed a human",
-        "to guard it; five audits in a row rejected exactly that layer. This record removes the",
+        "to guard it; every audit of that layer rejected exactly that layer. This record removes the",
         "restatement instead of gating it: values are only ever pointed at, states only ever come",
         "from probes, gaps are enumerated from directories, and the status vocabulary has no",
         "'landed'. Most rows in section 3 were raised against the retired design; they stay",
@@ -431,12 +456,16 @@ def render(manifest: dict, results: list[dict]) -> str:
         ptr = "{}#{}".format(entry["pointer"]["path"], entry["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(entry["id"], entry["claim"], ptr, mark))
     lines += ["", "## 2. Audits (pointers into the engine run store)", "",
-              "| run | pointer | state |", "| --- | --- | --- |"]
+              "Outcome and independence are read from the store, not restated by this page.", "",
+              "| run | verdict | independence | pointer | state |",
+              "| --- | --- | --- | --- | --- |"]
     for audit in manifest["audits"]:
         ptr = "{}#{}".format(RUNS, audit.get("run"))
         ok = run_probe({"kind": "run_exists", "run": audit.get("run")})[0]
-        lines.append("| {} | `{}` | {} |".format(audit.get("run"), ptr,
-                                                 "RESOLVES" if ok else "MISSING"))
+        lines.append("| {} | {} | {} | `{}` | {} |".format(
+            audit.get("run"), _scalar(audit.get("verdict"), "verdict") or "unknown",
+            _scalar(audit.get("independence"), "status") or "unknown", ptr,
+            "RESOLVES" if ok else "MISSING"))
     lines += ["", "## 3. Must-fix items (quoted from ballots; quote text is not this page's "
                   "own assertion)", "",
               "Status is a probe result or the literal word MANUAL. There is no 'landed' status",
@@ -448,8 +477,8 @@ def render(manifest: dict, results: list[dict]) -> str:
         st = "PROBE-PASS" if item.get("probe") and run_probe(item["probe"])[0] else \
              ("PROBE-FAIL" if item.get("probe") else "MANUAL")
         demand = item["demand"].replace("|", "\\|")
-        full = "{}#{}".format(EVIDENCE / "nomination-history" / manifest["gen"] / "mustfix.json",
-                              item["n"])
+        full = "{}#{}#{}".format(EVIDENCE / "nomination-history" / manifest["gen"] / "mustfix.json",
+                                 item["audit"], item["n"])
         lines.append("| {} | {} | {} | `{}` | {} |".format(item["audit"], item["n"], demand,
                                                           full, st))
     lines += ["", "## 4. Gaps (enumerated, not curated)", "",
