@@ -2,6 +2,7 @@
 """seed_item.py <gen> <item-id> — create /tmp/abathur-loop-<gen>/<item>/ per handoff §1."""
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -93,6 +94,12 @@ def main():
     n_cand, n_gt, skipped = pin_fixtures(L.cand_root(gen, item_id), L.harness_dir(gen, item_id), manifest)
     turns = {"item": item_id, "turns": item["turns"]}
     (L.harness_dir(gen, item_id) / "turns.json").write_text(json.dumps(turns, indent=2, ensure_ascii=False))
+    ledger_path = Path(__file__).resolve().parent.parent / ".omo" / "evidence" / "draw-ledger.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"gen": gen, "item": item_id, "seeded_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                             "manifest_sha256": L.sha256_file(L.harness_dir(gen, item_id) / "manifest.json")},
+                            ensure_ascii=False) + "\n")
     print(f"seeded {gen}/{item_id}: {len(manifest['files'])} files, {len(manifest['symlinks'])} symlinks")
     print(f"  pinned fixtures: {n_cand} candidate + {n_gt} harness-side -> {L.harness_dir(gen, item_id) / 'fixtures'}")
     if skipped:

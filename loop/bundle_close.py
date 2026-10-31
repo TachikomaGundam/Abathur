@@ -143,6 +143,15 @@ def main():
                 continue
             if str(data.get("gen")) == gen and str(data.get("item", "")).startswith("SR4-"):
                 expected.add(data["item"])
+    draw_ledger = Path(__file__).resolve().parent.parent / ".omo" / "evidence" / "draw-ledger.jsonl"
+    if draw_ledger.is_file():
+        for line in draw_ledger.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("gen") == gen and str(rec.get("item", "")).startswith("SR4-"):
+                expected.add(rec["item"])
     for missing in sorted(expected - set(observed)):
         items.append({"item": missing, "verdict": "MISSING_ITEM",
                       "mechanism_guess": "seeded or judged for this generation but absent from the "
@@ -184,7 +193,8 @@ def main():
         "terminal_state": terminal,
         "nominatable": (bool(items) and terminal == "CONVERGED" and not canaries_killed
                         and not incidents and all(r.get("verdict") == "PASS" for r in items)),
-        "roster_expected_source": "exam-queue seed/judge records for this generation plus --expect",
+        "roster_expected_source": ("draw-ledger.jsonl seed records + exam-queue records for this "
+                                   "generation + --expect"),
         "roster_expected": sorted(expected),
         "roster_observed": sorted(observed),
         "face_note": "C-08: this bundle is a DECORATIVE INDEX; compliance witnesses come from pinned code only.",
