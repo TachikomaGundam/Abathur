@@ -34,6 +34,11 @@ const STAGES = {
 const GEN_RE = /^G[0-9]+[A-Z]*$/
 const ITEM_RE = /^SR4-[0-9]+$/
 const PYTHON = process.env.ABATHUR_PY || "/usr/bin/python3"
+// Receipt addressing: the target session may host more than one agent (this repo's
+// seat has shared a session with Sisyphus). A bare text injection is answered by
+// whichever agent the session currently has selected, which is how receipts ended up
+// in another agent's mouth (2026-10-31 report). Always name the seat explicitly.
+const SEAT_AGENT = process.env.ABATHUR_SEAT_AGENT || "abathur"
 const TIMEOUT_MS = 2 * 60 * 60 * 1000
 const POLL_MS = 2000
 
@@ -54,25 +59,102 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
 
   let running = null          // 当前作业名
   const sidFile = path.join(queue, "last-session.txt")
-  let lastSessionID = (() => { try { return fs.readFileSync(sidFile, "utf8").trim() || undefined } catch { return undefined } })()
-  const remember = (sid) => {
-    if (!sid || sid === lastSessionID) return
+  const readAddr = () => {
+    try {
+      const raw = fs.readFileSync(sidFile, "utf8").trim()
+      if (!raw) return { id: undefined, verified: false }
+      if (raw.startsWith("{")) {
+        const j = JSON.parse(raw)
+        return { id: j.id, verified: j.agent === SEAT_AGENT }
+      }
+      return { id: raw, verified: false }
+    } catch { return { id: undefined, verified: false } }
+  }
+  const addr = readAddr()
+  let lastSessionID = addr.id
+  let lastSessionVerified = addr.verified
+  if (lastSessionID && !lastSessionVerified) log(logfile, `RECEIPT-ADDR-UNVERIFIED ${lastSessionID}`)
+  const remember = (sid, agent) => {
+    if (!sid) return
+    const verified = agent === SEAT_AGENT
+    if (sid === lastSessionID && verified === lastSessionVerified) return
     lastSessionID = sid
-    try { fs.writeFileSync(sidFile, sid) } catch {}
+    lastSessionVerified = verified
+    try { fs.writeFileSync(sidFile, JSON.stringify({ id: sid, agent: agent || "unknown" })) } catch {}
   }
   let disposed = false
 
   const receipt = async (text) => {
-    if (!lastSessionID) return
+    if (!lastSessionID) {
+      log(logfile, "RECEIPT-SKIP no session address")
+      return
+    }
     try {
       await client.session.promptAsync({
         path: { id: lastSessionID },
-        body: { parts: [{ type: "text", text }] },
+        body: { agent: SEAT_AGENT, parts: [{ type: "text", text }] },
       })
+      log(logfile, `RECEIPT-SENT sid=${lastSessionID} agent=${SEAT_AGENT} verified=${lastSessionVerified}`)
     } catch (e) {
-      log(logfile, `RECEIPT-FAIL ${e?.message || e}`)
+      log(logfile, `RECEIPT-FAIL sid=${lastSessionID} ${e?.message || e}`)
     }
   }
+
+  const COALESCE_MS = Number(process.env.ABATHUR_RECEIPT_COALESCE_MS || 45000)
+  const BATCH_MAX = Number(process.env.ABATHUR_RECEIPT_BATCH_MAX || 8)
+  const pending = []
+  let flushTimer = null
+  const flush = async () => {
+    flushTimer = null
+    if (!pending.length) return
+    const batch = pending.splice(0, pending.length)
+    log(logfile, `FLUSH n=${batch.length}`)
+    await receipt(
+      `[JOB-RECEIPT][seat=${SEAT_AGENT}] 合并回执 ${batch.length} 件（窗口 ${Math.round(COALESCE_MS / 1000)}s，本批等多于此值即投递）\n` +
+      batch.map((b) => `- ${b}`).join("\n") +
+      `\n结果文件均在 .omo/exam-queue/done/。按流水线继续下一步，不要问我进度。`
+    )
+  }
+  const queueReceipt = (line) => {
+    pending.push(line)
+    if (pending.length >= BATCH_MAX) {
+      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+      flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`))
+      return
+    }
+    if (!flushTimer) {
+      flushTimer = setTimeout(() => { flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`)) }, COALESCE_MS)
+      flushTimer.unref?.()
+    }
+  }
+
+  const reconcile = () => {
+    const rf = path.join(queue, "running.json")
+    let rec
+    try { rec = JSON.parse(fs.readFileSync(rf, "utf8")) } catch { return }
+    if (!rec || !rec.name || running === rec.name) return
+    if (rec.pid && fs.existsSync(`/proc/${rec.pid}`)) return
+    const target = path.join(done, `${rec.name}.result.json`)
+    if (fs.existsSync(target)) {
+      try { fs.rmSync(rf, { force: true }) } catch {}
+      log(logfile, `RECONCILED ${rec.name} cleared-stale-noop`)
+      return
+    }
+    const result = {
+      gen: rec.gen, item: rec.item, stage: rec.stage, rc: -1, kind: "INTERRUPTED", elapsed_s: null,
+      tail: "进程在结果落盘前消失；此前可能已有工件，先查 run dir 再决定重跑",
+    }
+    try { fs.writeFileSync(target, JSON.stringify(result, null, 1)) } catch (e) {
+      log(logfile, `RECONCILE-FAIL ${rec.name} ${e?.message || e}`)
+    }
+    try { fs.rmSync(rf, { force: true }) } catch {}
+    log(logfile, `RECONCILED ${rec.name} kind=INTERRUPTED`)
+    queueReceipt(
+      `作业中断：${rec.name}（gen=${rec.gen} item=${rec.item} stage=${rec.stage}）——终态记录已补写 kind=INTERRUPTED；` +
+      `若工件已存在可先判卷，不要盲目重跑。结果文件 done/${rec.name}.result.json`
+    )
+  }
+  reconcile()
 
   const runJob = (name, req) => new Promise((resolve) => {
     const script = path.join(root, STAGES[req.stage])
@@ -84,6 +166,11 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       stdio: ["ignore", "pipe", "pipe"],
       env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("ABATHUR_"))),
     })
+    try {
+      fs.writeFileSync(path.join(queue, "running.json"), JSON.stringify({
+        name, ...req, started_at: new Date().toISOString(), pid: child.pid,
+      }))
+    } catch (e) { log(logfile, `RUNNING-WRITE-FAIL ${name} ${e?.message || e}`) }
     let out = ""
     const cap = (b) => { out = (out + b.toString()).slice(-200_000) }
     child.stdout.on("data", cap)
@@ -92,16 +179,21 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
     child.on("close", (rc) => {
       clearTimeout(timer)
       const elapsed = Math.round((Date.now() - t0) / 100) / 10
-      const result = { gen: req.gen, item: req.item, stage: req.stage, rc, elapsed_s: elapsed, tail: out.slice(-4000) }
-      try { fs.writeFileSync(path.join(done, `${name}.result.json`), JSON.stringify(result, null, 1)) } catch {}
+      const result = { gen: req.gen, item: req.item, stage: req.stage, rc, kind: "OK", elapsed_s: elapsed, tail: out.slice(-4000) }
+      try { fs.writeFileSync(path.join(done, `${name}.result.json`), JSON.stringify(result, null, 1)) } catch (e) {
+        log(logfile, `RESULT-WRITE-FAIL ${name} ${e?.message || e}`)
+      }
+      try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {}
       log(logfile, `DONE ${name} rc=${rc} ${elapsed}s`)
       running = null
+      queueReceipt(`gen=${req.gen} item=${req.item} stage=${req.stage} rc=${rc} 用时=${elapsed}s name=${name}`)
       resolve(result)
     })
   })
 
   const poll = async () => {
     if (disposed || running) return
+    reconcile()
     let files = []
     try {
       files = fs.readdirSync(queue).filter((f) => f.endsWith(".json") && f !== "running.json").sort()
@@ -126,22 +218,22 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       log(logfile, `REJECT ${name} ${bad}`)
       return
     }
-    try { fs.writeFileSync(path.join(queue, "running.json"), JSON.stringify({ name, ...req })) } catch {}
     fs.rmSync(file, { force: true })
-    const r = await runJob(name, req)
-    try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {}
-    await receipt(
-      `[JOB-RECEIPT] 考场作业完成：gen=${req.gen} item=${req.item} stage=${req.stage} rc=${r.rc} 用时=${r.elapsed_s}s；` +
-      `结果文件 .omo/exam-queue/done/${name}.result.json。按流水线继续下一步，不要问我进度。`
-    )
+    log(logfile, `TAKE ${name} ${req.gen}/${req.item}/${req.stage}`)
+    await runJob(name, req)
   }
 
   const timer = setInterval(() => { poll().catch((e) => log(logfile, `POLL-ERROR ${e?.message || e}`)) }, POLL_MS)
   timer.unref?.()
 
   return {
-    "chat.message": async (input) => remember(input?.sessionID),
-    "tool.execute.before": async (input) => remember(input?.sessionID),
-    dispose: async () => { disposed = true; clearInterval(timer) },
+    "chat.message": async (input) => remember(input?.sessionID, input?.agent),
+    "tool.execute.before": async (input) => remember(input?.sessionID, input?.agent),
+    dispose: async () => {
+      disposed = true
+      clearInterval(timer)
+      if (flushTimer) clearTimeout(flushTimer)
+      if (pending.length) log(logfile, `DISPOSE-DROP-PENDING n=${pending.length}`)
+    },
   }
 }
