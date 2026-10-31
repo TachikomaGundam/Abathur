@@ -90,7 +90,12 @@ def regression_duty() -> dict[str, str]:
                 continue
             passed = entry.get("verdict") == "PASS" and item_id not in killed
             if not passed:
-                duty[cls] = f"opened by {b['gen']}/{item_id} ({'KILL' if item_id in killed else 'FAIL'})"
+                # Label precision (2026-10-31): bundle.canaries_killed is a CONSERVATIVE gate that
+                # also holds canary items whose aggregate is FAIL. Only call it a KILL when the
+                # judge actually hit a kill condition, otherwise say FAIL — the gate stays as-is.
+                real_kill = bool((entry.get("judge_verdict") or {}).get("canary_kill"))
+                label = "KILL" if (item_id in killed and real_kill) else "FAIL"
+                duty[cls] = f"opened by {b['gen']}/{item_id} ({label})"
                 streak[cls] = 0
             elif cls in duty:
                 streak[cls] = streak.get(cls, 0) + 1
