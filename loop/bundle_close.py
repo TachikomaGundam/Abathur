@@ -12,11 +12,16 @@ import os
 import stat
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import looplib as L
 from bank import ITEMS
+
+# run_judge started writing judge-work/session.txt at commit 7a5871b (2026-10-31T06:34:06Z).
+# Earlier verdict files legitimately lack the receipt and must not be re-graded as suspicious.
+RECEIPT_ERA_TS = datetime(2026, 10, 31, 6, 34, 6, tzinfo=timezone.utc).timestamp()
 
 
 def close_item(gen: str, item_dir: Path) -> dict:
@@ -81,11 +86,14 @@ def close_item(gen: str, item_dir: Path) -> dict:
     else:
         aggregate = verdict.get("aggregate")
         judge_hgf = verdict.get("hard_global_fail") is True
+        vpath = hd2 / "judge-work" / "verdict.json"
         sess = hd2 / "judge-work" / "session.txt"
-        sess_bad = not (sess.is_file() and "rc=0" in sess.read_text(encoding="utf-8", errors="replace"))
+        sess_text = sess.read_text(encoding="utf-8", errors="replace") if sess.is_file() else ""
+        post_receipt = (vpath.is_file()
+                        and vpath.stat().st_mtime >= RECEIPT_ERA_TS)
+        sess_bad = post_receipt and "rc=0" not in sess_text
         problems_file = hd2 / "judge-work" / "verdict-problems.txt"
         stale = False
-        vpath = hd2 / "judge-work" / "verdict.json"
         if vpath.is_file() and vpath.stat().st_mtime < tx_path.stat().st_mtime:
             stale = True
         if (aggregate not in ("PASS", "FAIL") or judge_hgf or stale or sess_bad
