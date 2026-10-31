@@ -16,13 +16,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import engine_receipts as ER
 import looplib as L
 import run_judge as RJ
 from bank import ITEMS
 
+REPO = Path(__file__).resolve().parent.parent
+
 # run_judge started writing judge-work/session.txt at commit 7a5871b (2026-10-31T06:34:06Z).
 # Earlier verdict files legitimately lack the receipt and must not be re-graded as suspicious.
 RECEIPT_ERA_TS = datetime(2026, 10, 31, 6, 34, 6, tzinfo=timezone.utc).timestamp()
+
+
+def _judge_session_id(gen: str, item_id: str, sess_path) -> str | None:
+    """Judge session id: prefer the judge's own receipt, fall back to the queue record."""
+    sid = ER.session_from_receipt(sess_path) if sess_path.is_file() else None
+    if sid:
+        return sid
+    for path in sorted((REPO / ".omo" / "exam-queue" / "done").glob(f"{gen}-*judge*.result.json")):
+        try:
+            body = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if body.get("item") != item_id:
+            continue
+        found = ER.session_from_receipt(path)
+        if found:
+            return found
+    return None
 
 
 def close_item(gen: str, item_dir: Path) -> dict:
@@ -100,13 +121,22 @@ def close_item(gen: str, item_dir: Path) -> dict:
         sha_bad = bool(post_receipt and bound_sha and vpath.is_file()
                        and bound_sha != L.sha256_file(vpath))
         bank_problems = RJ.verdict_problems(verdict, item_id) if isinstance(verdict, dict) else []
+        er = {"ok": False, "reason": "not required before the receipt era"}
+        if post_receipt:
+            sid = _judge_session_id(gen, item_id, sess)
+            er = ER.check(hd2, sid or "", not_after=vpath if vpath.is_file() else None)
+            if not sid:
+                er = {"ok": False, "session": None,
+                      "reason": "no judge session id in session.txt nor in the queue record"}
+        row["engine_receipt"] = {k: er.get(k) for k in
+                                 ("session", "found", "title", "created_utc", "ok", "reason")}
         rerolls = sorted((hd2 / "judge-work").glob("verdict.pre-reroll-*.json"))
         problems_file = hd2 / "judge-work" / "verdict-problems.txt"
         stale = False
         if vpath.is_file() and vpath.stat().st_mtime < tx_path.stat().st_mtime:
             stale = True
         if (aggregate not in ("PASS", "FAIL") or judge_hgf or stale or sess_bad or sha_bad
-                or problems_file.is_file() or bank_problems):
+                or problems_file.is_file() or bank_problems or (post_receipt and not er["ok"])):
             row["verdict"] = "NEEDS_HUMAN"
             row["judge_verdict"] = verdict
             reason = ("aggregate missing or outside PASS|FAIL" if aggregate not in ("PASS", "FAIL")
