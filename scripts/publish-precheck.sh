@@ -15,6 +15,15 @@ GATE_CMD="${ABATHUR_GATE_CMD:-}"
 GATE_ARGS="${ABATHUR_GATE_ARGS:-}"
 GATE_CONFIG="${ABATHUR_GATE_CONFIG:-}"
 
+if [ -f "$REPO/scripts/scan-machine-names.py" ] && command -v python3 >/dev/null 2>&1; then
+  if ! python3 "$REPO/scripts/scan-machine-names.py" >/tmp/precheck-names.json 2>&1; then
+    echo "PRECHECK-BLOCKED reason=machine-names-in-code"
+    python3 -c 'import json,sys; d=json.load(open("/tmp/precheck-names.json")); [print("  hit|", r["file"], r["line"], r["why"]) for r in d["rows"][:10]]' 2>/dev/null
+    echo "PRECHECK NOTE=remove the coupling or record ALLOW-MACHINE-NAME with a reason"
+    exit 1
+  fi
+fi
+
 if [ -z "$GATE_CMD" ]; then
   echo "PRECHECK UNDISPATCHABLE reason=no-gate-tool-configured"
   echo "PRECHECK NOTE=ABATHUR_GATE_CMD is unset; this script refuses to invent a check"

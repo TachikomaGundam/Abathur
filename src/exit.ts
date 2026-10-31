@@ -1,4 +1,4 @@
-// Exit-code contract (family-wide, border/README.md:289-296):
+// Exit-code contract (family-wide standard: exit 0 ok / 1 blocked / 2 cannot-answer):
 //   0 = ok/pass            1 = blocked/failed (decision)   2 = cannot-answer (tool error:
 //                             config error, malformed input, missing engine, lock holder)
 // Handlers never touch process directly: they return 0 or throw ExitSignal; the CLI

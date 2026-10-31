@@ -1,6 +1,6 @@
 // Append-only per-genome ledger + crash resume + friction queue (plan todo 2).
 // One JSONL file per genome at <genomeRepo>/.state/abathur/ledger.jsonl.
-// Discipline (border/README.md precedent): lines are only ever appended, never
+// Discipline (family-wide precedent): lines are only ever appended, never
 // rewritten or truncated — the sole exception is the corrupt-TAIL quarantine
 // at open, which MOVES the original bytes to ledger.corrupt-<ts> and keeps the
 // intact prefix byte-for-byte. Every read re-validates every line with zod;

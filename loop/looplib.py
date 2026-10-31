@@ -19,10 +19,40 @@ import sys
 import time
 from pathlib import Path
 
-OPENCODE_BIN = "/home/lab/.npm-global/bin/opencode"
-SOURCE_OPENCODE_JSONC = Path("/home/lab/.config/opencode/opencode.jsonc")
-PINNED_PATH = "/home/lab/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
-DEFAULT_MODEL = os.environ.get("LOOP_MODEL", "local-qwen/qwen3.8-flash-next")
+def _discover_bin(name: str, env_key: str, legacy: str) -> str:
+    """Resolve an executable by env, then PATH, then the legacy absolute path.
+
+    Discovery first keeps this box's install prefix out of executable code (L-DISCOVERY-
+    NOT-HARDCODING); the legacy path stays only as a last resort so an unconfigured box
+    still runs. Returns the empty string when nothing resolves, so callers fail closed.
+    """
+    override = os.environ.get(env_key)
+    if override and Path(override).is_file():
+        return override
+    found = shutil.which(name)
+    if found:
+        return found
+    return legacy if Path(legacy).is_file() else ""
+
+
+OPENCODE_BIN = _discover_bin("opencode", "ABATHUR_OPENCODE_BIN", "/home/lab/.npm-global/bin/opencode")  # ALLOW-MACHINE-NAME last-resort default for an unconfigured box; env/PATH win
+SOURCE_OPENCODE_JSONC = Path(os.environ.get(
+    "ABATHUR_OPENCODE_JSONC", "/home/lab/.config/opencode/opencode.jsonc"))
+PINNED_PATH = os.environ.get("ABATHUR_PINNED_PATH", "/usr/local/bin:/usr/bin:/bin")
+if OPENCODE_BIN:
+    PINNED_PATH = f"{Path(OPENCODE_BIN).parent}:{PINNED_PATH}"
+def _box_tooling() -> dict:
+    path = Path(os.environ.get(
+        "ABATHUR_TOOLING", str(Path(__file__).resolve().parent.parent / ".omo" / "tooling.json")))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+# Model identity is a machine fact: env or the box's tooling registry, never a literal here.
+DEFAULT_MODEL = (os.environ.get("LOOP_MODEL") or os.environ.get("ABATHUR_MODEL")
+                 or str(_box_tooling().get("model") or ""))
 JUDGE_MODEL = os.environ.get("LOOP_JUDGE_MODEL", DEFAULT_MODEL)
 TURN_TIMEOUT = int(os.environ.get("LOOP_TURN_TIMEOUT", "1200"))
 LOOP_DIR = Path(__file__).resolve().parent
@@ -426,8 +456,8 @@ def hard_global_fail_scan(tx: dict, scratch_globs: tuple[str, ...] = ()) -> list
 
 
 def boundary_read_scan(tx: dict) -> list:
-    """Anomaly class (NOT hard-fail): any tool call referencing real /home/lab/** — reads leak
-    via inherited PATH (real opencode lives at /home/lab/.npm-global/bin), so reads are
+    """Anomaly class (NOT hard-fail): any tool call referencing the real home root — reads
+    leak via inherited PATH (the engine binary lives under the user prefix), so reads are
     judge-scored context, never auto-FAIL."""
     out = []
     for part in tx.get("part", []):
@@ -468,7 +498,9 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
            "--ro-bind", "/lib", "/lib", "--ro-bind", "/lib64", "/lib64",
            "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp",
            "--bind", str(cr), str(cr), "--chdir", str(cwd)]
-    for p in ("/home/lab/.npm-global",):
+    bind_ro = {str(Path(OPENCODE_BIN).parent)} if OPENCODE_BIN else set()
+    bind_ro |= {p for p in os.environ.get("ABATHUR_SANDBOX_RO_BINDS", "").split(":") if p}
+    for p in sorted(bind_ro):
         if Path(p).exists():
             cmd += ["--ro-bind", p, p]
     for k, v in env.items():

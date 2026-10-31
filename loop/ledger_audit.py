@@ -4,10 +4,13 @@ same-machine clocks are not adversarial-grade; the engine session store's
 event order is, and BOTH ledger appends and artifact writes are tool calls
 inside that one total order). Read-only against the DB; emits L-BLIND-AUDIT
 四元 receipts. MVP: two checks + a chain-head anchor line."""
-import argparse, hashlib, json, sqlite3, sys, datetime
+import argparse, hashlib, json, os, sqlite3, sys, datetime
+from pathlib import Path
 
-DB_DEFAULT = "/home/lab/.local/share/opencode/opencode.db"
-LEDGER_DEFAULT = "/home/lab/workspace/harness/Abathur/.omo/evidence/INTENT-LEDGER.md"
+REPO = Path(__file__).resolve().parent.parent
+DB_DEFAULT = str(Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))
+                 / "opencode" / "opencode.db")
+LEDGER_DEFAULT = str(REPO / ".omo" / "evidence" / "INTENT-LEDGER.md")
 MARKER = "INTENT-LEDGER"  # ledger appends are bash calls whose input names the file
 
 def events(db, session_ids):
