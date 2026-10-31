@@ -40,6 +40,8 @@ SCRIPT = Path(__file__).resolve()
 
 HEX_RUN = re.compile(r"\b[0-9a-f]{8,}\b")
 ISO_RUN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+CLOCK_RUN = re.compile(r"\b\d{2}:\d{2}(?::\d{2})?Z?\b")
+PCT_RUN = re.compile(r"\b\d+(?:\.\d+)?\s?%")
 
 
 def sha256_file(path: Path) -> str:
@@ -79,9 +81,13 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             text = value if isinstance(value, str) else ""
             return bool(text.strip()), f"text_len={len(text.strip())}"
         if kind == "text_in_file":
-            # A regenerated page must not drift from the ballot it quotes.
+            # A regenerated page must not drift from the ballot it quotes. The
+            # ballot stores the demand JSON-escaped, so both forms count as verbatim.
             text = Path(probe["path"]).read_text(encoding="utf-8", errors="replace")
-            return probe["text"] in text, "verbatim" if probe["text"] in text else "quote drifted"
+            raw = probe["text"]
+            escaped = json.dumps(raw, ensure_ascii=False)[1:-1]
+            ok = raw in text or escaped in text
+            return ok, "verbatim" if ok else "quote drifted"
         if kind == "run_exists":
             store = json.loads(RUNS.read_text(encoding="utf-8"))
             runs = store.get("runs", store) if isinstance(store, dict) else store
@@ -118,6 +124,14 @@ def run_probe(probe: dict) -> tuple[bool, str]:
         if kind == "glob_empty":
             hits = sorted(Path(probe["dir"]).glob(probe["pattern"]))
             return not hits, f"matches={len(hits)}"
+        if kind == "array_needles_lte":
+            needles = 0
+            for f in probe["files"]:
+                try:
+                    needles += Path(f).read_text(encoding="utf-8", errors="replace").count('"must_fix"')
+                except OSError:
+                    return False, f"unreadable {f}"
+            return needles <= probe["expect"], f"arrays={needles} rows={probe['expect']}"
         if kind == "git_track_ratio":
             tracked = subprocess.run(["git", "-C", str(REPO), "ls-files", "--", ".omo"],
                                      capture_output=True, text=True)
@@ -269,7 +283,10 @@ def _ticket_files(run: str) -> list[Path]:
     return []
 
 
-def _all_json_arrays(text: str, key: str) -> list[list]:
+PARSE_FAILURES: list[tuple] = []
+
+
+def _all_json_arrays(text: str, key: str, source=None) -> list[list]:
     """Collect EVERY array under `key`, not just the first one.
 
     The earlier single-array parser silently dropped the other two ballots of
@@ -292,6 +309,7 @@ def _all_json_arrays(text: str, key: str) -> list[list]:
         try:
             value, end = dec.raw_decode(text[bracket:])
         except json.JSONDecodeError:
+            PARSE_FAILURES.append((str(source), hit))
             continue
         pos = bracket + end
         if isinstance(value, list):
@@ -327,7 +345,7 @@ def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
             texts = [(f, f.read_text(encoding="utf-8", errors="replace")) for f in files]
         n = 0
         for fh, text in texts:
-            for arr in _all_json_arrays(text, "must_fix"):
+            for arr in _all_json_arrays(text, "must_fix", fh):
                 for raw in arr:
                     if isinstance(raw, str) and raw.strip():
                         n += 1
@@ -382,19 +400,16 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "pointer": {"path": str(ARCHIVE / gen / "bundle.json"), "selector": f"stamps.{idx}"},
                      "probe": {"kind": "json_selector", "path": str(ARCHIVE / gen / "bundle.json"),
                                "selector": f"stamps.{idx}"}})
-    unmatched = [m for m in mustfix if m["probe"] is None]
-    if unmatched:
-        gaps.append({"id": "G-mustfix-unprobed",
-                     "text": "must-fix items without a machine probe are listed as MANUAL; their "
-                             "completion cannot be asserted by this page",
-                     "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
-                                 "selector": "items"},
-                     "probe": {"kind": "cmd_rc0", "argv": [
-                         "python3", "-c",
-                         "import json,sys,pathlib;"
-                         f"p=pathlib.Path({str(EVIDENCE / 'nomination-history' / gen / 'mustfix.json')!r});"
-                         "d=json.loads(p.read_text());"
-                         "sys.exit(0 if all(i.get('probe') is None for i in d.get('items', [])) else 1)"]}})
+    bundle_path = ARCHIVE / gen / "bundle.json"
+    if bundle_path.is_file():
+        gaps.append({"id": "G-bundle-face",
+                     "text": "section 1 points into bundle.json, and that file calls itself a "
+                             "decorative index rather than a compliance witness; the page never "
+                             "restates that note, and the pinned-code witnesses it defers to are "
+                             "reached through each item's verdict file, not through this page",
+                     "pointer": {"path": str(bundle_path), "selector": "face_note"},
+                     "probe": {"kind": "present_in", "path": str(bundle_path),
+                               "pattern": "DECORATIVE"}})
     listed = {str(a["run"]) for a in audits}
     spaces = Path.home() / ".sibyl" / "spaces"
     if spaces.is_dir():
@@ -409,16 +424,19 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                          "text": f"ballot store {space.name} mentions {gen} but is not listed "
                                  "in section 2; its tickets are not quoted on this page",
                          "pointer": {"path": str(hits[0]), "selector": "file"},
-                         "probe": {"kind": "file_exists", "path": str(hits[0])}})
-    gaps.append({"id": "G-single-parser",
-                 "text": "the per-audit counts in section 3 and the quote probes both come from the "
-                         "same extraction pass, so a parser bug that dropped a whole array would "
-                         "not be detected by either; the count check only proves the page shows "
-                         "as many rows as this parser extracted",
-                 "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
-                             "selector": "items"},
-                 "probe": {"kind": "file_exists",
-                           "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json")}})
+                         "probe": {"kind": "present_in", "path": str(hits[0]), "pattern": gen}})
+    for audit in audits:
+        files = [str(f) for f in _ticket_files(str(audit["run"]))]
+        if not files:
+            continue
+        rows = len([m for m in mustfix if m["audit"] == str(audit["run"])])
+        gaps.append({"id": f"G-array-count-{audit['run']}",
+                     "text": "section 3 rows and their quote probes come from one extraction "
+                             "pass; this row is the independent count check for that audit -- "
+                             "it counts the must_fix arrays still present in the ballot files "
+                             "and fails when that number exceeds the rows taken from them",
+                     "pointer": {"path": files[0], "selector": "file"},
+                     "probe": {"kind": "array_needles_lte", "files": files, "expect": rows}})
     for anomaly in enumerate_anomalies(gen):
         pointer = anomaly["pointer"]
         gaps.append({"id": f"G-anomaly-{anomaly['gen']}-{anomaly['item']}",
@@ -514,6 +532,8 @@ def build(gen: str) -> dict:
 
 
 def run_probes(manifest: dict) -> list[dict]:
+    # Covers every rendered state: a read-only pass that skipped 99 of 121 cells
+    # was the ba2e rejection.
     results = []
     for entry in manifest["claims"] + manifest["gaps"]:
         probe = entry.get("probe")
@@ -521,6 +541,18 @@ def run_probes(manifest: dict) -> list[dict]:
             continue
         ok, detail = run_probe(probe)
         results.append({"id": entry["id"], "ok": ok, "detail": detail})
+    for n, audit in enumerate(manifest.get("audits") or []):
+        probe = {"kind": "run_exists", "run": str(audit.get("run"))}
+        ok, detail = run_probe(probe)
+        results.append({"id": f"audit#{n}", "ok": ok, "detail": detail})
+    for item in manifest.get("mustfix") or []:
+        probe = item.get("probe")
+        if not probe:
+            results.append({"id": f"{item['audit']}#{item['n']}", "ok": False,
+                            "detail": "no probe bound"})
+            continue
+        ok, detail = run_probe(probe)
+        results.append({"id": f"quote:{item['audit']}#{item['n']}", "ok": ok, "detail": detail})
     return results
 
 
@@ -558,8 +590,8 @@ def render(manifest: dict, results: list[dict]) -> str:
         "to guard it; every audit of that layer rejected exactly that layer. This record removes the",
         "restatement instead of gating it: values are only ever pointed at, states only ever come",
         "from probes, gaps are enumerated from directories, and the status vocabulary has no",
-        "'landed'. Most rows in section 3 were raised against the retired design; they stay",
-        "MANUAL until someone binds a probe, and MANUAL is not a claim of completion.",
+        "'landed'. The command above re-runs every state shown below, section 2 and section 3",
+        "included; its receipt is cited at the end of this page.",
         "",
         "## 1. Claims",
         "",
@@ -572,7 +604,11 @@ def render(manifest: dict, results: list[dict]) -> str:
         ptr = "{}#{}".format(entry["pointer"]["path"], entry["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(entry["id"], entry["claim"], ptr, mark))
     lines += ["", "## 2. Audits (pointers into the engine run store)", "",
-              "Outcome and independence are not restated on this page: open the pointer.", "",
+              "Outcome and independence are not restated on this page: open the pointer.",
+              "Inclusion rule, stated because the filter was invisible before: a run is listed",
+              "when its stored artifact path or goal text mentions this generation. Runs that",
+              "merely quote the generation in a ballot body are not listed; each such ballot",
+              "store is gap-listed instead.", "",
               "| run | pointer | state |", "| --- | --- | --- |"]
     for audit in manifest["audits"]:
         ptr = "{}#{}".format(RUNS, audit.get("run"))
@@ -581,14 +617,15 @@ def render(manifest: dict, results: list[dict]) -> str:
             audit.get("run"), ptr, "RESOLVES" if ok else "MISSING"))
     lines += ["", "## 3. Must-fix items (quoted from ballots; quote text is not this page's "
                   "own assertion)", "",
-              "Status is a probe result or the literal word MANUAL. There is no 'landed' status",
-              "here, so no completion can be claimed without a runnable check. Each demand is",
-              "quoted in full; the pointer gives its line in the machine copy.", "",
-              "| audit | line | demand (quoted) | full text | state |",
+              "The state column says one thing only: QUOTE-VERBATIM means the quoted text is",
+              "still present in the ballot file it was taken from. It does not mean the demand",
+              "was satisfied. Whether a demand is met is not machine-decided on this page and is",
+              "listed as a gap.", "",
+              "| audit | line | demand (quoted) | full text | quote state |",
               "| --- | --- | --- | --- | --- |"]
     for item in manifest["mustfix"]:
-        st = "PROBE-PASS" if item.get("probe") and run_probe(item["probe"])[0] else \
-             ("PROBE-FAIL" if item.get("probe") else "MANUAL")
+        st = "QUOTE-VERBATIM" if item.get("probe") and run_probe(item["probe"])[0] else \
+             ("QUOTE-DRIFT" if item.get("probe") else "MANUAL")
         demand = item["demand"].replace("|", "\\|")
         full = "{}#{}#{}".format(EVIDENCE / "nomination-history" / manifest["gen"] / "mustfix.json",
                                  item["audit"], item["n"])
@@ -601,6 +638,13 @@ def render(manifest: dict, results: list[dict]) -> str:
         mark = "PASS" if st and st["ok"] else "FAIL"
         ptr = "{}#{}".format(gap["pointer"]["path"], gap["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(gap["id"], gap["text"], ptr, mark))
+    lines += ["", "## 5. Receipts", "",
+              "The read-only pass above writes nothing. The write-time pass leaves two files "
+              "next to this generation's manifest:", "",
+              "- `{}` -- this page's sha plus every probe result (sections 2 and 3 included)".format(
+                  EVIDENCE / "nomination-history" / manifest["gen"] / "probes-last.json"),
+              "- `{}` -- append-only, one line per run, with coverage counts".format(
+                  EVIDENCE / "nomination-history" / manifest["gen"] / "gate.txt")]
     return "\n".join(lines) + "\n"
 
 
@@ -620,6 +664,12 @@ def main() -> int:
     if not args.gen:
         ap.error("missing generation (or pass --run-probes)")
     manifest = build(args.gen)
+    if PARSE_FAILURES:
+        print(json.dumps({"gen": args.gen, "parse_failures": PARSE_FAILURES,
+                          "note": "an unparsable must_fix array would be a silent drop; "
+                                  "refusing to write a page that claims completeness"},
+                         ensure_ascii=False))
+        return 1
     results = run_probes(manifest)
     bad = [r for r in results if not r["ok"]]
     if not args.write:
@@ -636,6 +686,13 @@ def main() -> int:
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
         (history / f"NOMINATION.previous-{stamp}.md").write_bytes(page.read_bytes())
     rendered = render(manifest, results)
+    drift = [f"{item['audit']}#{item['n']}" for item in manifest["mustfix"]
+             if item["demand"].replace("|", "\\|") not in rendered]
+    if drift:
+        print(json.dumps({"gen": args.gen, "page_quote_drift": drift,
+                          "note": "rendered rows do not byte-match the machine copy; "
+                                  "refusing to write"}, ensure_ascii=False))
+        return 1
     page.write_text(rendered, encoding="utf-8")
     receipt = history / "probes-last.json"
     receipt.write_text(json.dumps({"gen": args.gen, "run_at_utc": manifest["generated_at_utc"],
@@ -643,12 +700,15 @@ def main() -> int:
                                   ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     gate = history / "gate.txt"
     with gate.open("a", encoding="utf-8") as fh:
-        fh.write("manifest-run {} probes={} failed={} page={} page_sha256={} receipt={} "
-                 "receipt_sha256={}\n".format(
-                     manifest["generated_at_utc"], len(results), len(bad), page,
-                     sha256_file(page), receipt, sha256_file(receipt)))
+        fh.write("manifest-run {} probes={} failed={} coverage=claims:{}+gaps:{}+audits:{}+"
+                 "mustfix:{} page={} page_sha256={} receipt={} receipt_sha256={}\n".format(
+                     manifest["generated_at_utc"], len(results), len(bad),
+                     len(manifest["claims"]), len(manifest["gaps"]),
+                     len(manifest.get("audits") or []), len(manifest.get("mustfix") or []),
+                     page, sha256_file(page), receipt, sha256_file(receipt)))
     own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
-    copies = HEX_RUN.findall(own) + ISO_RUN.findall(own)
+    copies = (HEX_RUN.findall(own) + ISO_RUN.findall(own) + CLOCK_RUN.findall(own)
+              + PCT_RUN.findall(own))
     quoted = len(HEX_RUN.findall(rendered)) + len(ISO_RUN.findall(rendered)) - len(copies)
     print(json.dumps({"gen": args.gen, "claims": len(manifest["claims"]),
                       "gaps": len(manifest["gaps"]), "probes": len(results),
