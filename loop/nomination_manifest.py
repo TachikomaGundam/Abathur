@@ -73,6 +73,11 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
             value = select(data, probe["selector"])
             return isinstance(value, list) and len(value) > 0, f"list_len={len(value) if isinstance(value, list) else 'not-a-list'}"
+        if kind == "nonempty_text":
+            data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
+            value = select(data, probe["selector"])
+            text = value if isinstance(value, str) else ""
+            return bool(text.strip()), f"text_len={len(text.strip())}"
         if kind == "run_exists":
             store = json.loads(RUNS.read_text(encoding="utf-8"))
             runs = store.get("runs", store) if isinstance(store, dict) else store
@@ -244,8 +249,47 @@ def _ticket_text(run: str) -> str | None:
     return None
 
 
+def _ticket_files(run: str) -> list[Path]:
+    """Every ballot file for a run, so no seat's demands can be dropped."""
+    space = Path.home() / ".sibyl" / "spaces" / run
+    if space.is_dir():
+        files = sorted(space.glob("*.md"))
+        if files:
+            return files
+    return []
+
+
+def _all_json_arrays(text: str, key: str) -> list[list]:
+    """Collect EVERY array under `key`, not just the first one.
+
+    The earlier single-array parser silently dropped the other two ballots of
+    each audit (disk had ~85 demands, the page showed 30) and the dropped ones
+    were the most adverse.  An audit found this by counting; this loop exists so
+    counting is no longer necessary.
+    """
+    out: list[list] = []
+    dec = json.JSONDecoder()
+    needle = f'"{key}"'
+    pos = 0
+    while True:
+        hit = text.find(needle, pos)
+        if hit < 0:
+            return out
+        pos = hit + len(needle)
+        bracket = text.find("[", pos)
+        if bracket < 0:
+            return out
+        try:
+            value, end = dec.raw_decode(text[bracket:])
+        except json.JSONDecodeError:
+            continue
+        pos = bracket + end
+        if isinstance(value, list):
+            out.append(value)
+
+
 def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
-    """Pull every must_fix line verbatim from each audit's own ticket record.
+    """Pull every must_fix line verbatim from each audit's own ballot files.
 
     Each item stays MANUAL until someone binds a probe: this module has no
     "landed" status, so completion cannot be asserted without a runnable check.
@@ -253,24 +297,37 @@ def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
     out: list[dict] = []
     for audit in audits:
         run = str(audit["run"])
-        text = _ticket_text(run)
-        if text is None:
-            out.append({"audit": run, "n": 0,
-                        "demand": "ticket record not found for this audit",
-                        "probe": None, "note": "MANUAL: record missing"})
-            continue
-        for idx, raw in enumerate(text.splitlines(), start=1):
-            line = raw.strip()
-            if "must_fix:" in line or line.startswith("must_fix"):
-                demand = line.split("must_fix:", 1)[-1].strip() or line
-                out.append({"audit": run, "n": idx, "demand": demand,
-                            "probe": None, "note": "MANUAL: no probe bound"})
-        if any(item["audit"] == run for item in out):
-            continue
-        for idx, demand in enumerate(_json_array(text, "must_fix"), start=1):
-            if isinstance(demand, str) and demand.strip():
-                out.append({"audit": run, "n": idx, "demand": demand.strip(),
-                            "probe": None, "note": "MANUAL: no probe bound"})
+        files = _ticket_files(run)
+        if not files:
+            text = _ticket_text(run)
+            if text is None:
+                out.append({"audit": run, "n": 0,
+                            "demand": "ticket record not found for this audit",
+                            "probe": None, "note": "MANUAL: record missing"})
+                continue
+            files = []
+            texts = [(None, text)]
+        else:
+            texts = [(f, f.read_text(encoding="utf-8", errors="replace")) for f in files]
+        n = 0
+        for fh, text in texts:
+            for arr in _all_json_arrays(text, "must_fix"):
+                for raw in arr:
+                    if isinstance(raw, str) and raw.strip():
+                        n += 1
+                        out.append({"audit": run, "n": n, "demand": raw.strip(),
+                                    "probe": None, "note": "MANUAL: no probe bound",
+                                    "source": str(fh) if fh else "evidence-dump"})
+            if n:
+                continue
+            for idx, raw in enumerate(text.splitlines(), start=1):
+                line = raw.strip()
+                if line.startswith("must_fix") or "must_fix:" in line:
+                    demand = line.split("must_fix:", 1)[-1].strip() or line
+                    n += 1
+                    out.append({"audit": run, "n": n, "demand": demand,
+                                "probe": None, "note": "MANUAL: no probe bound",
+                                "source": str(fh) if fh else "evidence-dump"})
     return out
 
 
@@ -280,7 +337,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                             capture_output=True, text=True)
     on_disk = sum(1 for p in (REPO / ".omo").rglob("*") if p.is_file())
     tracked_n = len([ln for ln in tracked.stdout.splitlines() if ln.strip()])
-    if tracked_n * 100 < on_disk:
+    if tracked_n * 20 < on_disk:
         gaps.append({"id": "G-git",
                      "text": "most of the archive, the ledger and the gate receipts live under "
                              ".omo, and only a few of those files are tracked by git; the probe "
@@ -295,7 +352,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                                         "'ls-files','--','.omo'],capture_output=True,text=True)"
                                         ".stdout.splitlines() if l.strip()];"
                                         "d=[p for p in (r/'.omo').rglob('*') if p.is_file()];"
-                                        "sys.exit(0 if 0 < len(t) < len(d) else 1)"]}})
+                                        "sys.exit(0 if len(t) * 20 < len(d) else 1)"]}})
     manifest_hits = sorted(MANIFESTS.glob(f"{gen}-*.sha256")) if MANIFESTS.is_dir() else []
     if not manifest_hits:
         gaps.append({"id": "G-manifest", "text": "no git-tracked evidence manifest for this "
@@ -324,16 +381,52 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                              "completion cannot be asserted by this page",
                      "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
                                  "selector": "items"},
-                     "probe": {"kind": "file_exists",
-                               "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json")}})
+                     "probe": {"kind": "cmd_rc0", "argv": [
+                         "python3", "-c",
+                         "import json,sys,pathlib;"
+                         f"p=pathlib.Path({str(EVIDENCE / 'nomination-history' / gen / 'mustfix.json')!r});"
+                         "d=json.loads(p.read_text());"
+                         "sys.exit(0 if all(i.get('probe') is None for i in d.get('items', [])) else 1)"]}})
+    listed = {str(a["run"]) for a in audits}
+    spaces = Path.home() / ".sibyl" / "spaces"
+    if spaces.is_dir():
+        for space in sorted(spaces.iterdir()):
+            if not space.is_dir() or space.name in listed:
+                continue
+            hits = [p for p in space.glob("*.md")
+                    if gen in p.read_text(encoding="utf-8", errors="replace")]
+            if not hits:
+                continue
+            gaps.append({"id": f"G-ballot-store-{space.name}",
+                         "text": f"ballot store {space.name} mentions {gen} but is not listed "
+                                 "in section 2; its tickets are not quoted on this page",
+                         "pointer": {"path": str(hits[0]), "selector": "file"},
+                         "probe": {"kind": "file_exists", "path": str(hits[0])}})
+    gaps.append({"id": "G-quote-fidelity",
+                 "text": "section 3 quotes are shown from mustfix.json, which this generator "
+                         "rebuilds on every run; no per-row probe byte-matches the page quote "
+                         "against the ballot file, so drift after regeneration would be silent "
+                         "(open; earlier audits asked for this and it is not yet built)",
+                 "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
+                             "selector": "items"},
+                 "probe": {"kind": "file_exists",
+                           "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json")}})
+    gaps.append({"id": "G-probe-argv",
+                 "text": "the command probes execute argv strings stored in manifest.json, which "
+                         "git does not track; a substituted manifest could change what running the "
+                         "checks actually executes",
+                 "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "manifest.json"),
+                             "selector": "claims"},
+                 "probe": {"kind": "file_exists",
+                           "path": str(EVIDENCE / "nomination-history" / gen / "manifest.json")}})
     for anomaly in enumerate_anomalies(gen):
         pointer = anomaly["pointer"]
         gaps.append({"id": f"G-anomaly-{anomaly['gen']}-{anomaly['item']}",
                      "text": f"judge-recorded anomaly for {anomaly['gen']}/{anomaly['item']} "
                              "(adverse fact; text is at the pointer, not restated here)",
                      "pointer": pointer,
-                     "probe": {"kind": "json_selector", "path": pointer["path"],
-                               "selector": pointer["selector"]}})
+                      "probe": {"kind": "nonempty_text", "path": pointer["path"],
+                                "selector": pointer["selector"]}})
     return gaps
 
 
@@ -445,13 +538,18 @@ def render(manifest: dict, results: list[dict]) -> str:
         "This page's own assertions carry no values: every state comes from a probe and every",
         "address is a pointer. The only literals on the page are inside QUOTED ballot demands in",
         "section 3, which belong to the ballots and are shown in full on purpose; a quotation is",
-        "not this page asserting a number. To check a line, open the pointer, then run every",
-        "probe at once with:",
+        "not this page asserting a number. To check a line, open the pointer, then run the",
+        "read-only probe pass (this mutates nothing):",
         "",
         "```",
-        "python3 {script} --run-probes {manifest} && python3 {script} {gen} --write".format(
-            script=SCRIPT, manifest=EVIDENCE / "nomination-history" / manifest["gen"] / "manifest.json",
-            gen=manifest["gen"]),
+        "python3 {script} --run-probes {manifest}".format(
+            script=SCRIPT, manifest=EVIDENCE / "nomination-history" / manifest["gen"] / "manifest.json"),
+        "```",
+        "",
+        "Regenerating the page is a separate, mutating step; do not run it while auditing:",
+        "",
+        "```",
+        "python3 {script} {gen} --write".format(script=SCRIPT, gen=manifest["gen"]),
         "```",
         "",
         "## 0. What changed",
