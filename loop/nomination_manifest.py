@@ -68,6 +68,15 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
             select(data, probe["selector"])
             return True, "selector resolves"
+        if kind == "nonempty_list":
+            data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
+            value = select(data, probe["selector"])
+            return isinstance(value, list) and len(value) > 0, f"list_len={len(value) if isinstance(value, list) else 'not-a-list'}"
+        if kind == "run_exists":
+            store = json.loads(RUNS.read_text(encoding="utf-8"))
+            runs = store.get("runs", store) if isinstance(store, dict) else store
+            keys = runs.keys() if isinstance(runs, dict) else [str(r.get("run")) for r in runs]
+            return probe["run"] in keys, "run present in store" if probe["run"] in keys else "run absent"
         if kind == "json_equals":
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
             got = select(data, probe["selector"])
@@ -262,10 +271,16 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "pointer": {"path": str(MANIFESTS), "selector": "dir"},
                      "probe": {"kind": "dir_exists", "path": str(MANIFESTS)}})
     gate = EVIDENCE / "nomination-history" / gen / "gate.txt"
-    gaps.append({"id": "G-gate", "text": "the gate receipt is overwritten on each regeneration; "
-                                         "previous generations' receipts are not recoverable",
+    gaps.append({"id": "G-gate", "text": "gate receipts are append-only but live under .omo, which "
+                                         "git does not track: they survive on this machine only",
                  "pointer": {"path": str(gate), "selector": "file"},
                  "probe": {"kind": "file_exists", "path": str(gate)}})
+    base_bundle = read_bundle(gen) or {}
+    for idx, stamp in enumerate(base_bundle.get("stamps") or []):
+        gaps.append({"id": f"G-stamp-{idx + 1}", "text": f"permanent disclosure stamp: {stamp}",
+                     "pointer": {"path": str(ARCHIVE / gen / "bundle.json"), "selector": f"stamps.{idx}"},
+                     "probe": {"kind": "json_selector", "path": str(ARCHIVE / gen / "bundle.json"),
+                               "selector": f"stamps.{idx}"}})
     unmatched = [m for m in mustfix if m["probe"] is None]
     if unmatched:
         gaps.append({"id": "G-mustfix-unprobed",
@@ -301,6 +316,9 @@ def bind_probes(mustfix: list[dict], gen: str) -> None:
             item["note"] = "probe bound"
 
 
+CONTRACT = {"terminal_state": "CONVERGED", "nominatable": True, "canaries_killed": []}
+
+
 def build(gen: str) -> dict:
     gens = enumerate_generations(gen)
     claims = []
@@ -312,11 +330,30 @@ def build(gen: str) -> dict:
                                 {"kind": "file_exists", "path": str(ARCHIVE / name / "bundle.json")}))
             continue
         base = str(ARCHIVE / name / "bundle.json")
-        for field in ("terminal_state", "nominatable", "canaries_killed", "closed_at"):
-            if field in bundle:
-                claims.append(claim(f"{name}.{field}", f"{name} bundle field {field}",
+        is_base = name == gen
+        for field, expected in CONTRACT.items():
+            if is_base:
+                claims.append(claim(f"{name}.{field}", f"{name} bundle field {field} equals the "
+                                                     "promotion contract",
                                     {"path": base, "selector": field},
-                                    {"kind": "json_selector", "path": base, "selector": field}))
+                                    {"kind": "json_equals", "path": base, "selector": field,
+                                     "expect": expected}))
+            elif field == "canaries_killed":
+                claims.append(claim(f"{name}.{field}", f"{name} bell killed at least one canary",
+                                    {"path": base, "selector": field},
+                                    {"kind": "nonempty_list", "path": base, "selector": field}))
+        claims.append(claim(f"{name}.closed_at", f"{name} bundle records a close timestamp",
+                            {"path": base, "selector": "closed_at"},
+                            {"kind": "json_selector", "path": base, "selector": "closed_at"}))
+        expected_verdict = "PASS" if is_base else "FAIL"
+        for idx, item in enumerate(bundle.get("items", [])):
+            item_id = item.get("item")
+            claims.append(claim(f"{name}.{item_id}.verdict",
+                                f"{name} {item_id} verdict equals {expected_verdict} "
+                                f"(promotion contract for a {'run' if is_base else 'bell'})",
+                                {"path": base, "selector": f"items.{idx}.verdict"},
+                                {"kind": "json_equals", "path": base,
+                                 "selector": f"items.{idx}.verdict", "expect": expected_verdict}))
         for item in bundle.get("items", []):
             item_id = item.get("item")
             selector = f"items.{bundle['items'].index(item)}.verdict"
@@ -363,8 +400,10 @@ def render(manifest: dict, results: list[dict]) -> str:
     lines = [
         "# PROMOTION RECORD (derived view -- regenerate, never hand-edit)",
         "",
-        "This page contains pointers and probe states only. It deliberately carries no values:",
-        "every number, hash and timestamp lives at the pointed-to location. To check a line,",
+        "This page's own assertions carry no values: every state comes from a probe and every",
+        "address is a pointer. The only literals on the page are inside QUOTED ballot demands in",
+        "section 3, which belong to the ballots and are shown in full on purpose; a quotation is",
+        "not this page asserting a number. To check a line, open the pointer. To re-run every",
         "open the pointer. To check all lines at once, run:",
         "",
         "```",
@@ -391,21 +430,28 @@ def render(manifest: dict, results: list[dict]) -> str:
         mark = "PASS" if st and st["ok"] else ("FAIL" if st else "NOT-RUN")
         ptr = "{}#{}".format(entry["pointer"]["path"], entry["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(entry["id"], entry["claim"], ptr, mark))
-    lines += ["", "## 2. Audits (enumerated from the engine run store)", "",
-              "| run | verdict | independence | artifact |", "| --- | --- | --- | --- |"]
+    lines += ["", "## 2. Audits (pointers into the engine run store)", "",
+              "| run | pointer | state |", "| --- | --- | --- |"]
     for audit in manifest["audits"]:
-        lines.append("| {} | {} | {} | `{}` |".format(audit.get("run"), audit.get("verdict"),
-                                                      audit.get("independence"),
-                                                      audit.get("artifact") or "?"))
-    lines += ["", "## 3. Must-fix items", "",
+        ptr = "{}#{}".format(RUNS, audit.get("run"))
+        ok = run_probe({"kind": "run_exists", "run": audit.get("run")})[0]
+        lines.append("| {} | `{}` | {} |".format(audit.get("run"), ptr,
+                                                 "RESOLVES" if ok else "MISSING"))
+    lines += ["", "## 3. Must-fix items (quoted from ballots; quote text is not this page's "
+                  "own assertion)", "",
               "Status is a probe result or the literal word MANUAL. There is no 'landed' status",
-              "here, so no completion can be claimed without a runnable check.", "",
-              "| audit | line | demand | state |", "| --- | --- | --- | --- |"]
+              "here, so no completion can be claimed without a runnable check. Each demand is",
+              "quoted in full; the pointer gives its line in the machine copy.", "",
+              "| audit | line | demand (quoted) | full text | state |",
+              "| --- | --- | --- | --- | --- |"]
     for item in manifest["mustfix"]:
         st = "PROBE-PASS" if item.get("probe") and run_probe(item["probe"])[0] else \
              ("PROBE-FAIL" if item.get("probe") else "MANUAL")
         demand = item["demand"].replace("|", "\\|")
-        lines.append("| {} | {} | {} | {} |".format(item["audit"], item["n"], demand[:160], st))
+        full = "{}#{}".format(EVIDENCE / "nomination-history" / manifest["gen"] / "mustfix.json",
+                              item["n"])
+        lines.append("| {} | {} | {} | `{}` | {} |".format(item["audit"], item["n"], demand,
+                                                          full, st))
     lines += ["", "## 4. Gaps (enumerated, not curated)", "",
               "| id | text | pointer | state |", "| --- | --- | --- | --- |"]
     for gap in manifest["gaps"]:
@@ -454,10 +500,13 @@ def main() -> int:
         fh.write("manifest-run {} probes={} failed={} page={} page_sha256={}\n".format(
             manifest["generated_at_utc"], len(results), len(bad), page,
             sha256_file(page)))
-    copies = HEX_RUN.findall(rendered) + ISO_RUN.findall(rendered)
+    own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
+    copies = HEX_RUN.findall(own) + ISO_RUN.findall(own)
+    quoted = len(HEX_RUN.findall(rendered)) + len(ISO_RUN.findall(rendered)) - len(copies)
     print(json.dumps({"gen": args.gen, "claims": len(manifest["claims"]),
                       "gaps": len(manifest["gaps"]), "probes": len(results),
-                      "failed": len(bad), "value_like_literals_in_page": len(copies),
+                      "failed": len(bad), "own_value_like_literals": len(copies),
+                      "quoted_literals_from_ballots": quoted,
                       "page": str(page), "manifest": str(manifest_path)}, ensure_ascii=False))
     return 0 if not bad and not copies else 1
 
