@@ -123,6 +123,13 @@ def main():
     t0 = time.time()
     rc, sid = L.run_opencode_turn(env, jw, title, prompt, log, None, L.JUDGE_MODEL)
     print(f"judge rc={rc} session={sid} elapsed={round(time.time()-t0,1)}s")
+    # G66 finding: archive moves harness/ only, so a receipt-only session id is unreachable.
+    try:
+        (jw / "session.txt").write_text(
+            f"session={sid}\nrc={rc}\nelapsed_s={round(time.time()-t0,1)}\n"
+            f"judge_model={L.JUDGE_MODEL}\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"WARN judge session receipt not written: {exc}", file=sys.stderr)
     L.extract_transcript(gen, item_id, candidate=False)
     verdict = L.load_verdict(gen, item_id)
     if rc != 0 or verdict is None:
