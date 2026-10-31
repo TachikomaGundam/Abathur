@@ -36,6 +36,7 @@ ARCHIVE = REPO / ".omo" / "evidence" / "loop-archive"
 EVIDENCE = REPO / ".omo" / "evidence"
 MANIFESTS = REPO / "docs" / "evidence-manifests"
 RUNS = Path.home() / ".sibyl" / "runs.json"
+SCRIPT = Path(__file__).resolve()
 
 HEX_RUN = re.compile(r"\b[0-9a-f]{8,}\b")
 ISO_RUN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -66,8 +67,8 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             return Path(probe["path"]).is_dir(), "is_dir"
         if kind == "json_selector":
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
-            select(data, probe["selector"])
-            return True, "selector resolves"
+            value = select(data, probe["selector"])
+            return value is not None and value != "", "selector resolves to a value"
         if kind == "nonempty_list":
             data = json.loads(Path(probe["path"]).read_text(encoding="utf-8"))
             value = select(data, probe["selector"])
@@ -100,6 +101,14 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             proc = subprocess.run(probe["argv"], cwd=probe.get("cwd"), capture_output=True,
                                   text=True, timeout=120)
             return proc.returncode == 0, f"rc={proc.returncode}"
+        if kind == "cmd_empty_stdout":
+            proc = subprocess.run(probe["argv"], cwd=probe.get("cwd"), capture_output=True,
+                                  text=True, timeout=120)
+            return proc.returncode == 0 and not proc.stdout.strip(), \
+                f"rc={proc.returncode} lines={len(proc.stdout.splitlines())}"
+        if kind == "glob_empty":
+            hits = sorted(Path(probe["dir"]).glob(probe["pattern"]))
+            return not hits, f"matches={len(hits)}"
         if kind == "git_untracked":
             proc = subprocess.run(["git", "-C", str(REPO), "ls-files", "--error-unmatch",
                                    probe["path"]], capture_output=True, text=True)
@@ -166,12 +175,17 @@ def enumerate_anomalies(gen: str) -> list[dict]:
     out = []
     for name in enumerate_generations(gen):
         bundle = read_bundle(name)
-        for item in (bundle or {}).get("items", []):
-            verdict = item.get("judge_verdict") or item
-            if verdict.get("anomalies"):
-                out.append({"gen": name, "item": item.get("item"),
-                            "pointer": {"path": str(ARCHIVE / name / "bundle.json"),
-                                        "selector": "items"}})
+        for idx, item in enumerate((bundle or {}).get("items", [])):
+            nested = item.get("judge_verdict") or {}
+            if nested.get("anomalies"):
+                selector = f"items.{idx}.judge_verdict.anomalies"
+            elif item.get("anomalies"):
+                selector = f"items.{idx}.anomalies"
+            else:
+                continue
+            out.append({"gen": name, "item": item.get("item"),
+                        "pointer": {"path": str(ARCHIVE / name / "bundle.json"),
+                                    "selector": selector}})
     return out
 
 
@@ -268,20 +282,27 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     tracked_n = len([ln for ln in tracked.stdout.splitlines() if ln.strip()])
     if tracked_n * 100 < on_disk:
         gaps.append({"id": "G-git",
-                     "text": "the archive, the ledger and the gate receipts live under .omo, which "
-                             "git does not track; the coverage ratio is recomputed by the probe and "
-                             "is not restated here",
+                     "text": "most of the archive, the ledger and the gate receipts live under "
+                             ".omo, and only a few of those files are tracked by git; the probe "
+                             "recomputes the tracked-versus-total comparison and the counts are "
+                             "not restated here",
                      "pointer": {"path": str(REPO / ".gitignore"), "selector": "file"},
-                     "probe": {"kind": "absent_in",
-                               "path": str(REPO / ".gitignore"),
-                               "pattern": r"^\.omo/$"}})
+                     "probe": {"kind": "cmd_rc0",
+                               "argv": ["python3", "-c",
+                                        "import subprocess,sys,pathlib;"
+                                        f"r=pathlib.Path({str(REPO)!r});"
+                                        "t=[l for l in subprocess.run(['git','-C',str(r),"
+                                        "'ls-files','--','.omo'],capture_output=True,text=True)"
+                                        ".stdout.splitlines() if l.strip()];"
+                                        "d=[p for p in (r/'.omo').rglob('*') if p.is_file()];"
+                                        "sys.exit(0 if 0 < len(t) < len(d) else 1)"]}})
     manifest_hits = sorted(MANIFESTS.glob(f"{gen}-*.sha256")) if MANIFESTS.is_dir() else []
     if not manifest_hits:
         gaps.append({"id": "G-manifest", "text": "no git-tracked evidence manifest for this "
                                                  "generation (earlier generations had one)",
                      "pointer": {"path": str(MANIFESTS), "selector": "dir"},
-                     "probe": {"kind": "absent_in", "path": str(REPO / ".gitignore"),
-                               "pattern": re.escape(f"{gen}-")}})
+                     "probe": {"kind": "glob_empty", "dir": str(MANIFESTS),
+                               "pattern": f"{gen}-*.sha256"}})
     gate = EVIDENCE / "nomination-history" / gen / "gate.txt"
     gaps.append({"id": "G-gate", "text": "gate receipts are append-only but live under .omo, which "
                                          "git does not track: they survive on this machine only",
@@ -289,8 +310,10 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                  "probe": {"kind": "git_untracked",
                            "path": str(gate.relative_to(REPO))}})
     base_bundle = read_bundle(gen) or {}
-    for idx, stamp in enumerate(base_bundle.get("stamps") or []):
-        gaps.append({"id": f"G-stamp-{idx + 1}", "text": f"permanent disclosure stamp: {stamp}",
+    for idx, _stamp in enumerate(base_bundle.get("stamps") or []):
+        gaps.append({"id": f"G-stamp-{idx + 1}",
+                     "text": f"permanent disclosure stamp #{idx + 1} is recorded in the bundle "
+                             "(its text is at the pointer, not restated here)",
                      "pointer": {"path": str(ARCHIVE / gen / "bundle.json"), "selector": f"stamps.{idx}"},
                      "probe": {"kind": "json_selector", "path": str(ARCHIVE / gen / "bundle.json"),
                                "selector": f"stamps.{idx}"}})
@@ -369,12 +392,6 @@ def build(gen: str) -> dict:
                                 {"path": base, "selector": f"items.{idx}.verdict"},
                                 {"kind": "json_equals", "path": base,
                                  "selector": f"items.{idx}.verdict", "expect": expected_verdict}))
-        for item in bundle.get("items", []):
-            item_id = item.get("item")
-            selector = f"items.{bundle['items'].index(item)}.verdict"
-            claims.append(claim(f"{name}.{item_id}.verdict.present", f"{name} {item_id} verdict is recorded",
-                                {"path": base, "selector": selector},
-                                {"kind": "json_selector", "path": base, "selector": selector}))
     for c in claims:
         if c["id"] in seen:
             raise SystemExit(f"nomination_manifest: duplicate claim id {c['id']}")
@@ -432,8 +449,9 @@ def render(manifest: dict, results: list[dict]) -> str:
         "probe at once with:",
         "",
         "```",
-        "python3 loop/nomination_manifest.py --run-probes <manifest.json> && "
-        "python3 loop/nomination_manifest.py {} --write".format(manifest["gen"]),
+        "python3 {script} --run-probes {manifest} && python3 {script} {gen} --write".format(
+            script=SCRIPT, manifest=EVIDENCE / "nomination-history" / manifest["gen"] / "manifest.json",
+            gen=manifest["gen"]),
         "```",
         "",
         "## 0. What changed",
@@ -456,16 +474,13 @@ def render(manifest: dict, results: list[dict]) -> str:
         ptr = "{}#{}".format(entry["pointer"]["path"], entry["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(entry["id"], entry["claim"], ptr, mark))
     lines += ["", "## 2. Audits (pointers into the engine run store)", "",
-              "Outcome and independence are read from the store, not restated by this page.", "",
-              "| run | verdict | independence | pointer | state |",
-              "| --- | --- | --- | --- | --- |"]
+              "Outcome and independence are not restated on this page: open the pointer.", "",
+              "| run | pointer | state |", "| --- | --- | --- |"]
     for audit in manifest["audits"]:
         ptr = "{}#{}".format(RUNS, audit.get("run"))
         ok = run_probe({"kind": "run_exists", "run": audit.get("run")})[0]
-        lines.append("| {} | {} | {} | `{}` | {} |".format(
-            audit.get("run"), _scalar(audit.get("verdict"), "verdict") or "unknown",
-            _scalar(audit.get("independence"), "status") or "unknown", ptr,
-            "RESOLVES" if ok else "MISSING"))
+        lines.append("| {} | `{}` | {} |".format(
+            audit.get("run"), ptr, "RESOLVES" if ok else "MISSING"))
     lines += ["", "## 3. Must-fix items (quoted from ballots; quote text is not this page's "
                   "own assertion)", "",
               "Status is a probe result or the literal word MANUAL. There is no 'landed' status",
@@ -524,11 +539,16 @@ def main() -> int:
         (history / f"NOMINATION.previous-{stamp}.md").write_bytes(page.read_bytes())
     rendered = render(manifest, results)
     page.write_text(rendered, encoding="utf-8")
+    receipt = history / "probes-last.json"
+    receipt.write_text(json.dumps({"gen": args.gen, "run_at_utc": manifest["generated_at_utc"],
+                                   "page_sha256": sha256_file(page), "results": results},
+                                  ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     gate = history / "gate.txt"
     with gate.open("a", encoding="utf-8") as fh:
-        fh.write("manifest-run {} probes={} failed={} page={} page_sha256={}\n".format(
-            manifest["generated_at_utc"], len(results), len(bad), page,
-            sha256_file(page)))
+        fh.write("manifest-run {} probes={} failed={} page={} page_sha256={} receipt={} "
+                 "receipt_sha256={}\n".format(
+                     manifest["generated_at_utc"], len(results), len(bad), page,
+                     sha256_file(page), receipt, sha256_file(receipt)))
     own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
     copies = HEX_RUN.findall(own) + ISO_RUN.findall(own)
     quoted = len(HEX_RUN.findall(rendered)) + len(ISO_RUN.findall(rendered)) - len(copies)
