@@ -34,6 +34,61 @@ REPO = Path(__file__).resolve().parent.parent
 EVIDENCE = REPO / ".omo" / "evidence"
 SPEC_DIR = EVIDENCE / "assertions"
 
+RUNNER_SCHEMA = 1
+SPEC_KEYS = {"gen", "schema", "assertions"}
+COMMON_KEYS = {"id", "claim", "kind"}
+KIND_KEYS = {
+    "file_exists": {"path"},
+    "dir_exists": {"path"},
+    "json_selector": {"path", "selector"},
+    "json_equals": {"path", "selector", "expect"},
+    "nonempty_list": {"path", "selector"},
+    "sha256_equals": {"path", "expect"},
+    "cmd": {"argv", "expect_rc", "timeout_s"},
+}
+
+
+def validate(spec: dict) -> list[str]:
+    """Schema gate: an unknown field is refused, not ignored.
+
+    A silently ignored field is how a spec drifts from what its author meant while still
+    reporting OK; refusing unknown keys keeps the spec and the runner in one contract.
+    """
+    errs = []
+    extra = set(spec) - SPEC_KEYS
+    if extra:
+        errs.append(f"unknown top-level keys {sorted(extra)}")
+    if spec.get("schema") != RUNNER_SCHEMA:
+        errs.append(f"schema {spec.get('schema')!r} != runner {RUNNER_SCHEMA}")
+    seen = set()
+    for i, a in enumerate(spec.get("assertions") or []):
+        if not isinstance(a, dict):
+            errs.append(f"assertion[{i}] is not an object")
+            continue
+        aid = a.get("id")
+        if not aid:
+            errs.append(f"assertion[{i}] has no id")
+        elif aid in seen:
+            errs.append(f"duplicate id {aid!r}")
+        else:
+            seen.add(aid)
+        kind = a.get("kind")
+        if kind not in KIND_KEYS:
+            errs.append(f"assertion[{i}] unknown kind {kind!r}")
+            continue
+        missing = (COMMON_KEYS | KIND_KEYS[kind]) - set(a)
+        if missing:
+            errs.append(f"assertion[{i}] ({aid}) missing {sorted(missing)}")
+        extra_k = set(a) - COMMON_KEYS - KIND_KEYS[kind]
+        if extra_k:
+            errs.append(f"assertion[{i}] ({aid}) unknown keys {sorted(extra_k)}")
+        rel = a.get("path")
+        if rel is not None:
+            target = (EVIDENCE / rel).resolve()
+            if EVIDENCE.resolve() not in target.parents and target != EVIDENCE.resolve():
+                errs.append(f"assertion[{i}] ({aid}) path escapes evidence root: {rel}")
+    return errs
+
 
 def _load(gen: str) -> dict:
     spec = SPEC_DIR / f"{gen}.json"
@@ -112,6 +167,12 @@ def main(argv: list[str]) -> int:
     action, gen = argv[1], argv[2]
     quiet = "--quiet" in argv
     spec = _load(gen)
+    errs = validate(spec)
+    if errs:
+        print(f"ASSERTIONS {gen}: SPEC-REFUSED")
+        for e in errs:
+            print(f"  {e}")
+        return 2
     rows = spec.get("assertions") or []
     if not rows:
         print(f"ASSERTIONS {gen}: spec has no assertions")
@@ -133,7 +194,17 @@ def main(argv: list[str]) -> int:
         if not quiet or not ok:
             print(f"{'OK  ' if ok else 'FAIL'} {a.get('id','<no-id>')} {detail}")
     total = len(rows)
-    print(f"ASSERTIONS {gen}: ran={total} failed={failed}")
+    receipt = {
+        "gen": gen, "schema": RUNNER_SCHEMA, "ran": total, "failed": failed,
+        "runner_sha256": _sha256(Path(__file__).resolve()),
+        "spec_sha256": _sha256(SPEC_DIR / f"{gen}.json"),
+    }
+    print(f"ASSERTIONS {gen}: ran={total} failed={failed} "
+          f"runner={receipt['runner_sha256'][:12]} spec={receipt['spec_sha256'][:12]}")
+    log = SPEC_DIR / f"{gen}.receipts.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(receipt) + "\n")
     return 0 if failed == 0 else 1
 
 
