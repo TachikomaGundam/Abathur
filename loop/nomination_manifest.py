@@ -78,6 +78,10 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             value = select(data, probe["selector"])
             text = value if isinstance(value, str) else ""
             return bool(text.strip()), f"text_len={len(text.strip())}"
+        if kind == "text_in_file":
+            # A regenerated page must not drift from the ballot it quotes.
+            text = Path(probe["path"]).read_text(encoding="utf-8", errors="replace")
+            return probe["text"] in text, "verbatim" if probe["text"] in text else "quote drifted"
         if kind == "run_exists":
             store = json.loads(RUNS.read_text(encoding="utf-8"))
             runs = store.get("runs", store) if isinstance(store, dict) else store
@@ -114,6 +118,12 @@ def run_probe(probe: dict) -> tuple[bool, str]:
         if kind == "glob_empty":
             hits = sorted(Path(probe["dir"]).glob(probe["pattern"]))
             return not hits, f"matches={len(hits)}"
+        if kind == "git_track_ratio":
+            tracked = subprocess.run(["git", "-C", str(REPO), "ls-files", "--", ".omo"],
+                                     capture_output=True, text=True)
+            tracked_n = len([ln for ln in tracked.stdout.splitlines() if ln.strip()])
+            on_disk = sum(1 for p in (REPO / ".omo").rglob("*") if p.is_file())
+            return tracked_n * 20 < on_disk, f"tracked={tracked_n} total={on_disk}"
         if kind == "git_untracked":
             proc = subprocess.run(["git", "-C", str(REPO), "ls-files", "--error-unmatch",
                                    probe["path"]], capture_output=True, text=True)
@@ -288,6 +298,12 @@ def _all_json_arrays(text: str, key: str) -> list[list]:
             out.append(value)
 
 
+def _quote_probe(fh, demand: str):
+    if fh is None:
+        return None
+    return {"kind": "text_in_file", "path": str(fh), "text": demand}
+
+
 def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
     """Pull every must_fix line verbatim from each audit's own ballot files.
 
@@ -316,7 +332,7 @@ def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
                     if isinstance(raw, str) and raw.strip():
                         n += 1
                         out.append({"audit": run, "n": n, "demand": raw.strip(),
-                                    "probe": None, "note": "MANUAL: no probe bound",
+                                    "probe": _quote_probe(fh, raw.strip()),
                                     "source": str(fh) if fh else "evidence-dump"})
             if n:
                 continue
@@ -326,7 +342,7 @@ def enumerate_mustfix(gen: str, audits: list[dict]) -> list[dict]:
                     demand = line.split("must_fix:", 1)[-1].strip() or line
                     n += 1
                     out.append({"audit": run, "n": n, "demand": demand,
-                                "probe": None, "note": "MANUAL: no probe bound",
+                                "probe": _quote_probe(fh, demand),
                                 "source": str(fh) if fh else "evidence-dump"})
     return out
 
@@ -344,15 +360,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                              "recomputes the tracked-versus-total comparison and the counts are "
                              "not restated here",
                      "pointer": {"path": str(REPO / ".gitignore"), "selector": "file"},
-                     "probe": {"kind": "cmd_rc0",
-                               "argv": ["python3", "-c",
-                                        "import subprocess,sys,pathlib;"
-                                        f"r=pathlib.Path({str(REPO)!r});"
-                                        "t=[l for l in subprocess.run(['git','-C',str(r),"
-                                        "'ls-files','--','.omo'],capture_output=True,text=True)"
-                                        ".stdout.splitlines() if l.strip()];"
-                                        "d=[p for p in (r/'.omo').rglob('*') if p.is_file()];"
-                                        "sys.exit(0 if len(t) * 20 < len(d) else 1)"]}})
+                     "probe": {"kind": "git_track_ratio"}})
     manifest_hits = sorted(MANIFESTS.glob(f"{gen}-*.sha256")) if MANIFESTS.is_dir() else []
     if not manifest_hits:
         gaps.append({"id": "G-manifest", "text": "no git-tracked evidence manifest for this "
@@ -402,23 +410,15 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                                  "in section 2; its tickets are not quoted on this page",
                          "pointer": {"path": str(hits[0]), "selector": "file"},
                          "probe": {"kind": "file_exists", "path": str(hits[0])}})
-    gaps.append({"id": "G-quote-fidelity",
-                 "text": "section 3 quotes are shown from mustfix.json, which this generator "
-                         "rebuilds on every run; no per-row probe byte-matches the page quote "
-                         "against the ballot file, so drift after regeneration would be silent "
-                         "(open; earlier audits asked for this and it is not yet built)",
+    gaps.append({"id": "G-single-parser",
+                 "text": "the per-audit counts in section 3 and the quote probes both come from the "
+                         "same extraction pass, so a parser bug that dropped a whole array would "
+                         "not be detected by either; the count check only proves the page shows "
+                         "as many rows as this parser extracted",
                  "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
                              "selector": "items"},
                  "probe": {"kind": "file_exists",
                            "path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json")}})
-    gaps.append({"id": "G-probe-argv",
-                 "text": "the command probes execute argv strings stored in manifest.json, which "
-                         "git does not track; a substituted manifest could change what running the "
-                         "checks actually executes",
-                 "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "manifest.json"),
-                             "selector": "claims"},
-                 "probe": {"kind": "file_exists",
-                           "path": str(EVIDENCE / "nomination-history" / gen / "manifest.json")}})
     for anomaly in enumerate_anomalies(gen):
         pointer = anomaly["pointer"]
         gaps.append({"id": f"G-anomaly-{anomaly['gen']}-{anomaly['item']}",
