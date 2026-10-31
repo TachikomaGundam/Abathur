@@ -22,8 +22,7 @@ ARCH = REPO / ".omo/evidence/loop-archive"
 
 
 def main() -> int:
-    session_census()  # first: long class lists below can push it past the receipt tail
-    fixture_reachability()
+    session_census()
     print(f"passes_to_clear={draw.PASSES_TO_CLEAR}")
     print(f"regression_duty={draw.regression_duty()}")
 
@@ -45,27 +44,33 @@ def main() -> int:
         rows = [(i["item"], i.get("verdict")) for i in j.get("items", [])]
         print(f"{j.get('gen')}: state={j.get('terminal_state')} "
               f"nominatable={j.get('nominatable')} killed={j.get('canaries_killed')} items={rows}")
-    session_census()
+    fixture_reachability()
     return 0
 
 
 def fixture_reachability() -> None:
-    """Machine evidence for the SR4-69 fixture claim: is the named checker reachable
-    from a candidate workshop, and what exactly does the seed stage plant?"""
+    """Machine evidence for the SR4-69 fixture claim: which seeds actually land in a
+    candidate workshop, and can the named checker be found from there."""
     from looplib import workshop_dir as ws_dir
 
-    ws = ws_dir("G63", "SR4-69")
-    named = REPO / "skills/abathur-plan/plan-seg-check.mjs"
-    print(f"fixture_ws={ws} exists={ws.exists()}")
-    if ws.exists():
-        print("fixture_seeded=" + ",".join(sorted(p.name for p in ws.iterdir())[:12]))
-    for label, cand in (("ws_relative", ws / "skills/abathur-plan/plan-seg-check.mjs"),
-                        ("ws_parent", ws.parent / "skills/abathur-plan/plan-seg-check.mjs"),
-                        ("repo_abs", named)):
-        print(f"fixture_probe[{label}]={cand} exists={cand.exists()}")
-    if named.exists():
-        digest = hashlib.sha256(named.read_bytes()).hexdigest()[:16]
-        print(f"fixture_checker_sha256_16={digest} cwd_of_run_stage={Path.cwd()}")
+    canonical = REPO / "skills/abathur-plan/plan-seg-check.mjs"
+    if canonical.exists():
+        print(f"fixture_canonical={canonical} sha256="
+              f"{hashlib.sha256(canonical.read_bytes()).hexdigest()}")
+    for gen in ("G63", "G64"):
+        ws = ws_dir(gen, "SR4-69")
+        print(f"fixture[{gen}]={ws} exists={ws.exists()}")
+        if not ws.exists():
+            continue
+        planted = sorted(p.name for p in ws.iterdir())
+        print(f"fixture[{gen}]_seeded={','.join(planted[:14])}")
+        for label in ("plan-seg-check.mjs", "skills/abathur-plan/plan-seg-check.mjs"):
+            cand = ws / label
+            print(f"fixture[{gen}]_probe[{label}] exists={cand.exists()}")
+        got = ws / "plan-seg-check.mjs"
+        if got.exists():
+            print(f"fixture[{gen}]_checker_sha256="
+                  f"{hashlib.sha256(got.read_bytes()).hexdigest()}")
 
 
 def session_census() -> None:
