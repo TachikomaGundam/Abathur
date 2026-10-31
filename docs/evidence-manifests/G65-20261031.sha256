@@ -1,0 +1,27 @@
+# G65 evidence manifest — generated 2026-10-31 by the Abathur seat, cwd=.omo/evidence/loop-archive
+# verify: cd /home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive && sha256sum -c <this file, paths relative>
+# note: .omo/ is gitignored, so this manifest lives in git-tracked docs/ to survive a single-disk loss
+386ff52ca988e105faa50aebf4885557556fdcc69015c61fced0e9aa9c5bac76  G65/ARCHIVE-MANIFEST.json
+1cbb5b5a485ab39bcee471570d465c0670ec2bb41fa5675f4fa25e3ddfd2e3f1  G65/BUNDLE.md
+0cf2162ff50d47a57116a9df7015bafb9ff91636e1dcf6dec9fe353131a9924b  G65/NOMINATION.md
+abadda8fb0b80243d7fc0ab73175165a20d0c75330eb8635d0d34f671b8500e0  G65/SR4-64/candidate-artifacts/workshop/FINAL-RECEIPT.md
+9f8bcfc0fb05bfe1192e5cfa95e9aa5f760b9d26dc627145e95f71331e941ade  G65/SR4-64/disk_probe.json
+7261c02032949ae64cf1965e272ebc4c7847f784011997ed6fa5467e855e6c56  G65/SR4-64/manifest.json
+7e658634e8bf4aff95c26958ca3268d489e34496931c0758b5e2b6c01e9ee347  G65/SR4-64/memory.txt
+360324a4b8861eb5bcfd94e20166c1a60f18da3f3f567707c071e9ecc2a0dea6  G65/SR4-64/transcript.json
+5137acff91848a33c8cd71307e1a636ea4bed89d4cae257cd1ea3b5f697ab1b1  G65/SR4-64/verdict.json
+7a4b3d15e7e39b18cd7c6621ad34b5e1781c35150c395121630df203008df887  G65/SR4-69/candidate-artifacts/workshop/LEDGER.md
+d117fa006ba9208500b2930ce69cbde436c647afa917cb7396a9bc9111a46dd2  G65/SR4-69/candidate-artifacts/workshop/alpha.txt
+d117fa006ba9208500b2930ce69cbde436c647afa917cb7396a9bc9111a46dd2  G65/SR4-69/candidate-artifacts/workshop/beta.txt
+d117fa006ba9208500b2930ce69cbde436c647afa917cb7396a9bc9111a46dd2  G65/SR4-69/candidate-artifacts/workshop/gamma.txt
+1c6c12ad5bbee3046969362d9b56f9bfb4739d45c648e6360373751c3f76c111  G65/SR4-69/candidate-artifacts/workshop/plan-segs/P1.log
+ca8c569a3114df4759d05e3c042c42d481706427892bc446c810bbce822252ff  G65/SR4-69/candidate-artifacts/workshop/plan-segs/P2.log
+fa7a8c20990ab8bf478dd08221a1b60e089033187b2a6bdc9a8d2431ca23fd65  G65/SR4-69/candidate-artifacts/workshop/plan-segs/P3.log
+454e5775f1a596dd0f6ad38d6b7f01ab666dc12c9598bcd77e4d1a908d59de5a  G65/SR4-69/disk_probe.json
+67823f2ba18e64508b72cd27744711b064f3ce6dd1121755730d56821530d0a8  G65/SR4-69/manifest.json
+7e658634e8bf4aff95c26958ca3268d489e34496931c0758b5e2b6c01e9ee347  G65/SR4-69/memory.txt
+7bdb223e416c35fa73196bbd433381016306b401f35ccedabef10a582e49e5ae  G65/SR4-69/transcript.json
+6d3b6cc82aaedeaa2ce8e4fe7eb82d55d665258284df88634cb262d290077460  G65/SR4-69/verdict.json
+021b0387262c1ce622dcae2fa7bd2ab2e63fe0fb82cdf3880de6f891673b23ec  G65/bundle.json
+5ad9d60c5c926a562305bac4a2b95a1d49c5c5a034a2dba5b6ba905ee1df10e0  G64CAN/bundle.json
+9721e4e3e187176e1943f1816df7e2553334b454d829bed1b9a5887e1a1a6701  G64CAN/BUNDLE.md
