@@ -70,9 +70,13 @@ child exit -> done/<name>.result.json -> pendingReceipts.push -> (窗口到) 合
 | 验收项 | 状态 | 回执 |
 |---|---|---|
 | ①`node --check` 通过 | 达成 | 输出 `SYNTAX_OK`（2026-10-31，本仓 cwd） |
-| ②两枚秒级作业合并为一条回执（`RECEIPT-SENT`/`FLUSH n=2`） | **未测** | 代码需重启加载；重启后由本席连发两枚 query 作业实测 |
-| ③留置假 `running.json` 触发 `RECONCILED` + `kind=INTERRUPTED` | **未测** | 同上；本轮已有真实标本（见下）可供比对 |
-| ④回执正文含 `[seat=abathur]` | **已达成（部分实现先行）** | 2026-10-31 判卷回执正文实读：`[JOB-RECEIPT][seat=abathur] 考场作业完成：gen=G64V …`；启动日志另有 `RECEIPT-ADDR-UNVERIFIED ses_e71abdd1cffe6ItzlhIVZECLDu` |
+| ②两枚秒级作业合并为一条回执 | **达成** | 重启加载后：`runner.log` 有 `05:41:41 TAKE st1-query` / `05:41:43 TAKE st2-query`（两作业 1s、0.6s 完成，各自未发独立回执）；`05:42:17` 收到的单条消息正文首行为 `[JOB-RECEIPT][seat=abathur] 合并回执 3 件（窗口 45s，本批等多于此值即投递）`，逐条列出 3 项 |
+| ③留置假 `running.json` 触发 `RECONCILED` + `kind=INTERRUPTED` | **达成** | `runner.log:107` → `2026-10-31T05:41:32.877Z RECONCILED selftest-stale kind=INTERRUPTED`；`done/selftest-stale.result.json` 内容 `rc=-1, kind=INTERRUPTED, tail=进程在结果落盘前消失…` |
+| ④回执正文含 `[seat=abathur]` | **达成** | 上述合并回执首行实读；`runner.log:114-115` → `05:42:17.878 FLUSH n=3` / `05:42:17.889 RECEIPT-SENT sid=ses_e71abdd1cffe6ItzlhIVZECLDu agent=abathur verified=false` |
+
+自测口径说明（防误读）：②③两项由本席在重启后当场发起，作业名为 `selftest-stale`/`st1-query`/`st2-query`（gen=G99T，非真实世代），其 `done/` 记录为自测产物保留作证，不代表任何真实考试的终态。
+
+地址校验的实测边界（如实记录，不粉饰）：`last-session.txt` 落盘为 `{"id":"ses_…","agent":"unknown"}`，因为引擎的 `chat.message`/`tool.execute.before` 钩子输入不带 agent 字段 —— 于是 `verified` 恒为 `false`。这不影响投递正确性：投递靠 `body.agent` 显式点名（本次合并回执确由本席作答即为实证），**不靠**文件自述身份。故补一条不变量：**I6 地址可信度来自投递时点名，不来自地址文件的自述**；`verified` 字段仅作诊断信号，不得作为正确性依据。
 
 P1 的真实标本（设计动因，非事后编造）：`.omo/exam-queue/runner.log` 有 `2026-10-31T05:27:22Z START cand-g64v-sr469` 而无对应 `DONE`，`done/` 无 `cand-g64v-sr469.result.json`，`running.json` 残留 —— 宿主被重启杀死在「子进程已写完工件、插件未写终态」之间；候选实际 `state=COMPLETE`。旧代码永久遗忘，新代码补 `INTERRUPTED`。
 
