@@ -38,7 +38,7 @@ MANIFESTS = REPO / "docs" / "evidence-manifests"
 RUNS = Path.home() / ".sibyl" / "runs.json"
 SCRIPT = Path(__file__).resolve()
 
-HEX_RUN = re.compile(r"\b[0-9a-f]{8,}\b")
+HEX_RUN = re.compile(r"\b[0-9a-f]{7,}\b")
 ISO_RUN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 CLOCK_RUN = re.compile(r"\b\d{2}:\d{2}(?::\d{2})?Z?\b")
 PCT_RUN = re.compile(r"\b\d+(?:\.\d+)?\s?%")
@@ -147,15 +147,25 @@ def run_probe(probe: dict) -> tuple[bool, str]:
 
 def claim(cid: str, text: str, pointer: dict, probe: dict) -> dict:
     """A claim may not restate a value: literals are refused at construction time."""
-    for pat, label in ((HEX_RUN, "hex"), (ISO_RUN, "iso-timestamp")):
+    for pat, label in ((HEX_RUN, "hex"), (ISO_RUN, "iso-timestamp"),
+                       (CLOCK_RUN, "clock"), (PCT_RUN, "percentage")):
         if pat.search(text):
             raise ValueError(f"claim {cid!r} restates a {label} value; use a pointer instead")
     return {"id": cid, "claim": text, "pointer": pointer, "probe": probe}
 
 
+def bell_pattern(gen: str) -> re.Pattern:
+    """Exact generation boundary: G6 must not swallow G60..G66."""
+    return re.compile(rf"^{re.escape(gen)}[A-Z]*CAN$")
+
+
 def enumerate_bells(gen: str) -> list[str]:
-    return sorted(p.name for p in ARCHIVE.iterdir() if p.is_dir() and p.name.startswith(gen)
-                  and "CAN" in p.name)
+    pat = bell_pattern(gen)
+    return sorted(p.name for p in ARCHIVE.iterdir() if p.is_dir() and pat.match(p.name))
+
+
+def gen_boundary(gen: str) -> re.Pattern:
+    return re.compile(rf"(?<![0-9A-Za-z]){re.escape(gen)}(?![0-9])")
 
 
 def enumerate_generations(gen: str) -> list[str]:
@@ -187,7 +197,7 @@ def enumerate_audits(gen: str) -> list[dict]:
             continue
         artifact = str(run.get("artifact") or "")
         goal = str(run.get("goal") or "")
-        if gen in artifact or gen in goal:
+        if gen_boundary(gen).search(artifact) or gen_boundary(gen).search(goal):
             out.append({"run": run.get("run") or run.get("runId"), "artifact": artifact,
                         "verdict": run.get("verdict"),
                         "independence": run.get("independence")})
@@ -450,8 +460,16 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
     return gaps
 
 
+BINDABLE_KINDS = {"file_exists", "dir_exists", "json_selector", "json_equals",
+                  "sha256_equals", "present_in", "absent_in", "text_in_file",
+                  "nonempty_list", "nonempty_text", "git_untracked", "glob_empty",
+                  "git_track_ratio"}
+
+
 def bind_probes(mustfix: list[dict], gen: str) -> None:
-    """Optional per-item probes; an item without one stays MANUAL forever."""
+    """Optional per-item probes; an item without one stays MANUAL forever.
+    `admission` is excluded: it maps an ancestor requirement onto every descendant,
+    so binding it from a hand-written file would turn a manual row green."""
     path = EVIDENCE / "nomination-history" / gen / "mustfix-probes.json"
     if not path.is_file():
         return
@@ -461,7 +479,7 @@ def bind_probes(mustfix: list[dict], gen: str) -> None:
         return
     for item in mustfix:
         probe = binding.get(f"{item['audit']}#{item['n']}")
-        if isinstance(probe, dict) and probe.get("kind"):
+        if isinstance(probe, dict) and probe.get("kind") in BINDABLE_KINDS:
             item["probe"] = probe
             item["note"] = "probe bound"
 
@@ -513,10 +531,6 @@ def build(gen: str) -> dict:
     mustfix = enumerate_mustfix(gen, audits)
     bind_probes(mustfix, gen)
     history = EVIDENCE / "nomination-history" / gen
-    history.mkdir(parents=True, exist_ok=True)
-    (history / "mustfix.json").write_text(json.dumps({"gen": gen, "items": mustfix},
-                                                     ensure_ascii=False, indent=1) + "\n",
-                                          encoding="utf-8")
     manifest = {
         "gen": gen,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -736,6 +750,9 @@ def main() -> int:
         return 1
     page = ARCHIVE / args.gen / "NOMINATION.md"
     page.parent.mkdir(parents=True, exist_ok=True)
+    mustfix_path = history / "mustfix.json"
+    mustfix_path.write_text(json.dumps({"gen": args.gen, "items": manifest["mustfix"]},
+                                       ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if page.is_file():
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
         (history / f"NOMINATION.previous-{stamp}.md").write_bytes(page.read_bytes())

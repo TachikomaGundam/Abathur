@@ -6,6 +6,7 @@ C-07 anti-injection grammar. Writes verdict.json in its own judge-work dir.
 """
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -170,6 +171,18 @@ def main():
             known_ids = set(runs) if isinstance(runs, dict) else {str(r.get("runId")) for r in runs}
             if audit_run not in known_ids:
                 return False
+            record = runs.get(audit_run) if isinstance(runs, dict) else next(
+                (r for r in runs if str(r.get("runId")) == audit_run), None)
+            if not isinstance(record, dict):
+                return False
+            if str(record.get("verdict") or "").upper() not in ("REJECT", "CANNOT_ANSWER"):
+                return False
+            if str(record.get("independence") or "").upper() != "INDEPENDENT":
+                return False
+            scope = "{} {}".format(record.get("goal") or "", record.get("artifact") or "")
+            if not (re.search(rf"(?<![0-9A-Za-z]){re.escape(gen)}(?![0-9])", scope)
+                    and item_id in scope):
+                return False
             known = subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{commit}^{{commit}}"],
                                    capture_output=True)
             if known.returncode != 0:
@@ -205,14 +218,16 @@ def main():
     rc, sid = L.run_opencode_turn(env, jw, title, prompt, log, None, L.JUDGE_MODEL)
     print(f"judge rc={rc} session={sid} elapsed={round(time.time()-t0,1)}s")
     # G66 finding: archive moves harness/ only, so a receipt-only session id is unreachable.
+    L.extract_transcript(gen, item_id, candidate=False)
+    verdict = L.load_verdict(gen, item_id)
+    vpath = jw / "verdict.json"
+    vsha = L.sha256_file(vpath) if vpath.is_file() else "missing"
     try:
         (jw / "session.txt").write_text(
             f"session={sid}\nrc={rc}\nelapsed_s={round(time.time()-t0,1)}\n"
-            f"judge_model={L.JUDGE_MODEL}\n", encoding="utf-8")
+            f"judge_model={L.JUDGE_MODEL}\nverdict_sha256={vsha}\n", encoding="utf-8")
     except OSError as exc:
         print(f"WARN judge session receipt not written: {exc}", file=sys.stderr)
-    L.extract_transcript(gen, item_id, candidate=False)
-    verdict = L.load_verdict(gen, item_id)
     if rc != 0 or verdict is None:
         print(f"NEEDS_HUMAN: judge rc={rc} verdict_parsed={verdict is not None}", file=sys.stderr)
         sys.exit(3)

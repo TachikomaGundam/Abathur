@@ -494,6 +494,11 @@ def run_opencode_turn(env: dict, cwd: Path, title: str, prompt: str, log: Path,
     cmd.append(prompt)
     gen, item = env["LOOP_GEN"], env["LOOP_ITEM"]
     prefix = bwrap_prefix(gen, item, env, cwd) if env.get("LOOP_ROLE") == "candidate" else None
+    if env.get("LOOP_ROLE") == "candidate" and prefix is None:
+        # Security: without the mount namespace the candidate can read harness verdicts.
+        with open(log, "ab") as lf:
+            lf.write(b"\n===== REFUSED: bwrap unavailable, candidate turn not contained =====\n")
+        raise RuntimeError("candidate turn refused: bwrap unavailable (no partial containment)")
     if prefix is not None:
         cmd = prefix + cmd
     with open(log, "ab") as lf:

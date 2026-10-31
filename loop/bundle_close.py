@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import looplib as L
+import run_judge as RJ
 from bank import ITEMS
 
 # run_judge started writing judge-work/session.txt at commit 7a5871b (2026-10-31T06:34:06Z).
@@ -92,17 +93,28 @@ def close_item(gen: str, item_dir: Path) -> dict:
         post_receipt = (vpath.is_file()
                         and vpath.stat().st_mtime >= RECEIPT_ERA_TS)
         sess_bad = post_receipt and "rc=0" not in sess_text
+        bound_sha = ""
+        for line in sess_text.splitlines():
+            if line.startswith("verdict_sha256="):
+                bound_sha = line.split("=", 1)[1].strip()
+        sha_bad = bool(post_receipt and bound_sha and vpath.is_file()
+                       and bound_sha != L.sha256_file(vpath))
+        bank_problems = RJ.verdict_problems(verdict, item_id) if isinstance(verdict, dict) else []
+        rerolls = sorted((hd2 / "judge-work").glob("verdict.pre-reroll-*.json"))
         problems_file = hd2 / "judge-work" / "verdict-problems.txt"
         stale = False
         if vpath.is_file() and vpath.stat().st_mtime < tx_path.stat().st_mtime:
             stale = True
-        if (aggregate not in ("PASS", "FAIL") or judge_hgf or stale or sess_bad
-                or problems_file.is_file()):
+        if (aggregate not in ("PASS", "FAIL") or judge_hgf or stale or sess_bad or sha_bad
+                or problems_file.is_file() or bank_problems):
             row["verdict"] = "NEEDS_HUMAN"
             row["judge_verdict"] = verdict
             reason = ("aggregate missing or outside PASS|FAIL" if aggregate not in ("PASS", "FAIL")
                       else "judge set hard_global_fail=true" if judge_hgf
                       else "verdict failed schema/consistency at judge time" if problems_file.is_file()
+                      else "stored verdict does not match the current item definition: "
+                           + "; ".join(bank_problems) if bank_problems
+                      else "verdict bytes changed after the judge wrote its receipt" if sha_bad
                       else "judge session receipt missing or non-zero rc" if sess_bad
                       else "transcript newer than the verdict that scored it")
             row["incident"] = {"item": item_id, "mechanism_guess": reason}
@@ -112,6 +124,8 @@ def close_item(gen: str, item_dir: Path) -> dict:
             if mem_diff and mem_diff.startswith("DIRTY"):
                 row["verdict"] = "FAIL"
                 row["incident"] = {"item": item_id, "mechanism_guess": "FM-16: un-clean memory diff is disqualifying"}
+    if rerolls:
+        row["reroll_traces"] = [p.name for p in rerolls]
     return row
 
 
@@ -135,6 +149,10 @@ def main():
         spec = ITEMS.get(row["item"], {})
         if row.get("incident"):
             incidents.append(row["incident"])
+        if row.get("reroll_traces"):
+            incidents.append({"item": row["item"],
+                              "mechanism_guess": "verdict was replaced after a reroll ticket: "
+                              + ", ".join(row["reroll_traces"])})
         jv = row.get("judge_verdict") or {}
         if spec.get("canary") and (jv.get("canary_kill") or row.get("verdict") == "FAIL"):
             canaries_killed.append(row["item"])
