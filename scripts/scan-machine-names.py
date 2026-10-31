@@ -106,6 +106,7 @@ def main() -> int:
               "exempted": exempted,
               "rows": [{"file": str(f), "line": n, "why": w, "text": t} for f, n, w, t in found]}
     print(json.dumps(result, ensure_ascii=False, indent=1))
+    print(f"SCAN-END files={result.get('scanned')} findings={len(found)}")
     return 1 if found else 0
 
 

@@ -100,6 +100,7 @@ def main() -> int:
     print(f"COVERAGE {gen}: items={len(items)} cells={len(rows)} missing_required={missing}")
     for row in rows:
         print(row)
+    print(f"COVERAGE-END {gen} cells={len(rows)} missing_required={missing}")
     return 0 if missing == 0 else 1
 
 
