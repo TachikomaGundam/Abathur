@@ -98,11 +98,7 @@ def nominate_preflight() -> bool:
         return False
     import subprocess as _sp
 
-    cmd = [sys.executable, str(LOOP_DIR / "nominate.py"), gen]
-    for run in spec.get("audits") or []:
-        cmd += ["--audit", run]
-    for gap in spec.get("gaps") or []:
-        cmd += ["--gap", gap]
+    cmd = [sys.executable, str(LOOP_DIR / "nomination_manifest.py"), gen, "--write"]
     proc = _sp.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=600)
     for line in (proc.stdout or "").strip().splitlines()[-12:]:
         print(f"nominate| {line}")
