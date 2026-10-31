@@ -4,6 +4,7 @@
 Receives item spec + full transcript + manifest-recomputed disk probe as DATA under the
 C-07 anti-injection grammar. Writes verdict.json in its own judge-work dir.
 """
+import hashlib
 import json
 import subprocess
 import sys
@@ -73,10 +74,15 @@ def build_judge_prompt(gen: str, item_id: str) -> str:
     check_receipt_path = hd2 / "check_receipt.json"
     receipt_clause = ""
     if check_receipt_path.exists():
+        receipt_bytes = check_receipt_path.read_bytes()
+        tx_sha = hashlib.sha256((hd2 / "transcript.json").read_bytes()).hexdigest()
         receipt_clause = (
-            "\n【工装机械检查收据（report_check/v1，纯函数输出，可信，先于你复算）】\n"
-            f"{check_receipt_path.read_text()}\n"
-            "（S1–S4 的机械部分以该收据为据；你仍可推翻并在 anomalies 具名理由。）\n")
+            "\n【工装机械检查收据（report_check/v1，纯函数输出，座位侧生成）】\n"
+            f"收据文件 sha256={hashlib.sha256(receipt_bytes).hexdigest()}；"
+            f"其依据的 transcript.json sha256={tx_sha}\n"
+            f"{receipt_bytes.decode('utf-8', 'replace')}\n"
+            "（S1–S4 的机械部分以该收据为据；收据与转录的绑定由上述两枚哈希固定，"
+            "你可按此复算；你也可推翻并在 anomalies 具名理由。）\n")
     return f"""{L.ANTI_INJECTION_HEADER}
 【考题 {item_id}】
 setup 概要：{json.dumps(manifest['ground_truth'], ensure_ascii=False)}
@@ -144,6 +150,21 @@ def main():
                 return False
             commit = str(receipt.get("ruler_fix_commit") or "")
             if len(commit) < 7:
+                return False
+            audit_run = str(tk.get("audit_run") or "")
+            artifact = str(receipt.get("audit_artifact_sha256") or "")
+            if not audit_run or len(artifact) != 64:
+                return False
+            if hashlib.sha256(prior.read_bytes()).hexdigest() != artifact:
+                return False
+            store_path = Path.home() / ".sibyl" / "runs.json"
+            try:
+                store = json.loads(store_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return False
+            runs = store.get("runs", store) if isinstance(store, dict) else store
+            known_ids = set(runs) if isinstance(runs, dict) else {str(r.get("runId")) for r in runs}
+            if audit_run not in known_ids:
                 return False
             known = subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{commit}^{{commit}}"],
                                    capture_output=True)

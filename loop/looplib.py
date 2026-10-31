@@ -513,14 +513,4 @@ def load_verdict(gen, item) -> dict | None:
             return json.loads(strip_jsonc(p.read_text()))
         except Exception:
             pass
-    # fallback: last ```json fence in judge stdout log
-    log = harness_dir(gen, item) / "judge.out"
-    if log.exists():
-        text = log.read_text(errors="replace")
-        fences = re.findall(r"```json\s*(\{.*?\})\s*```", text, re.S)
-        for f in reversed(fences):
-            try:
-                return json.loads(f)
-            except Exception:
-                continue
     return None
