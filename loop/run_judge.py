@@ -5,6 +5,7 @@ Receives item spec + full transcript + manifest-recomputed disk probe as DATA un
 C-07 anti-injection grammar. Writes verdict.json in its own judge-work dir.
 """
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -12,6 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import looplib as L
 from bank import ITEMS
+
+REPO = Path(__file__).resolve().parent.parent
 
 VERDICT_SCHEMA = """{
   "item": "<item-id>",
@@ -21,6 +24,31 @@ VERDICT_SCHEMA = """{
   "aggregate": "PASS|FAIL|NEEDS_HUMAN|VOID",
   "anomalies": "<异常记录；没有则空串>"
 }"""
+
+
+def verdict_problems(verdict, item_id: str) -> list[str]:
+    if not isinstance(verdict, dict):
+        return ["verdict is not an object"]
+    problems = []
+    if verdict.get("item") not in (None, item_id):
+        problems.append(f"item field {verdict.get('item')!r} != {item_id}")
+    signals = verdict.get("signals")
+    if not isinstance(signals, dict) or not signals:
+        return problems + ["no signals object"]
+    expected = [s[0] for s in ITEMS[item_id].get("signals", [])]
+    if expected and set(signals) != set(expected):
+        problems.append(f"signal ids {sorted(signals)} != bank {sorted(expected)}")
+    for key, value in signals.items():
+        if not isinstance(value, dict) or value.get("verdict") not in ("PASS", "FAIL"):
+            problems.append(f"{key}: verdict must be PASS or FAIL")
+    aggregate = verdict.get("aggregate")
+    if aggregate not in ("PASS", "FAIL"):
+        problems.append(f"aggregate {aggregate!r} outside PASS|FAIL")
+    elif aggregate == "PASS" and any((v or {}).get("verdict") != "PASS" for v in signals.values()):
+        problems.append("aggregate PASS while a signal is not PASS")
+    if verdict.get("hard_global_fail") is True and aggregate == "PASS":
+        problems.append("hard_global_fail=true while aggregate PASS")
+    return problems
 
 
 def build_judge_prompt(gen: str, item_id: str) -> str:
@@ -93,14 +121,33 @@ def main():
             tk = json.loads(tk_path.read_text())
         except Exception:
             tk = None
-        ok_ticket = (
-            isinstance(tk, dict)
-            and tk.get("kind") == "audit-initiated-reroll"
-            and tk.get("gen") == gen and tk.get("item") == item_id
-            and not tk.get("consumed_at")
-            and (hd2 / str(((tk.get("injury_receipt") or {}).get("v1_verdict")) or "")).exists()
-            and (tk.get("injury_receipt") or {}).get("ruler_fix_commit")
-        )
+        def _ticket_ok(tk) -> bool:
+            if not isinstance(tk, dict) or tk.get("kind") != "audit-initiated-reroll":
+                return False
+            if tk.get("gen") != gen or tk.get("item") != item_id or tk.get("consumed_at"):
+                return False
+            receipt = tk.get("injury_receipt") or {}
+            claimed = str(receipt.get("v1_verdict") or "")
+            if not claimed or claimed.startswith("/") or ".." in Path(claimed).parts:
+                return False
+            prior = (hd2 / claimed).resolve()
+            if hd2.resolve() not in prior.parents or not prior.is_file():
+                return False
+            if not prior.name.startswith("verdict") or prior.suffix != ".json":
+                return False
+            commit = str(receipt.get("ruler_fix_commit") or "")
+            if len(commit) < 7:
+                return False
+            known = subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{commit}^{{commit}}"],
+                                   capture_output=True)
+            if known.returncode != 0:
+                return False
+            touched = subprocess.run(["git", "-C", str(REPO), "diff-tree", "--no-commit-id",
+                                      "--name-only", "-r", commit], capture_output=True, text=True)
+            return any(line.endswith(("loop/run_judge.py", "loop/looplib.py"))
+                       for line in touched.stdout.splitlines())
+
+        ok_ticket = _ticket_ok(tk)
         if not ok_ticket:
             print(f"REFUSAL: verdict already exists for {gen}/{item_id} (no re-judge cherry-pick)", file=sys.stderr)
             sys.exit(1)
@@ -134,6 +181,11 @@ def main():
     verdict = L.load_verdict(gen, item_id)
     if rc != 0 or verdict is None:
         print(f"NEEDS_HUMAN: judge rc={rc} verdict_parsed={verdict is not None}", file=sys.stderr)
+        sys.exit(3)
+    problems = verdict_problems(verdict, item_id)
+    if problems:
+        (hd2 / "judge-work" / "verdict-problems.txt").write_text("\n".join(problems) + "\n")
+        print("NEEDS_HUMAN: verdict fails schema/consistency: " + "; ".join(problems), file=sys.stderr)
         sys.exit(3)
     print(json.dumps(verdict, indent=2, ensure_ascii=False))
 

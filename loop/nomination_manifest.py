@@ -698,6 +698,10 @@ def main() -> int:
             if got != stamped:
                 bad.append({"id": "page-integrity", "detail": "page bytes differ from the "
                                                                "receipt it is cited by"})
+        else:
+            bad.append({"id": "page-integrity", "detail": "page or receipt missing; the "
+                                                          "manifest cannot be cited until the "
+                                                          "generator has written both"})
         print(json.dumps({"probes": len(results), "failed": len(bad), "failures": bad,
                           "page_integrity": page_check}, ensure_ascii=False, indent=1))
         return 0 if not bad else 1
@@ -720,6 +724,16 @@ def main() -> int:
     manifest_path = history / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n",
                              encoding="utf-8")
+    if bad:
+        gate = history / "gate.txt"
+        with gate.open("a", encoding="utf-8") as fh:
+            fh.write("manifest-refused {} probes={} failed={} page_not_written manifest={} "
+                     "manifest_sha256={}\n".format(manifest["generated_at_utc"], len(results),
+                                                   len(bad), manifest_path, sha256_file(manifest_path)))
+        print(json.dumps({"gen": args.gen, "refused": "probes failed", "failed": len(bad),
+                          "detail": [r["id"] for r in results if not r["ok"]][:10]},
+                         ensure_ascii=False))
+        return 1
     page = ARCHIVE / args.gen / "NOMINATION.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     if page.is_file():
@@ -741,11 +755,13 @@ def main() -> int:
     gate = history / "gate.txt"
     with gate.open("a", encoding="utf-8") as fh:
         fh.write("manifest-run {} probes={} failed={} coverage=claims:{}+gaps:{}+audits:{}+"
-                 "mustfix:{} page={} page_sha256={} receipt={} receipt_sha256={}\n".format(
+                 "mustfix:{} page={} page_sha256={} receipt={} receipt_sha256={} "
+                 "manifest={} manifest_sha256={}\n".format(
                      manifest["generated_at_utc"], len(results), len(bad),
                      len(manifest["claims"]), len(manifest["gaps"]),
                      len(manifest.get("audits") or []), len(manifest.get("mustfix") or []),
-                     page, sha256_file(page), receipt, sha256_file(receipt)))
+                     page, sha256_file(page), receipt, sha256_file(receipt),
+                     manifest_path, sha256_file(manifest_path)))
     own = "\n".join(ln for ln in rendered.splitlines() if not ln.startswith("| sibyl-"))
     copies = (HEX_RUN.findall(own) + ISO_RUN.findall(own) + CLOCK_RUN.findall(own)
               + PCT_RUN.findall(own))
