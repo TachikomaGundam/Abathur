@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -101,14 +102,76 @@ def commit_times() -> dict[str, str]:
     return out
 
 
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _facts_verdict(probe: str, entry: dict) -> tuple[str, str]:
+    source = str(entry.get("source", ""))
+    how = str(entry.get("how", ""))
+    path = Path(source)
+    if how.startswith("sha256 of file bytes"):
+        if not path.is_file():
+            return "MISMATCH", f"source missing {source}"
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest == probe or digest.startswith(probe):
+            return "RECOMPUTED", f"sha256 {source}"
+        return "MISMATCH", f"{source} hashes to {digest[:16]}"
+    if how.startswith("git log -1"):
+        proc = subprocess.run(["git", "log", "-1", "--format=%h", "--", source],
+                              cwd=str(REPO), capture_output=True, text=True)
+        got = proc.stdout.strip()
+        if proc.returncode == 0 and got and (got == probe or got.startswith(probe)):
+            return "RECOMPUTED", f"git commit of {source}"
+        return "MISMATCH", f"{source} last commit is {got or 'none'}"
+    if path.is_file() and probe in path.read_text(encoding="utf-8", errors="replace"):
+        return "PRESENT", source
+    return "MISMATCH", f"neither {how} nor file text in {source}"
+
+
+def verify_by_facts(lines: list[str], facts_map: dict) -> int:
+    known = {str(k).rstrip("\u2026"): v for k, v in facts_map.items()}
+    bad = rec = present = checked = 0
+    for lineno, line in enumerate(lines, 1):
+        lits: list[str] = []
+        lits += SHA.findall(line)
+        lits += [m + "\u2026" for m in SHA_PREFIX.findall(line)]
+        lits += ISO.findall(line)
+        for lit in dict.fromkeys(lits):
+            checked += 1
+            probe = lit.rstrip("\u2026")
+            entry = known.get(probe)
+            if entry is None:
+                bad += 1
+                print(f"UNREGISTERED line {lineno:>3} {lit}")
+                continue
+            verdict, why = _facts_verdict(probe, entry)
+            if verdict == "RECOMPUTED":
+                rec += 1
+                print(f"RECOMPUTED line {lineno:>3} {lit} <- {why}")
+            elif verdict == "PRESENT":
+                present += 1
+                print(f"PRESENT     line {lineno:>3} {lit} <- verbatim in {why}")
+            else:
+                bad += 1
+                print(f"MISMATCH    line {lineno:>3} {lit} <- {why}")
+    print(f"\nchecked={checked} recomputed={rec} present={present} bad={bad} facts={len(facts_map)}")
+    return 1 if bad else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("nomination")
-    ap.add_argument("--roots", nargs="+", required=True)
+    ap.add_argument("--roots", nargs="+")
+    ap.add_argument("--facts")
     args = ap.parse_args()
 
     nom = Path(args.nomination)
     lines = nom.read_text(encoding="utf-8").splitlines()
+    if args.facts:
+        facts = json.loads(Path(args.facts).read_text(encoding="utf-8"))
+        return verify_by_facts(lines, facts.get("facts", {}))
+    if not args.roots:
+        ap.error("one of --roots or --facts is required")
     root_paths = [Path(r) for r in args.roots]
     bodies = haystack(root_paths)
     digests = file_digests(root_paths)

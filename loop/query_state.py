@@ -22,6 +22,8 @@ ARCH = REPO / ".omo/evidence/loop-archive"
 
 
 def main() -> int:
+    if nominate_preflight():
+        return 0
     if literals_preflight():
         return 0
     if draw_preflight():
@@ -50,6 +52,45 @@ def main() -> int:
               f"nominatable={j.get('nominatable')} killed={j.get('canaries_killed')} items={rows}")
     fixture_reachability()
     return 0
+
+
+def nominate_preflight() -> bool:
+    """If .omo/pending-nominate.json exists, generate that generation's nomination page.
+
+    Why through the queue: loop/nominate.py must read ~/.sibyl/spaces to prove an
+    audit id exists, and the seat's bash sandbox sees a private tmpfs at /home/lab
+    (so ~/.sibyl is invisible there). Queue jobs run host-side, where it is visible.
+    Spec: {"gen": "G66", "audits": ["<runid>", ...], "gaps": ["<text>", ...]}
+    """
+    import json as _json
+
+    spec_path = REPO / ".omo" / "pending-nominate.json"
+    if not spec_path.is_file():
+        return False
+    try:
+        spec = _json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, _json.JSONDecodeError) as exc:
+        print(f"nominate_preflight| unusable spec: {exc}")
+        return False
+    gen = spec.get("gen") or ""
+    if not gen:
+        return False
+    import subprocess as _sp
+
+    cmd = [sys.executable, str(LOOP_DIR / "nominate.py"), gen]
+    for run in spec.get("audits") or []:
+        cmd += ["--audit", run]
+    for gap in spec.get("gaps") or []:
+        cmd += ["--gap", gap]
+    proc = _sp.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=600)
+    for line in (proc.stdout or "").strip().splitlines()[-12:]:
+        print(f"nominate| {line}")
+    for line in (proc.stderr or "").strip().splitlines()[-8:]:
+        print(f"nominate_err| {line}")
+    print(f"nominate_preflight gen={gen} rc={proc.returncode}")
+    if proc.returncode == 0:
+        spec_path.unlink(missing_ok=True)
+    return True
 
 
 def literals_preflight() -> bool:
