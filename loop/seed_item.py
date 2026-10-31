@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """seed_item.py <gen> <item-id> — create /tmp/abathur-loop-<gen>/<item>/ per handoff §1."""
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -72,6 +73,25 @@ def pin_fixtures(cand_root, hd, manifest) -> int:
     return count, gt_pinned, skipped
 
 
+def tooling_blobs() -> dict:
+    """Pin the judge's own bytes at seed time.
+
+    Zero-trust reruns re-judge with the code as it stood when the paper was sealed, not
+    with whatever the working tree holds later. Blob ids come from git, so "these are the
+    bytes we judge with" is somebody else's record, not ours.
+    """
+    out = {}
+    for rel in ("loop/run_judge.py", "loop/looplib.py", "loop/bundle_close.py"):
+        try:
+            rev = subprocess.run(["git", "rev-parse", "--verify", f"HEAD:{rel}"],
+                                 cwd=str(Path(__file__).resolve().parent.parent),
+                                 capture_output=True, text=True, timeout=30)
+            out[rel] = rev.stdout.strip() if rev.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError):
+            out[rel] = None
+    return out
+
+
 def main():
     argv = sys.argv[1:]
     memory = None
@@ -98,7 +118,8 @@ def main():
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     with ledger_path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps({"gen": gen, "item": item_id, "seeded_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                             "manifest_sha256": L.sha256_file(L.harness_dir(gen, item_id) / "manifest.json")},
+                             "manifest_sha256": L.sha256_file(L.harness_dir(gen, item_id) / "manifest.json"),
+                             "tooling": tooling_blobs()},
                             ensure_ascii=False) + "\n")
     print(f"seeded {gen}/{item_id}: {len(manifest['files'])} files, {len(manifest['symlinks'])} symlinks")
     print(f"  pinned fixtures: {n_cand} candidate + {n_gt} harness-side -> {L.harness_dir(gen, item_id) / 'fixtures'}")
