@@ -80,5 +80,24 @@ child exit -> done/<name>.result.json -> pendingReceipts.push -> (窗口到) 合
 
 P1 的真实标本（设计动因，非事后编造）：`.omo/exam-queue/runner.log` 有 `2026-10-31T05:27:22Z START cand-g64v-sr469` 而无对应 `DONE`，`done/` 无 `cand-g64v-sr469.result.json`，`running.json` 残留 —— 宿主被重启杀死在「子进程已写完工件、插件未写终态」之间；候选实际 `state=COMPLETE`。旧代码永久遗忘，新代码补 `INTERRUPTED`。
 
-同窗达成的夹具修复验证（与本设计同一子系统的上游病）：SR4-69 补齐播种校验器与题面格式模板后，验证局 G64V 判卷 `aggregate=PASS`、S1-S4 全 PASS、`canary_kill=false`，判卷独立复跑校验器 `rc=0` 且播种件哈希与正本同值。证据：`.omo/evidence/loop-archive/G64V-SR4-69/VERDICT.json`（含候选会话 `ses_e6f92b660ffeXRHJePmaW8PQcG`、判卷会话 `ses_e6f8ea654ffeTRZRr88HCRlF0K`）。G63 的 FAIL 原样归档未改；`plan-seg-discipline` 债务仍挂（验证局非正式世代，不销账）。
+同窗达成的夹具修复验证（与本设计同一子系统的上游病）：SR4-69 补齐播种校验器与题面格式模板后，验证局 G64V 判卷 `aggregate=PASS`、S1-S4 全 PASS、`canary_kill=false`，判卷独立复跑校验器 `rc=0` 且播种件哈希与正本同值。证据：`.omo/evidence/loop-archive/verify-SR4-69-fixture-20261031/VERDICT.json`（含候选会话 `ses_e6f92b660ffeXRHJePmaW8PQcG`、判卷会话 `ses_e6f8ea654ffeTRZRr88HCRlF0K`；该目录原名 `G64V-SR4-69`，改名原因见 R1）。G63 的 FAIL 原样归档未改；`plan-seg-discipline` 债务仍挂（验证局非正式世代，不销账）。
+
+## 6. 运行时发现（实现期间实测，按发现顺序登记）
+
+**R1 归档目录命名不得占用世代标签（约定，不改门）**
+- 事实：`loop/draw.py:109` 的 `generation_used()` 用 `glob(ARCHIVE/gen + "*")` 判「标签是否已用」。我把验证局证据目录命名为 `G64V-SR4-69`，于是 `python3 loop/draw.py G64 SR4-69 SR4-64` 返回 `REFUSED: generation G64 already used (archive: G64V-SR4-69)`（`DRAW_RC=1`）。
+- 判断：**不放松这道门**。该通配是保守的 fail-closed 设计（G49 事故：晋升为 `G49R4` 后仍拒绝重抽 G49，靠的就是它）。改门会重新打开「重跑已判世代」的漏洞。
+- 处置：目录改名 `G64V-SR4-69` → `verify-SR4-69-fixture-20261031`（运行标签 G64V 保留在文档与台账里，仅目录名不占标签）；改名后同一命令 `DRAW ACCEPTED`。约定：`loop-archive/` 下承载非世代的辅助证据，目录名一律以 `verify-`/`aux-` 起头，不以 `G<数字>` 起头。
+
+**R2 输出通道会吞掉末尾结论（已绕过，待结构修复）**
+- 事实：插件把子进程输出截为 `out.slice(-4000)`，读取端又把单行压到 2000 字符；结果 `done/<name>.result.json` 里的 `tail` 是**一整行 JSON 字符串**，于是「末尾」的内容两端都读不到。首次夹具探针就是这么丢的。
+- 临时对策：`loop/query_state.py` 增加 `draw_preflight()`，并在存在 `.omo/pending-draw.json` 时**只报该决策相关的行**（早退，不打印普查与类清单）。
+- 结构修复（未做，具名）：作业输出写旁车全文文件 `done/<name>.out`，JSON 里只留短摘要；读取端不再猜「tail 够不够长」。
+
+**R3 抽签规则收敛为单源**
+- `loop/draw.py` 抽出 `validate_draw(gen, proposed, allow_suspended=False) -> (ok, messages)`，`main()` 与查询侧共用；`--allow-suspended` 的机主裁定原文保留在函数 docstring 里（未随重构丢失）。改前/改后对 G64 的判定一致（改前 `DRAW_RC=1` 因目录占标签，改后 `ACCEPTED`）。
+
+**R4 本席的 bash 通道污染（自身缺陷，非工具缺陷）**
+- 事实：本会话我多次把历史里显示的包装命令行当成新命令发出，导致嵌套命名空间报错（`bwrap: No permissions to create a new namespace`）。这不是沙箱故障，是我复制上下文里的文本。
+- 对策：需要机器回执而 bash 不可靠时，改用「队列作业 + 只读查询」通道；必须用 shell 时，命令落 `.omo/scratch/*.sh` 再以极短命令调用。
 

@@ -22,6 +22,8 @@ ARCH = REPO / ".omo/evidence/loop-archive"
 
 
 def main() -> int:
+    if draw_preflight():
+        return 0
     session_census()
     print(f"passes_to_clear={draw.PASSES_TO_CLEAR}")
     print(f"regression_duty={draw.regression_duty()}")
@@ -46,6 +48,28 @@ def main() -> int:
               f"nominatable={j.get('nominatable')} killed={j.get('canaries_killed')} items={rows}")
     fixture_reachability()
     return 0
+
+
+def draw_preflight() -> bool:
+    """Read-only draw preflight: .omo/pending-draw.json {"gen":..,"items":[..]} -> rules verdict.
+
+    Returns True when a proposal was pending (caller then reports only this decision, because
+    the transport that carries job output truncates long reports and would bury the verdict).
+    """
+    pending = REPO / ".omo" / "pending-draw.json"
+    try:
+        spec = json.loads(pending.read_text())
+    except Exception:
+        return False
+    gen = spec.get("gen") or ""
+    items = spec.get("items") or []
+    if not gen or not items:
+        return False
+    ok, msgs = draw.validate_draw(gen, items)
+    print(f"draw_preflight gen={gen} items={items} verdict={'ACCEPTED' if ok else 'REFUSED'}")
+    for m in msgs:
+        print(f"draw_preflight| {m}")
+    return True
 
 
 def fixture_reachability() -> None:

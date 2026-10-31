@@ -112,6 +112,45 @@ def generation_used(gen: str):
     return None
 
 
+def validate_draw(gen: str, proposed: list[str], allow_suspended: bool = False) -> tuple[bool, list[str]]:
+    """Single source of truth for draw rules; used by main() and by query_state preflight.
+
+    Suspension guard (ballot 2bf8: prose hangs do not stop campaigns). Owner ruling
+    2026-10-16 (三裁=乙+登记): --allow-suspended 唯一合法用途=解禁前的回归重放
+    (对 G50..G55 旧卷只读复判); 每次使用须在 INTENT-LEDGER 落一行(票号+工件哈希);
+    任何新世代开考使用=越权, 与伪造同罪族。silent rotation 依旧全拒。
+    """
+    msgs: list[str] = []
+    unknown = [i for i in proposed if i not in bank.ITEMS]
+    if unknown:
+        msgs.append(f"REFUSED: unknown items {unknown}")
+        return False, msgs
+    if not allow_suspended:
+        for _k, _why in SUSPENDED_ITEMS.items():
+            if _k in proposed:
+                msgs.append(f"REFUSED: {_k} suspended — {_why} (owner override: --allow-suspended)")
+                return False, msgs
+    used = generation_used(gen)
+    if used:
+        msgs.append(f"REFUSED: generation {gen} already used (archive: {used}); "
+                    "draw the next free label — closed generations are never re-examined")
+        return False, msgs
+    duty = regression_duty()
+    covered = {CLASS_OF.get(i) for i in proposed}
+    missing = {c: why for c, why in duty.items() if c not in covered}
+    canaries = [i for i in proposed if bank.ITEMS[i].get("canary")]
+    if len(canaries) != 1:
+        msgs.append(f"REFUSED: draw must carry exactly ONE canary, got {canaries}")
+    if missing:
+        msgs.append(f"REFUSED: regression classes uncovered: {missing}")
+    msgs.insert(0, f"history: {len(history())} bundles; regression duty open: {duty or 'none'}")
+    msgs.insert(1, f"proposed draw for {gen}: {proposed}")
+    if len(canaries) == 1 and not missing and not unknown:
+        msgs.append("DRAW ACCEPTED")
+        return True, msgs
+    return False, msgs
+
+
 def main() -> None:
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
@@ -122,35 +161,10 @@ def main() -> None:
     if len(argv) < 2:
         raise SystemExit(__doc__)
     gen, proposed = argv[0], argv[1:]
-    unknown = [i for i in proposed if i not in bank.ITEMS]
-    if unknown:
-        raise SystemExit(f"REFUSED: unknown items {unknown}")
-    # suspension guard (ballot 2bf8: prose hangs do not stop campaigns). Clause 7's
-    # dead/live anchor predicate is judge-discretion until the versioned determinism
-    # artifact + five-case regression set ships (G50..G54 shapes decide identically).
-    # Owner ruling 2026-10-16 (三裁=乙+登记): --allow-suspended 唯一合法用途=解禁前的回归重放
-    # (对 G50..G55 旧卷只读复判); 每次使用须在 INTENT-LEDGER 落一行(票号+工件哈希);
-    # 任何新世代开考使用=越权, 与伪造同罪族。silent rotation 依旧全拒。
-    if not allow:
-        for _k, _why in SUSPENDED_ITEMS.items():
-            if _k in proposed:
-                raise SystemExit(f"REFUSED: {_k} suspended — {_why} (owner override: --allow-suspended)")
-    used = generation_used(gen)
-    if used:
-        raise SystemExit(f"REFUSED: generation {gen} already used (archive: {used});\ndraw the next free label — closed generations are never re-examined")
-    duty = regression_duty()
-    covered = {CLASS_OF.get(i) for i in proposed}
-    missing = {c: why for c, why in duty.items() if c not in covered}
-    print(f"history: {len(history())} bundles; regression duty open: {duty or 'none'}")
-    print(f"proposed draw for {gen}: {proposed}")
-    canaries = [i for i in proposed if bank.ITEMS[i].get("canary")]
-    if len(canaries) != 1:
-        print(f"REFUSED: draw must carry exactly ONE canary, got {canaries}")
-        sys.exit(1)
-    if missing:
-        print(f"REFUSED: regression classes uncovered: {missing}")
-        sys.exit(1)
-    print("DRAW ACCEPTED")
+    ok, msgs = validate_draw(gen, proposed, allow_suspended=allow)
+    for m in msgs:
+        print(m)
+    sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":
     main()
