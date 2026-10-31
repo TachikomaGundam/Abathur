@@ -112,15 +112,8 @@ def run_probe(probe: dict) -> tuple[bool, str]:
             text = Path(probe["path"]).read_text(encoding="utf-8", errors="replace")
             hits = len(re.findall(probe["pattern"], text))
             return hits > 0, f"matches={hits}"
-        if kind == "cmd_rc0":
-            proc = subprocess.run(probe["argv"], cwd=probe.get("cwd"), capture_output=True,
-                                  text=True, timeout=120)
-            return proc.returncode == 0, f"rc={proc.returncode}"
-        if kind == "cmd_empty_stdout":
-            proc = subprocess.run(probe["argv"], cwd=probe.get("cwd"), capture_output=True,
-                                  text=True, timeout=120)
-            return proc.returncode == 0 and not proc.stdout.strip(), \
-                f"rc={proc.returncode} lines={len(proc.stdout.splitlines())}"
+        if kind == "admission":
+            return True, "admission row: states a limit, checks nothing"
         if kind == "glob_empty":
             hits = sorted(Path(probe["dir"]).glob(probe["pattern"]))
             return not hits, f"matches={len(hits)}"
@@ -180,10 +173,12 @@ def read_bundle(gen: str) -> dict | None:
 def enumerate_audits(gen: str) -> list[dict]:
     """Audits are discovered from the engine-side run store, not from my memory."""
     if not RUNS.is_file():
+        PARSE_FAILURES.append((str(RUNS), -1))
         return []
     try:
         store = json.loads(RUNS.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
+        PARSE_FAILURES.append((str(RUNS), 0))
         return []
     runs = store.values() if isinstance(store, dict) else store
     out = []
@@ -400,6 +395,13 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "pointer": {"path": str(ARCHIVE / gen / "bundle.json"), "selector": f"stamps.{idx}"},
                      "probe": {"kind": "json_selector", "path": str(ARCHIVE / gen / "bundle.json"),
                                "selector": f"stamps.{idx}"}})
+    gaps.append({"id": "G-disposition",
+                 "text": "no demand on this page is marked satisfied or unsatisfied: disposition "
+                         "is a judgement over the artifact, and this generator cannot make it "
+                         "from disk; section 3 therefore reports quote fidelity only",
+                 "pointer": {"path": str(EVIDENCE / "nomination-history" / gen / "mustfix.json"),
+                             "selector": "items"},
+                 "probe": {"kind": "admission"}})
     bundle_path = ARCHIVE / gen / "bundle.json"
     if bundle_path.is_file():
         gaps.append({"id": "G-bundle-face",
@@ -591,7 +593,10 @@ def render(manifest: dict, results: list[dict]) -> str:
         "restatement instead of gating it: values are only ever pointed at, states only ever come",
         "from probes, gaps are enumerated from directories, and the status vocabulary has no",
         "'landed'. The command above re-runs every state shown below, section 2 and section 3",
-        "included; its receipt is cited at the end of this page.",
+        "included, and fails if this page's bytes no longer match the receipt that cites it.",
+        "The no-values rule is enforced by machine for hex digests, ISO timestamps, clock times",
+        "and percentages; bare counts are not gated, so a number written as a word count would",
+        "pass unnoticed.",
         "",
         "## 1. Claims",
         "",
@@ -608,7 +613,14 @@ def render(manifest: dict, results: list[dict]) -> str:
               "Inclusion rule, stated because the filter was invisible before: a run is listed",
               "when its stored artifact path or goal text mentions this generation. Runs that",
               "merely quote the generation in a ballot body are not listed; each such ballot",
-              "store is gap-listed instead.", "",
+              "store is gap-listed instead. A pointer of the form `store#id` is a lookup",
+              "convention over a JSON array; this prints the record it names:", "",
+              "```",
+              "python3 -c \"import json,sys;d=json.load(open(sys.argv[1]));r=d.get('runs',d);"
+              "print(r[sys.argv[2]] if isinstance(r,dict) else "
+              "[x for x in r if (x.get('runId') or x.get('run'))==sys.argv[2]][0])\" "
+              "{} <run-id>".format(RUNS),
+              "```", "",
               "| run | pointer | state |", "| --- | --- | --- |"]
     for audit in manifest["audits"]:
         ptr = "{}#{}".format(RUNS, audit.get("run"))
@@ -620,7 +632,16 @@ def render(manifest: dict, results: list[dict]) -> str:
               "The state column says one thing only: QUOTE-VERBATIM means the quoted text is",
               "still present in the ballot file it was taken from. It does not mean the demand",
               "was satisfied. Whether a demand is met is not machine-decided on this page and is",
-              "listed as a gap.", "",
+              "listed as a gap. Cells are checked against the machine copy after markdown pipe",
+              "escaping, so the displayed text is not claimed to be byte-identical to the ballot.", "",
+              "A `file#audit#line` pointer is a lookup convention over the machine copy; this",
+              "prints the row it names:", "",
+              "```",
+              "python3 -c \"import json,sys;d=json.load(open(sys.argv[1]))['items'];"
+              "print([i for i in d if i['audit']==sys.argv[2] and i['n']==int(sys.argv[3])][0])\" "
+              "{} <audit-run-id> <line>".format(EVIDENCE / "nomination-history" / manifest["gen"]
+                                                / "mustfix.json"),
+              "```", "",
               "| audit | line | demand (quoted) | full text | quote state |",
               "| --- | --- | --- | --- | --- |"]
     for item in manifest["mustfix"]:
@@ -632,10 +653,16 @@ def render(manifest: dict, results: list[dict]) -> str:
         lines.append("| {} | {} | {} | `{}` | {} |".format(item["audit"], item["n"], demand,
                                                           full, st))
     lines += ["", "## 4. Gaps (enumerated, not curated)", "",
+              "State is PASS only when the row's own probe passes. Rows marked ADMISSION state a",
+              "limit of this record and check nothing; they are labelled so they cannot be read",
+              "as a verification.", "",
               "| id | text | pointer | state |", "| --- | --- | --- | --- |"]
     for gap in manifest["gaps"]:
         st = state.get(gap["id"])
-        mark = "PASS" if st and st["ok"] else "FAIL"
+        if gap["probe"].get("kind") == "admission":
+            mark = "ADMISSION"
+        else:
+            mark = "PASS" if st and st["ok"] else "FAIL"
         ptr = "{}#{}".format(gap["pointer"]["path"], gap["pointer"].get("selector", ""))
         lines.append("| {} | {} | `{}` | {} |".format(gap["id"], gap["text"], ptr, mark))
     lines += ["", "## 5. Receipts", "",
@@ -658,8 +685,21 @@ def main() -> int:
         manifest = json.loads(Path(args.run_probes).read_text(encoding="utf-8"))
         results = run_probes(manifest)
         bad = [r for r in results if not r["ok"]]
-        print(json.dumps({"probes": len(results), "failed": len(bad),
-                          "failures": bad}, ensure_ascii=False, indent=1))
+        page = ARCHIVE / str(manifest.get("gen")) / "NOMINATION.md"
+        receipt = Path(args.run_probes).parent / "probes-last.json"
+        page_check = {"checked": False}
+        if page.is_file() and receipt.is_file():
+            try:
+                stamped = json.loads(receipt.read_text(encoding="utf-8")).get("page_sha256")
+            except json.JSONDecodeError:
+                stamped = None
+            got = sha256_file(page)
+            page_check = {"checked": True, "matches": got == stamped}
+            if got != stamped:
+                bad.append({"id": "page-integrity", "detail": "page bytes differ from the "
+                                                               "receipt it is cited by"})
+        print(json.dumps({"probes": len(results), "failed": len(bad), "failures": bad,
+                          "page_integrity": page_check}, ensure_ascii=False, indent=1))
         return 0 if not bad else 1
     if not args.gen:
         ap.error("missing generation (or pass --run-probes)")
