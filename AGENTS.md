@@ -122,3 +122,18 @@
 # # 三章戳逐字随件：`PERFORMANCE-ONLY-IN-LOOP` + `MODEL-DIVERSITY-PENDING` + `CONDITIONAL(D1a)`，语义以 G65 bundle 的 `stamp_meanings` 为准，不得软化为成绩式行文。
 # # 证据防单点灭失：G65 归档与 G64CAN bundle 的 sha256 清单在 git 跟踪面 `docs/evidence-manifests/G65-20261031.sha256`（27 行，自身 sha256 `772261bffba8d8677c9db2341449e969bc39347ddcbfc5d76cd2452180ba3f95`）。
 # # 具名缺口（不得省略、不得并入成绩）：①`MODEL-DIVERSITY-PENDING` 未除（清除条件=整代第二模型族判卷+机主裁定）；②`CONDITIONAL(D1a)` 仍待机主政策裁决；③`.omo/` 被 `.gitignore` 排除，本机证据仅靠上列清单锚定；④同链蜂群咨询不构成盲审，独立审结论为 REJECT（已更正后由机主批准），此事实永久在案。
+
+## 调度法与笼子生命周期（2026-10-31 机主逐字令入册，硬约束）
+
+### L-DISPATCH-BEFORE-BUILD（发布前检查第一顺位调度既有机具）
+- 凡发布前检查，**第一顺位调度本机既有机具**执行（本机边检=border；真形 `node /home/lab/workspace/harness/border/dist/index.js check --config <绝对路径>`，不在 PATH）。
+- 有机具而亲自动手 = **越权代办**（重复造轮子，且自造检查未必覆盖专门机具的检查面）。
+- 无机具时，必先问机主「复用既有机具还是另建新制」，得**具名裁定**后方可自建；亲自动手是最后手段，不是默认动作。
+- 机器判据：任何「发布前检测」类工作，转写时必须先给出一条对既有机具的调度回执（命令 + rc + 关键输出行）；缺该回执即视为未按本条执行。
+
+### L-CAGE-BIRTH（会话笼子出生时间律）
+- 会话复用时必须校验：笼子出生时间早于 launcher 自身启动时间 ⇒ 判 `DISCARDED`，强制重建；不得沿用。
+- 任一侧出生时间缺失 ⇒ `UNKNOWN`（fail-closed，按重建处理）。
+- 判定单一来源：`scripts/plugins/cage-lifecycle.mjs`（`classifyCage`/`mustRebuild`，规格测试 `cage-lifecycle.test.mjs` 7 例）；笼内自证：`scripts/cage-selfcheck.sh`（输出 `VERDICT=…`）。
+- 事故谱系：2026-10-28 SimpleCut 会话笼自服务重启后仍为无网旧笼（净接口仅 lo、uid_map 单行、shell 恒 pid2、挂载指纹 /var/tmp/abathur.CmX18Guq），杀 pid1/pid2 被同命名空间重生；与 2026-10-22 僵尸进程活过修复同族。
+- 验收口径（沿用伤单）：向该会话发 `grep -c : /proc/net/dev` 返回 >1 且 `ssh REDACTED-SSH-TARGET echo ok` 通。

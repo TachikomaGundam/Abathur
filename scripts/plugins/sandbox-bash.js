@@ -49,7 +49,7 @@ export function resolveBwrap() {
 }
 
 /** 构造 bwrap argv（测试与执行共用，单一来源）。 */
-export function buildArgv({ workspace, cmd, net = "none" }) {
+export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStartedAt }) {
   const ws = workspace;
   const argv = [
     "--die-with-parent", "--new-session",
@@ -80,6 +80,8 @@ export function buildArgv({ workspace, cmd, net = "none" }) {
     "--setenv", "PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "--setenv", "TERM", "xterm-256color",
     "--setenv", "TZ", process.env.TZ || "Asia/Shanghai",
+    "--setenv", "CAGE_BORN_AT", bornAt,
+    "--setenv", "LAUNCHER_STARTED_AT", launcherStartedAt,
     "--",
     "/bin/sh", "-c", cmd,
   );
@@ -88,8 +90,8 @@ export function buildArgv({ workspace, cmd, net = "none" }) {
 
 function sq(s) { return "'" + String(s).replaceAll("'", "'\\''") + "'"; }
 
-export function wrapCommand({ bwrap, workspace, cmd, net }) {
-  return [bwrap, ...buildArgv({ workspace, cmd, net })]
+export function wrapCommand({ bwrap, workspace, cmd, net, bornAt, launcherStartedAt }) {
+  return [bwrap, ...buildArgv({ workspace, cmd, net, bornAt, launcherStartedAt })]
     .map(a => (/^[-\w@%+=:,./]+$/.test(a) ? a : sq(a)))
     .join(" ");
 }
@@ -121,6 +123,8 @@ export const SandboxBash = async ({ directory }) => {
   }
 
   log(`BOOT bwrap=${bwrap} net=${net} dir=${directory}`);
+  const launcherStartedAt = new Date().toISOString();
+  let cageSeq = 0;
   const COPY_MARKERS = ["--die-with-parent", "--unshare-all", "--unshare-user", "/usr/bin/bwrap ", "bwrap --"];
   return {
     "tool.execute.before": async (input, output) => {
@@ -132,7 +136,11 @@ export const SandboxBash = async ({ directory }) => {
         log(`REFUSE copied-prefix marker=${marker}`);
         throw new Error("SANDBOX-PREFIX-COPIED: this command already carries a sandbox prefix (usually pasted back from earlier output). Send the bare command only — wrapping is the plugin's job.");
       }
-      args.command = wrapCommand({ bwrap, workspace: directory, cmd: args.command, net });
+      const bornAt = new Date().toISOString();
+      cageSeq += 1;
+      log(`CAGE seq=${cageSeq} born=${bornAt} launcher=${launcherStartedAt}`);
+      args.command = wrapCommand({ bwrap, workspace: directory, cmd: args.command, net,
+                                   bornAt, launcherStartedAt });
     },
   };
 };
