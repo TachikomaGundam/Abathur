@@ -259,6 +259,35 @@ def probe_disk(gen: str, item: str) -> dict:
     return probe
 
 
+def snapshot_db(gen: str, item: str, turn: int) -> dict:
+    """Copy the candidate DB into the harness tree between turns.
+
+    The candidate's home is writable by the candidate, so a transcript read straight
+    from it after the run is only what the candidate chose to leave behind. A copy
+    taken between turns, outside that writable face, keeps the earlier turns' bytes.
+    """
+    home = home_dir(gen, item)
+    db = home / ".local" / "share" / "opencode" / "opencode.db"
+    hd2 = harness_dir(gen, item)
+    snaps = hd2 / "db-snapshots"
+    snaps.mkdir(parents=True, exist_ok=True)
+    target = snaps / f"turn-{turn}.db"
+    record = {"turn": turn, "at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if db.is_file():
+        tmp = target.with_suffix(".tmp")
+        with db.open("rb") as src, tmp.open("wb") as dst:
+            shutil.copyfileobj(src, dst)
+        tmp.replace(target)
+        record["db_sha256"] = sha256_file(target)
+        record["db_bytes"] = target.stat().st_size
+    chain = snaps / "chain.json"
+    history = json.loads(chain.read_text()) if chain.is_file() else []
+    record["prev"] = history[-1]["db_sha256"] if history and "db_sha256" in history[-1] else None
+    history.append(record)
+    chain.write_text(json.dumps(history, indent=2))
+    return record
+
+
 def extract_transcript(gen: str, item: str, *, candidate: bool = True) -> dict:
     """FULL transcript from the isolated opencode DB (messages+parts incl. tool inputs).
     Stdout-only capture is FM-04 and banned."""
@@ -287,6 +316,10 @@ def extract_transcript(gen: str, item: str, *, candidate: bool = True) -> dict:
         out[t] = rows
     con.close()
     if candidate:
+        chain = harness_dir(gen, item) / "db-snapshots" / "chain.json"
+        history = json.loads(chain.read_text()) if chain.is_file() else []
+        out["db_sha256_at_read"] = sha256_file(db)
+        out["db_sha256_last_snapshot"] = history[-1].get("db_sha256") if history else None
         (harness_dir(gen, item) / "transcript.json").write_text(json.dumps(out, indent=2, ensure_ascii=False))
     return out
 

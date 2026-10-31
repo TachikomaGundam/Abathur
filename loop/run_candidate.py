@@ -38,6 +38,7 @@ def main():
     for i, turn in enumerate(item["turns"], 1):
         rc, session_id = L.run_opencode_turn(env, ws, title, turn, log, session_id, L.DEFAULT_MODEL)
         print(f"turn {i}/{len(item['turns'])} rc={rc} session={session_id}")
+        L.snapshot_db(gen, item_id, i)
         if rc != 0:
             print(f"NEEDS_HUMAN: turn {i} rc={rc} (infra failure per SR4 §0.5; do NOT grade as FAIL)", file=sys.stderr)
             (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps(
