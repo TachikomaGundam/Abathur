@@ -539,10 +539,11 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                  "probe": {"kind": "present_in", "path": str(SCRIPT),
                            "pattern": "gate\\.open\\(\"a\""}})
     gaps.append({"id": "G-membership-stale",
-                 "text": "section 2 and section 3 membership is a write-time snapshot: the "
-                         "read-only pass re-runs the stored rows but does not re-derive membership "
-                         "from the engine run store, so a run recorded after generation is not "
-                         "listed until the page is regenerated",
+                 "text": "the membership of section 2, of section 3 and of section 4's ballot-store "
+                         "rows is a write-time snapshot: the read-only pass re-runs the stored rows "
+                         "but does not re-derive membership from the engine run store, so a run or "
+                         "store recorded after generation is not listed until the page is "
+                         "regenerated",
                  "pointer": {"path": str(RUNS), "selector": "file"},
                  "probe": {"kind": "admission"}})
     gaps.append({"id": "G-store-cap",
@@ -686,10 +687,12 @@ def render(manifest: dict, results: list[dict]) -> str:
         "# PROMOTION RECORD (derived view -- regenerate, never hand-edit)",
         "",
         "This page's own assertions carry no values: every state comes from a probe and every",
-        "address is a pointer. The only literals on the page are inside QUOTED ballot demands in",
-        "section 3, which belong to the ballots and are shown in full on purpose; a quotation is",
-        "not this page asserting a number. To check a line, open the pointer, then run the",
-        "read-only probe pass (this mutates nothing):",
+        "address is a pointer. Identifiers (run ids, row numbers, stamp indices) appear outside",
+        "section 3 and are not assertions; the only value-like literals outside section 3 would be",
+        "hex digests, ISO timestamps, clock times or percentages, and the generator refuses to",
+        "write a page carrying one. Section 3 reproduces quoted ballot demands in full on purpose;",
+        "a quotation is not this page asserting a number. To check a line, open the pointer, then",
+        "run the read-only probe pass (this mutates nothing):",
         "",
         "```",
         "python3 {script} --run-probes {manifest}".format(
@@ -796,8 +799,8 @@ def render(manifest: dict, results: list[dict]) -> str:
               "next to this generation's manifest:", "",
               "- `{}` -- this page's sha plus every probe result (sections 2 and 3 included)".format(
                   EVIDENCE / "nomination-history" / manifest["gen"] / "probes-last.json"),
-              "- `{}` -- one line per write-time run, appended by the generator (the append call",
-              "  is pinned by a gap row's probe on this generator's source), with coverage counts".format(
+              "- `{}` -- one line per write-time run, appended by the generator (the append call "
+              "is pinned by a gap row's probe on this generator's source), with coverage counts".format(
                   EVIDENCE / "nomination-history" / manifest["gen"] / "gate.txt")]
     return "\n".join(lines) + "\n"
 
