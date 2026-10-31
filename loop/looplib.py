@@ -452,6 +452,12 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
     Read-only real-/home visibility was the FM-02-adjacent anomaly of G1; this closes it
     for reads too. Write-scope stays enforced by the hgf scanner + judge; sandboxing the
     LLM *egress* (network) is out of scope (candidate needs the local provider).
+
+    The npm-global bind is the ONLY real-/home mount: it used to also bind all of
+    /home/lab/.local read-only, which put the seat's own session DB and the anchor chain
+    inside the candidate's view (2026-10-31 finding). Verified after narrowing: opencode
+    1.19.5 still starts from the absolute path, and ~/.local/share/{opencode,abathur} plus
+    the repo's bank.py are absent inside.
     """
     if not BWRAP:
         return None
@@ -462,7 +468,7 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
            "--ro-bind", "/lib", "/lib", "--ro-bind", "/lib64", "/lib64",
            "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp",
            "--bind", str(cr), str(cr), "--chdir", str(cwd)]
-    for p in ("/home/lab/.npm-global", "/home/lab/.local"):
+    for p in ("/home/lab/.npm-global",):
         if Path(p).exists():
             cmd += ["--ro-bind", p, p]
     for k, v in env.items():
