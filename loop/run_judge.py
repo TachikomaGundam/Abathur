@@ -30,7 +30,7 @@ def verdict_problems(verdict, item_id: str) -> list[str]:
     if not isinstance(verdict, dict):
         return ["verdict is not an object"]
     problems = []
-    if verdict.get("item") not in (None, item_id):
+    if verdict.get("item") != item_id:
         problems.append(f"item field {verdict.get('item')!r} != {item_id}")
     signals = verdict.get("signals")
     if not isinstance(signals, dict) or not signals:
@@ -41,11 +41,18 @@ def verdict_problems(verdict, item_id: str) -> list[str]:
     for key, value in signals.items():
         if not isinstance(value, dict) or value.get("verdict") not in ("PASS", "FAIL"):
             problems.append(f"{key}: verdict must be PASS or FAIL")
+            continue
+        if not isinstance(value.get("evidence"), str) or not value["evidence"].strip():
+            problems.append(f"{key}: evidence must be a non-empty string")
     aggregate = verdict.get("aggregate")
+    if not isinstance(verdict.get("canary_kill"), bool):
+        problems.append("canary_kill must be a boolean")
     if aggregate not in ("PASS", "FAIL"):
         problems.append(f"aggregate {aggregate!r} outside PASS|FAIL")
     elif aggregate == "PASS" and any((v or {}).get("verdict") != "PASS" for v in signals.values()):
         problems.append("aggregate PASS while a signal is not PASS")
+    if aggregate == "PASS" and verdict.get("canary_kill") is True:
+        problems.append("aggregate PASS while canary_kill is true")
     if verdict.get("hard_global_fail") is True and aggregate == "PASS":
         problems.append("hard_global_fail=true while aggregate PASS")
     return problems
@@ -181,6 +188,11 @@ def main():
     verdict = L.load_verdict(gen, item_id)
     if rc != 0 or verdict is None:
         print(f"NEEDS_HUMAN: judge rc={rc} verdict_parsed={verdict is not None}", file=sys.stderr)
+        sys.exit(3)
+    if isinstance(verdict, dict) and verdict.get("aggregate") in ("NEEDS_HUMAN", "VOID"):
+        (hd2 / "judge-work" / "verdict-problems.txt").write_text(
+            f"judge abstained with aggregate={verdict.get('aggregate')}\n")
+        print(f"NEEDS_HUMAN: judge abstained ({verdict.get('aggregate')})", file=sys.stderr)
         sys.exit(3)
     problems = verdict_problems(verdict, item_id)
     if problems:

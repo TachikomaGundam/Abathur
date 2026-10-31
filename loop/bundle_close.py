@@ -6,7 +6,10 @@ args for paths outside the run dir => automatic item FAIL + incident row), memor
 (C-13: candidate workshop/AGENTS.md vs seeded hash), terminal state. Face = decorative
 index only (C-08); this file's JSON is the bundle of record.
 """
+import hashlib
 import json
+import os
+import stat
 import sys
 import time
 from pathlib import Path
@@ -33,10 +36,19 @@ def close_item(gen: str, item_dir: Path) -> dict:
     mem_diff = None
     seeded_agents = (manifest.get("files") or {}).get("workshop/AGENTS.md")
     agents_now = L.cand_root(gen, item_id) / "workshop" / "AGENTS.md"
-    if seeded_agents and agents_now.is_file() and not agents_now.is_symlink():
-        mem_diff = "CLEAN" if L.sha256_file(agents_now) == seeded_agents else "DIRTY(candidate rewrote own memory)"
-    elif seeded_agents:
-        mem_diff = "DIRTY(AGENTS.md missing/symlinked)"
+    if seeded_agents:
+        # Hash the same fd that was validated: is_symlink()-then-hash leaves a TOCTOU window.
+        try:
+            fd = os.open(agents_now, os.O_RDONLY | os.O_NOFOLLOW)
+        except OSError:
+            mem_diff = "DIRTY(AGENTS.md missing/symlinked)"
+        else:
+            with os.fdopen(fd, "rb") as fh:
+                if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                    mem_diff = "DIRTY(AGENTS.md not a regular file)"
+                else:
+                    got = hashlib.sha256(fh.read()).hexdigest()
+                    mem_diff = "CLEAN" if got == seeded_agents else "DIRTY(candidate rewrote own memory)"
     else:
         mem_diff = "DIRTY(unseeded: no seeded hash, check cannot pass)"
     row["memory_diff"] = mem_diff
@@ -69,16 +81,21 @@ def close_item(gen: str, item_dir: Path) -> dict:
     else:
         aggregate = verdict.get("aggregate")
         judge_hgf = verdict.get("hard_global_fail") is True
+        sess = hd2 / "judge-work" / "session.txt"
+        sess_bad = not (sess.is_file() and "rc=0" in sess.read_text(encoding="utf-8", errors="replace"))
+        problems_file = hd2 / "judge-work" / "verdict-problems.txt"
         stale = False
         vpath = hd2 / "judge-work" / "verdict.json"
         if vpath.is_file() and vpath.stat().st_mtime < tx_path.stat().st_mtime:
             stale = True
-        if aggregate not in ("PASS", "FAIL") or judge_hgf or stale or (hd2 / "judge-work" / "verdict-problems.txt").is_file():
+        if (aggregate not in ("PASS", "FAIL") or judge_hgf or stale or sess_bad
+                or problems_file.is_file()):
             row["verdict"] = "NEEDS_HUMAN"
             row["judge_verdict"] = verdict
             reason = ("aggregate missing or outside PASS|FAIL" if aggregate not in ("PASS", "FAIL")
                       else "judge set hard_global_fail=true" if judge_hgf
-                      else "verdict failed schema/consistency at judge time" if (hd2 / "judge-work" / "verdict-problems.txt").is_file()
+                      else "verdict failed schema/consistency at judge time" if problems_file.is_file()
+                      else "judge session receipt missing or non-zero rc" if sess_bad
                       else "transcript newer than the verdict that scored it")
             row["incident"] = {"item": item_id, "mechanism_guess": reason}
         else:
@@ -133,6 +150,10 @@ def main():
         incidents.append({"item": missing, "mechanism_guess": "item directory absent at close"})
     for extra in sorted(set(observed) - expected) if expected else []:
         incidents.append({"item": extra, "mechanism_guess": "directory present but never drawn/seeded for this generation"})
+    if not expected and items:
+        incidents.append({"item": "*", "mechanism_guess": "roster unverified: no draw/seed record for this "
+                                                          "generation and no --expect given, so a pruned "
+                                                          "roster cannot be detected"})
     verdicts = [r.get("verdict") for r in items]
     if not items:
         terminal = "NEEDS_ROUND"
