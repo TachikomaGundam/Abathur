@@ -57,7 +57,13 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
   const logfile = path.join(queue, "runner.log")
   for (const d of [queue, done, rejected]) { try { fs.mkdirSync(d, { recursive: true }) } catch {} }
 
-  let running = null          // 当前作业名
+  // 两道执行面：候选/判卷会拉起模型会话，彼此争用同一个端点，故单独限流；
+  // 其余阶段是秒级子进程，没有理由排在长作业后面（实测 131 件里 111 件 <1s）。
+  const MODEL_STAGES = new Set(["candidate", "judge"])
+  const MAX_MODEL = Number(process.env.ABATHUR_MAX_MODEL_JOBS || 1)
+  const MAX_CHEAP = Number(process.env.ABATHUR_MAX_CHEAP_JOBS || 4)
+  const active = new Map()    // name → {pid, stage}
+  const runningNames = () => [...active.keys()]
   const sidFile = path.join(queue, "last-session.txt")
   const readAddr = () => {
     try {
@@ -100,77 +106,119 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
     }
   }
 
-  const COALESCE_MS = Number(process.env.ABATHUR_RECEIPT_COALESCE_MS || 45000)
   const BATCH_MAX = Number(process.env.ABATHUR_RECEIPT_BATCH_MAX || 8)
+  const MAX_WAIT_MS = Number(process.env.ABATHUR_RECEIPT_MAX_WAIT_MS || 20000)
+  const QUIET_MS = Number(process.env.ABATHUR_RECEIPT_QUIET_MS || 1500)
+  const SOLO_MS = Number(process.env.ABATHUR_RECEIPT_SOLO_MS || 1000)
+  const BURST_MS = Number(process.env.ABATHUR_RECEIPT_BURST_MS || 5000)
+  const arrivals = []
   const pending = []
   let flushTimer = null
+  let firstPendingAt = null
+
+  const medianArrival = () => {
+    if (arrivals.length < 3) return Infinity
+    const gaps = []
+    for (let i = 1; i < arrivals.length; i++) gaps.push(arrivals[i] - arrivals[i - 1])
+    gaps.sort((a, b) => a - b)
+    return gaps[Math.floor(gaps.length / 2)]
+  }
+
   const flush = async () => {
     flushTimer = null
+    firstPendingAt = null
     if (!pending.length) return
     const batch = pending.splice(0, pending.length)
     log(logfile, `FLUSH n=${batch.length}`)
     await receipt(
-      `[JOB-RECEIPT][seat=${SEAT_AGENT}] 合并回执 ${batch.length} 件（窗口 ${Math.round(COALESCE_MS / 1000)}s，本批等多于此值即投递）\n` +
+      `[JOB-RECEIPT][seat=${SEAT_AGENT}] 合并回执 ${batch.length} 件\n` +
       batch.map((b) => `- ${b}`).join("\n") +
       `\n结果文件均在 .omo/exam-queue/done/。按流水线继续下一步，不要问我进度。`
     )
   }
   const queueReceipt = (line) => {
+    const now = Date.now()
+    arrivals.push(now)
+    if (arrivals.length > 20) arrivals.shift()
     pending.push(line)
     if (pending.length >= BATCH_MAX) {
       if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
       flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`))
       return
     }
-    if (!flushTimer) {
-      flushTimer = setTimeout(() => { flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`)) }, COALESCE_MS)
-      flushTimer.unref?.()
+    if (!firstPendingAt) firstPendingAt = now
+    const burst = medianArrival() < BURST_MS
+    const dwell = burst ? QUIET_MS : SOLO_MS
+    const waited = now - (firstPendingAt || now)
+    if (waited >= MAX_WAIT_MS) {
+      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+      flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`))
+      return
     }
+    if (flushTimer) clearTimeout(flushTimer)
+    flushTimer = setTimeout(() => {
+      flush().catch((e) => log(logfile, `FLUSH-ERROR ${e?.message || e}`))
+    }, Math.min(dwell, MAX_WAIT_MS - waited))
+    flushTimer.unref?.()
+    log(logfile, `PENDING n=${pending.length} mode=${burst ? "burst" : "solo"} dwell=${dwell}ms`)
   }
 
   const reconcile = () => {
     const rf = path.join(queue, "running.json")
     let rec
     try { rec = JSON.parse(fs.readFileSync(rf, "utf8")) } catch { return }
-    if (!rec || !rec.name || running === rec.name) return
-    if (rec.pid && fs.existsSync(`/proc/${rec.pid}`)) return
-    const target = path.join(done, `${rec.name}.result.json`)
-    if (fs.existsSync(target)) {
-      try { fs.rmSync(rf, { force: true }) } catch {}
-      log(logfile, `RECONCILED ${rec.name} cleared-stale-noop`)
-      return
+    const jobs = Array.isArray(rec?.jobs) ? rec.jobs : (rec?.name ? [rec] : [])
+    if (!jobs.length) return
+    const keep = []
+    for (const job of jobs) {
+      if (!job?.name) continue
+      if (active.has(job.name)) { keep.push(job); continue }
+      if (job.pid && fs.existsSync(`/proc/${job.pid}`)) { keep.push(job); continue }
+      const target = path.join(done, `${job.name}.result.json`)
+      if (fs.existsSync(target)) {
+        log(logfile, `RECONCILED ${job.name} cleared-stale-noop`)
+        continue
+      }
+      const result = {
+        gen: job.gen, item: job.item, stage: job.stage, rc: -1, kind: "INTERRUPTED", elapsed_s: null,
+        tail: "进程在结果落盘前消失；此前可能已有工件，先查 run dir 再决定重跑",
+      }
+      try { fs.writeFileSync(target, JSON.stringify(result, null, 1)) } catch (e) {
+        log(logfile, `RECONCILE-FAIL ${job.name} ${e?.message || e}`)
+      }
+      log(logfile, `RECONCILED ${job.name} kind=INTERRUPTED`)
+      queueReceipt(
+        `作业中断：${job.name}（gen=${job.gen} item=${job.item} stage=${job.stage}）——终态记录已补写 kind=INTERRUPTED；` +
+        `若工件已存在可先判卷，不要盲目重跑。结果文件 done/${job.name}.result.json`
+      )
     }
-    const result = {
-      gen: rec.gen, item: rec.item, stage: rec.stage, rc: -1, kind: "INTERRUPTED", elapsed_s: null,
-      tail: "进程在结果落盘前消失；此前可能已有工件，先查 run dir 再决定重跑",
-    }
-    try { fs.writeFileSync(target, JSON.stringify(result, null, 1)) } catch (e) {
-      log(logfile, `RECONCILE-FAIL ${rec.name} ${e?.message || e}`)
-    }
-    try { fs.rmSync(rf, { force: true }) } catch {}
-    log(logfile, `RECONCILED ${rec.name} kind=INTERRUPTED`)
-    queueReceipt(
-      `作业中断：${rec.name}（gen=${rec.gen} item=${rec.item} stage=${rec.stage}）——终态记录已补写 kind=INTERRUPTED；` +
-      `若工件已存在可先判卷，不要盲目重跑。结果文件 done/${rec.name}.result.json`
-    )
+    try { fs.writeFileSync(rf, JSON.stringify({ jobs: keep })) } catch {}
   }
+
   reconcile()
+
+  const persistRunning = () => {
+    const jobs = [...active.entries()].map(([name, info]) => ({
+      name, stage: info.stage, gen: info.gen, item: info.item,
+      started_at: info.started_at, pid: info.pid,
+    }))
+    try {
+      fs.writeFileSync(path.join(queue, "running.json"), JSON.stringify({ jobs }))
+    } catch (e) { log(logfile, `RUNNING-WRITE-FAIL ${e?.message || e}`) }
+  }
 
   const runJob = (name, req) => new Promise((resolve) => {
     const script = path.join(root, STAGES[req.stage])
     const t0 = Date.now()
-    running = name
     log(logfile, `START ${name} ${req.gen}/${req.item}/${req.stage}`)
     const child = spawn(PYTHON, [script, req.gen, req.item], {
       cwd: root,
       stdio: ["ignore", "pipe", "pipe"],
       env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("ABATHUR_"))),
     })
-    try {
-      fs.writeFileSync(path.join(queue, "running.json"), JSON.stringify({
-        name, ...req, started_at: new Date().toISOString(), pid: child.pid,
-      }))
-    } catch (e) { log(logfile, `RUNNING-WRITE-FAIL ${name} ${e?.message || e}`) }
+    active.set(name, { pid: child.pid, stage: req.stage, gen: req.gen, item: req.item,
+                       started_at: new Date().toISOString() })
+    persistRunning()
     let out = ""
     const cap = (b) => { out = (out + b.toString()).slice(-200_000) }
     child.stdout.on("data", cap)
@@ -185,42 +233,50 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       }
       try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {}
       log(logfile, `DONE ${name} rc=${rc} ${elapsed}s`)
-      running = null
+      active.delete(name)
+      if (active.size) persistRunning()
+      else { try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {} }
       queueReceipt(`gen=${req.gen} item=${req.item} stage=${req.stage} rc=${rc} 用时=${elapsed}s name=${name}`)
       resolve(result)
     })
   })
 
   const poll = async () => {
-    if (disposed || running) return
+    if (disposed) return
     reconcile()
     let files = []
     try {
       files = fs.readdirSync(queue).filter((f) => f.endsWith(".json") && f !== "running.json").sort()
     } catch { return }
     if (!files.length) return
-    const name = files[0].replace(/\.json$/, "")
-    const file = path.join(queue, `${name}.json`)
-    let req
-    try { req = JSON.parse(fs.readFileSync(file, "utf8")) } catch (e) {
-      fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: `无法解析：${e.message}` }))
+    for (const f of files) {
+      const modelActive = [...active.values()].filter((v) => MODEL_STAGES.has(v.stage)).length
+      const cheapActive = active.size - modelActive
+      const name = f.replace(/\.json$/, "")
+      const file = path.join(queue, f)
+      let req
+      try { req = JSON.parse(fs.readFileSync(file, "utf8")) } catch (e) {
+        fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: `无法解析：${e.message}` }))
+        fs.rmSync(file, { force: true })
+        log(logfile, `REJECT ${name} 无法解析`)
+        continue
+      }
+      const bad = !req || typeof req !== "object" ? "非对象"
+        : !GEN_RE.test(req.gen || "") ? `gen 非法 ${req.gen}`
+        : !ITEM_RE.test(req.item || "") ? `item 非法 ${req.item}`
+        : !STAGES[req.stage] ? `stage 非法 ${req.stage}` : null
+      if (bad) {
+        fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: bad, request: req }))
+        fs.rmSync(file, { force: true })
+        log(logfile, `REJECT ${name} ${bad}`)
+        continue
+      }
+      const isModel = MODEL_STAGES.has(req.stage)
+      if (isModel ? modelActive >= MAX_MODEL : cheapActive >= MAX_CHEAP) continue
       fs.rmSync(file, { force: true })
-      log(logfile, `REJECT ${name} 无法解析`)
-      return
+      log(logfile, `TAKE ${name} ${req.gen}/${req.item}/${req.stage} lane=${isModel ? "model" : "cheap"} active=${active.size}`)
+      runJob(name, req).catch((e) => log(logfile, `JOB-ERROR ${name} ${e?.message || e}`))
     }
-    const bad = !req || typeof req !== "object" ? "非对象"
-      : !GEN_RE.test(req.gen || "") ? `gen 非法 ${req.gen}`
-      : !ITEM_RE.test(req.item || "") ? `item 非法 ${req.item}`
-      : !STAGES[req.stage] ? `stage 非法 ${req.stage}` : null
-    if (bad) {
-      fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: bad, request: req }))
-      fs.rmSync(file, { force: true })
-      log(logfile, `REJECT ${name} ${bad}`)
-      return
-    }
-    fs.rmSync(file, { force: true })
-    log(logfile, `TAKE ${name} ${req.gen}/${req.item}/${req.stage}`)
-    await runJob(name, req)
   }
 
   const timer = setInterval(() => { poll().catch((e) => log(logfile, `POLL-ERROR ${e?.message || e}`)) }, POLL_MS)

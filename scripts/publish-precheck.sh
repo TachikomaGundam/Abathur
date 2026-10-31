@@ -18,6 +18,10 @@ GATE_CONFIG="${ABATHUR_GATE_CONFIG:-}"
 if [ -z "$GATE_CMD" ]; then
   echo "PRECHECK UNDISPATCHABLE reason=no-gate-tool-configured"
   echo "PRECHECK NOTE=ABATHUR_GATE_CMD is unset; this script refuses to invent a check"
+  if [ -f "$REPO/scripts/discover-tools.mjs" ] && command -v node >/dev/null 2>&1; then
+    echo "PRECHECK DISCOVERY candidates (not auto-selected; a human must register one):"
+    node "$REPO/scripts/discover-tools.mjs" --capability gate.publish 2>&1 | sed 's/^/  discover| /'
+  fi
   exit 2
 fi
 

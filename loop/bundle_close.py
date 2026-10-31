@@ -28,6 +28,31 @@ REPO = Path(__file__).resolve().parent.parent
 RECEIPT_ERA_TS = datetime(2026, 10, 31, 6, 34, 6, tzinfo=timezone.utc).timestamp()
 
 
+def budget_for(gen: str):
+    """Last budget row for this generation, or None.
+
+    Budget overruns must have a blocking consequence (Sibyl must_fix): a generation that
+    blows its wall-clock cap is recorded as an incident, which makes nominatable False.
+    """
+    path = REPO / ".omo" / "evidence" / "budget.jsonl"
+    if not path.is_file():
+        return None
+    hit = None
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            if row.get("gen") == gen:
+                if row.get("seconds") is None:
+                    row["seconds"] = row.get("total_receipt_seconds")
+                hit = row
+    except (OSError, ValueError):
+        return None
+    return hit
+
+
 def _judge_session_id(gen: str, item_id: str, sess_path) -> str | None:
     """Judge session id: prefer the judge's own receipt, fall back to the queue record."""
     sid = ER.session_from_receipt(sess_path) if sess_path.is_file() else None
@@ -172,6 +197,12 @@ def main():
     canaries_killed = []
     incidents = []
     observed = []
+    budget_row = budget_for(gen)
+    if budget_row and budget_row.get("seconds") is not None:
+        cap = float(os.environ.get("ABATHUR_BUDGET_SECONDS", "3600"))
+        if float(budget_row["seconds"]) > cap:
+            incidents.append({"item": "*", "mechanism_guess": "BUDGET_EXCEEDED",
+                              "seconds": budget_row["seconds"], "cap_seconds": cap})
     for item_dir in sorted(p for p in gen_root.iterdir() if p.is_dir()):
         row = close_item(gen, item_dir)
         items.append(row)
