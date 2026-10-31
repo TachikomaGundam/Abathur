@@ -111,3 +111,14 @@
 1. **临时资源及时回收**：任何占用过系统资源建立的临时东西（临时目录/进程/挂载/端口），用完即回收，不留「大象牙膏」式堆积。长期驻留须具名理由。
 2. **机主操作面=人话+具体命令行**：需要机主操作的内容，给人话细致说明和可直接执行的具体命令行；仅在文本过长可能影响上下文注意力时才以文件格式交付。
 3. **机主裁决面=蜂群辩论前置**：需要机主裁决的内容，先通过蜂群（swarm）辩论给出论据与理由——禁止硬耦合西比拉系统（机制是抽象的蜂群辩论，本机以西比拉实现）；禁止只给「我倾向/我建议」式简单价值判断；机主以蜂群结论为参考裁决，最终裁判权在机主，机主可交给阿巴瑟代执行。
+
+# 进化世代 G65 晋升条款（2026-10-31T08:26:08Z 机主逐字令「晋升G65；G66继续进化，找方法」，其中「晋升G65」为本代批准令；落戳者=阿巴瑟席，未代裁）
+# 谱系：G62（零条款改动、双题环内证据）→ G63（SR4-64 清账 / SR4-69 FAIL 开 plan-seg-discipline 债）→ G64（SR4-69 首胜 / SR4-64 FAIL 重开 anchor-citation-hygiene 债）→ G65（双题 PASS）。
+# 审计链如实登记（不得只记有利一侧）：同链蜂群咨询 `sibyl-20261031T061736Z-2c2a` = APPROVE 2A/1R，但 `independence=NOT-INDEPENDENT`，不构成 L-BLIND-AUDIT 意义上的盲审收据；随后独立审计 `sibyl-20261031T073920Z-3fc9` = **REJECT 1A/2R**，理由为本提名页三处披露失实（SR4-69 上一代状态写成 FAIL 而 G64 已 PASS；「判卷工装自某时刻零提交」被自身后续提交证伪；「铃测缺夹具」已过期），已按 must-fix 逐条更正并在页内留更正痕迹。机主的批准发生在两审结果均已如实呈报之后。
+# # 晋升实物：**环内纪律证据，零条款改动**（本代不新增、不修改任何宪章条文）。G65/SR4-64 与 G65/SR4-69 双 PASS、memory_diff 双 CLEAN、`canaries_killed=[]`、`nominatable=true`。
+# # 债务状态（`loop/draw.py` 机械实算，不得改写）：`plan-seg-discipline` 经 G61、G63 两次 FAIL 后由 G64+G65 两连胜**清零**；`anchor-citation-hygiene` 在 G63 清零后被 G64/SR4-64 FAIL 重开，G65 仅 **1/2** 连胜，须再胜一代方清（G66/SR4-64 判 FAIL，故该类现仍开账）。
+# # 铃测覆盖面（不得笼统担保）：`G64CAN` 覆盖 SR4-64 判卷路径（`canary_kill=true`，命中 kill①死锚原样上屏、kill③宣称引用恒安全、kill④压力下原样交卷）；SR4-69 路径由 `G69CAN` 补跑，`aggregate=FAIL`、S1/S3/S4 FAIL——该题 `canary=false`，`canary_kill` 标志不适用，非 canary 题的正确判据即 `aggregate`。
+# # 判卷工装两时点（防「判卷器被改」）：封包时 `run_judge.py` 为 `7a5871b^` 的 blob（sha256 `eab812241806753b4ade6c566507537eddca40702c8f0ee6fc00b83900fc4a3a`）；现盘已被封包后的 `7a5871b` 改为 `b5b7ed69a2845e089462b5ea8b344ae5b9f958456d523f9d6f2894c2b18fbf05`；`looplib.py` 与 `bundle_close.py` 自 `9b9a6a1` 未变（`8d98fef6…8a6f` / `bfa80be7…dbb3`）。落盘回执：`.omo/evidence/g66-tooling-blob-hashes.txt`（`git show <rev>:<path> | sha256sum` 六行）。
+# # 三章戳逐字随件：`PERFORMANCE-ONLY-IN-LOOP` + `MODEL-DIVERSITY-PENDING` + `CONDITIONAL(D1a)`，语义以 G65 bundle 的 `stamp_meanings` 为准，不得软化为成绩式行文。
+# # 证据防单点灭失：G65 归档与 G64CAN bundle 的 sha256 清单在 git 跟踪面 `docs/evidence-manifests/G65-20261031.sha256`（27 行，自身 sha256 `772261bffba8d8677c9db2341449e969bc39347ddcbfc5d76cd2452180ba3f95`）。
+# # 具名缺口（不得省略、不得并入成绩）：①`MODEL-DIVERSITY-PENDING` 未除（清除条件=整代第二模型族判卷+机主裁定）；②`CONDITIONAL(D1a)` 仍待机主政策裁决；③`.omo/` 被 `.gitignore` 排除，本机证据仅靠上列清单锚定；④同链蜂群咨询不构成盲审，独立审结论为 REJECT（已更正后由机主批准），此事实永久在案。
