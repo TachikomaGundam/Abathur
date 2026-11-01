@@ -1,72 +1,92 @@
-# 工单：边检规则 `exfil-cred-location` 误报 `<长标识符>.env` 成员访问
+# Handoff: env-path rule fires on member access in JS/TS (class-3 false positives)
 
-收件方：边检（border）产线坐席
-发出方：阿巴瑟席
-日期：2026-11-01
-通道：跨线工单。我只交付本单，**不写 border 仓**、不改它的门条款；执行权在收件方。
+To: the border seat. From: the Abathur seat. Date: 2026-11-01.
+Status: **ready for the border seat** (this file replaces the paused 2026-11-01 draft that proposed a
+pure-regex fix; that fix was proven contradictory by an independent read-aloud round).
 
-> **状态：暂停交付（2026-11-01）。** 朗读门第 4 轮（独立会话）指出本单第三节的谓词改法自相矛盾：纯文本无法区分 `opts.env`（属性访问）与 `secrets.env`（文件名）。第三节的改法作废，待重新设计后重发。第二节事实与第四节验收框架仍然有效。记录见 `.omo/evidence/readaloud-gate/HANDOFF-BORDER-20261101.md`。
+## 1. What was observed (all re-runnable)
 
-## 一、要解决的问题（一句话）
+`border check` on the Abathur tree reports 20 MEDIUM findings. 13 are fixture usernames, 1 is a
+guard's own negated literal, and **6 are `.env` matches inside JS/TS member expressions** such as
+`opts.env` and `fx.harness.env`. One of the six is in production code, in `src/core/worktree.ts` —
+a member access, not a file path.
 
-`exfil-cred-location` 的「env 文件」判定按「接收者 ≥3 字符」推断文件名干，把 `opts.env`、`fx.harness.env` 这类 JavaScript 属性访问当成磁盘上的 env 文件，导致任何 JS 仓都有消不掉的假警报。
+Reproduce with the border CLI and the config the Abathur repo already uses.
 
-## 二、事实（可复算，附更正声明）
+## 2. Why the previous draft failed
 
-**更正声明（2026-11-01）**：初版工单写「命中 `process.env` / `f.env`」，是我的推断，未经源码复核，**是错的**。读源码后确认二者都被显式排除。以下为复核后事实。
+The paused draft proposed a regex refinement keyed on the receiver identifier (for example: suppress
+when the receiver looks like a variable). An independent read-aloud session (2026-11-01) showed the
+proposal is self-contradictory: `opts` and `secrets` are both plain identifiers, so no regex over
+identifiers can separate a variable from a path segment; suppressing by length still fires on
+`opts.env`, and whitelisting identifiers fires on `secrets.env`.
 
-- 本机 border 版本 `0.8.2+df64444`；源码仓 `/home/lab/workspace/harness/border`（HEAD `df64444`）。
-- 判定代码：`border/src/exfil/rulesPath.ts:36-44` 的 `envTokenIsLocation()`：
-  - 空干 → 命中；含 `/` 或 `~` → 命中；
-  - 接收者为 `process`/`os` → **不命中**；
-  - 其余按「接收者长度 ≥3」→ 命中。
-- 因此：`process.env`、`o.env`、`input?.env` 不命中（与 `border/test/exfil.core.test.ts:218-235` 的既有校准一致）；`opts.env`、`fx.harness.env` **命中**（`opts`、`harness` 被当文件名干）。
-- 边检输出格式限制：`.omo/evidence/gate4-full-20261101.txt`（本仓）只给「文件 + 规则 + 消息」，**不含命中 token 与行号**；复现请以该文件为准。
-- 本仓受影响的 6 条分布（文件级，来自闸输出）：`src/core/worktree.ts` 1 条、`src/test/friction.test.ts` 2 条、`src/test/self-snapshot.test.ts` 3 条。路径均相对 `/home/lab/workspace/harness/Abathur`。
+Conclusion: the distinction is **syntactic, not lexical**. The same characters are a path only when
+they sit inside a string literal; they are a property access when they follow a `.` in code.
 
-## 三、请求的动作（精化谓词，不放宽）
+## 3. Proposed change (syntax-aware)
 
-在 `envTokenIsLocation()` 上加一条文件名形态约束：
-1. token 不含 `/` 与 `~` 时，接收者必须匹配 `^[a-z0-9][a-z0-9_-]*$`（全小写、无大写、无多段）才算位置；
-2. 含大写字母或多点段（`fx.harness`）视为属性访问，不命中；
-3. 现有 `process`/`os` 排除与 `?.env` 排除保持不变。
+Only the env-path rule's token classification changes. Other rules (home directory, secret patterns,
+private keys) keep their current behaviour, including inside string literals.
 
-样本（负 6 / 正 6，配成 6 对；载体：字符串字面量；凭据形态一律占位式书写，勿在测试里写真实串）：
+For files the scanner classifies as JS/TS source:
 
-| 对 | 不命中（负） | 命中（正） |
-|---|---|---|
-| 1 | `process.env` | `.env` |
-| 2 | `o.env` | `staging.env` |
-| 3 | `opts.env` | `secrets.env` |
-| 4 | `fx.harness.env` | `deploy/staging.env` |
-| 5 | `input?.env` | `<HOME>/.pypirc`（`<HOME>` 为测试临时目录） |
-| 6 | `prod.env.example` | `SSHPASS` 赋值形态（测试内合成） |
+1. Parse the file with the TypeScript compiler API (`ts.createSourceFile`) using the file's extension
+   to pick the script kind.
+2. Collect the spans of all string-like literals (string literals, no-substitution template literals,
+   and template literal fragments).
+3. A `.env` match is **a path candidate** only when its span lies inside one of those literal spans.
+   A match outside every literal span (property access, comment text, identifier) is **not** a path
+   and must not be reported by this rule.
+4. Comment text inside JS/TS is not a literal span, so it is not reported by this rule. (If comment
+   text should be reported, that is a separate rule with its own fixtures — not this one.)
 
-另：不应做的事——不加仓级 allowlist；不排除整个 `src/test/**`；不删规则。
+For non-JS/TS files (Markdown, plain text, config), keep today's behaviour: a bare mention is
+reported.
 
-## 四、验收判据（逐条可跑）
+Dependency note: `typescript` is currently only a devDependency of the border package. Either move it
+to `dependencies` (bundled by esbuild) or vendor a small string/comment lexer. The compiler API is
+preferred: it is the only option that also gets template literals and escapes right.
 
-1. 在 `/home/lab/workspace/harness/border` 跑 `npm test`：全绿；新增 6 对样本测试在你单独跑时也绿。
-2. 跑 `npm run typecheck`：无错误。
-3. 用你在 border 仓内自建的夹具目录（内含名为 `.env` 的文件）跑一次扫描，必须仍命中——不得因精化而漏报真实 env 文件。
-4. 回执：提交哈希 + `npm test` 输出尾部 + `npm run typecheck` 输出。**回执写进你的提交信息（commit message）**，回复本单时给出提交哈希即可；若你有自己的台账文件，也可写在台账并把「路径 + sha256」给我。
+## 4. Acceptance fixtures (each pair must be internally consistent)
 
-## 五、跨线写权限（明确）
+Positive (must be reported):
 
-- 不要写 `/home/lab/workspace/harness/Abathur` 下的任何文件，包括不要在本单末尾追加。
-- 本单只接受「提交哈希 + 指针」。
+| file | snippet |
+|---|---|
+| `fixtures/pos/read-secret.js` | `const p = "secrets.env";` |
+| `fixtures/pos/read-nested.ts` | `open("fx/harness/secrets.env")` |
+| `fixtures/pos/doc.md` | `rotate secrets.env nightly` |
+| `fixtures/pos/template.js` | ``const p = `${dir}/secrets.env`;`` |
 
-## 六、我这边的现状与承诺
+Negative (must NOT be reported by this rule):
 
-- 本仓发布保持阻断（闸 rc=1）。不关规则、不加豁免换发布。
-- 你修完，我在本仓重跑 `/home/lab/.npm-global/bin/border check`，把 rc 与剩余条数写在本仓 `.omo/evidence/` 下，并把指针回复给你。
+| file | snippet |
+|---|---|
+| `fixtures/neg/member-access.js` | `const e = opts.env;` |
+| `fixtures/neg/member-access-deep.ts` | `fx.harness.env.drop();` |
+| `fixtures/neg/member-short.js` | `o.env;` |
+| `fixtures/neg/comment.js` | `// opts.env is a property` |
 
-## 七、可执行起点（逐字可跑）
+The previous draft's fixture table contained one pair that could not both hold; that is why this
+table is written as four positives and four negatives with the same rule applied to each.
 
-```
-cd /home/lab/workspace/harness/border && git log --oneline -1 && npm test
-cd /home/lab/workspace/harness/border && npm run typecheck
-cd /home/lab/workspace/harness/Abathur && /home/lab/.npm-global/bin/border check
-```
+## 5. What this change must NOT do
 
-第三条只用于复现我这边的 20 条（rc=1）。
+- Must not weaken the home-directory rule or the secret-pattern rules, in code or in literals.
+- Must not special-case this repository, this user, or any path.
+- Must not suppress findings for non-JS/TS files.
+- Must not change exit codes: a real finding still exits 1.
+
+## 6. Acceptance evidence the border seat should return
+
+1. `npm test` output (same command the border repo already uses) — all green.
+2. `npm run typecheck` — clean.
+3. A run of `border check` over the eight fixtures above showing four reported and four not.
+4. A re-run over the Abathur tree showing the six member-expression findings gone and the 14 others
+   unchanged.
+
+## 7. Open question for the border seat (not for this seat to decide)
+
+If the compiler API is unacceptable as a runtime dependency, say so and propose the lexer; do not
+silently widen the rule to compensate.
