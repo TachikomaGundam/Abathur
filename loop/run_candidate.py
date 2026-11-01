@@ -39,6 +39,14 @@ def main():
         (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps(
             {"state": "INFRA_FAILED", "reason": "sandbox-exec", "detail": detail}, indent=2))
         sys.exit(3)
+    missing = L.sandbox_requirements_ok(gen, item_id, item.get("sandbox_requires") or [])
+    if missing:
+        detail = "; ".join(f"{' '.join(m['argv'])} -> {m['detail']}" for m in missing)
+        print(f"NEEDS_HUMAN: item requires tools the sandbox lacks ({detail}); nothing was graded",
+              file=sys.stderr)
+        (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps(
+            {"state": "INFRA_FAILED", "reason": "sandbox-requires", "detail": missing}, indent=2))
+        sys.exit(3)
     session_id = None
     t0 = time.time()
     for i, turn in enumerate(item["turns"], 1):

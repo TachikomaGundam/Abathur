@@ -535,6 +535,36 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
     return cmd
 
 
+def sandbox_probe(gen: str, item: str, argv: list) -> tuple[bool, str]:
+    env = build_env(gen, item, candidate=True)
+    prefix = bwrap_prefix(gen, item, env, workshop_dir(gen, item))
+    if prefix is None:
+        return False, "bwrap unavailable"
+    try:
+        res = subprocess.run(prefix + [str(a) for a in argv],
+                             capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    detail = (res.stdout or res.stderr).strip().splitlines()
+    return res.returncode == 0, (detail[-1] if detail else f"rc={res.returncode}")
+
+
+def sandbox_requirements_ok(gen: str, item: str, reqs: list) -> list:
+    """Run every argv the item declares before a candidate is spent on it.
+
+    2026-11-01 (SR4-68, third cost of the same class): three items told the candidate to
+    use a tool the namespace never had (no compress binary, no pytest). A missing tool
+    used to surface as a candidate FAIL, which reads like a candidate mistake. It is an
+    environment defect: report it as one, before the turn.
+    """
+    failed = []
+    for req in reqs or []:
+        ok, detail = sandbox_probe(gen, item, req)
+        if not ok:
+            failed.append({"argv": req, "detail": detail})
+    return failed
+
+
 def sandbox_exec_ok(gen: str, item: str) -> tuple[bool, str]:
     """Cheap preflight: can the namespace actually exec the CLI it was told to use?
 
