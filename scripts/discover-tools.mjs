@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process"
 
 const HOME = os.homedir()
 const CACHE = path.join(HOME, ".cache", "opencode", "packages")
+const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 
 const json = (p) => {
   try { return JSON.parse(fs.readFileSync(p, "utf8")) } catch { return null }
@@ -129,12 +130,22 @@ function describeOf(cmd, runner) {
   return null
 }
 
+function registryPath() {
+  if (process.env.ABATHUR_TOOL_REGISTRY) return process.env.ABATHUR_TOOL_REGISTRY
+  const xdg = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config")
+  for (const p of [path.join(xdg, "abathur", "tooling.json"), path.join(REPO, ".omo", "tooling.json")]) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
+}
+
 function registryEntries() {
-  const p = process.env.ABATHUR_TOOL_REGISTRY
+  const p = registryPath()
   if (!p) return []
   const data = json(p)
-  if (!Array.isArray(data)) return []
-  return data
+  const list = Array.isArray(data) ? data : (data && Array.isArray(data.tools) ? data.tools : [])
+  if (!list.length) return []
+  return list
     .filter((e) => e && typeof e.cmd === "string")
     .map((e) => ({
       name: e.name || path.basename(e.cmd),
