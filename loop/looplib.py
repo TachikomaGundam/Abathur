@@ -500,7 +500,32 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
            "--ro-bind", "/lib", "/lib", "--ro-bind", "/lib64", "/lib64",
            "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp",
            "--bind", str(cr), str(cr), "--chdir", str(cwd)]
-    bind_ro = {str(Path(OPENCODE_BIN).parent)} if OPENCODE_BIN else set()
+    bind_ro = set()
+    if OPENCODE_BIN:
+        # 2026-11-01 G68 infra failure: execvp died inside the namespace because the CLI
+        # entry is a symlink CHAIN (~/.local/bin/opencode -> ~/.npm-global/bin/opencode ->
+        # .../opencode-ai/bin/opencode.exe). Binding only the first and last hop left the
+        # middle target unbound. Invariant: every directory in the chain must be mounted.
+        bind_ro.add(str(Path(OPENCODE_BIN).parent))
+        hop = Path(OPENCODE_BIN)
+        for _ in range(8):
+            try:
+                if not hop.is_symlink():
+                    break
+                bind_ro.add(str(hop.parent))
+                target = os.readlink(hop)
+                hop = Path(target) if os.path.isabs(target) else (hop.parent / target)
+            except OSError:
+                break
+        try:
+            real = Path(OPENCODE_BIN).resolve()
+            bind_ro.add(str(real.parent))
+            for parent in real.parents:
+                if parent.name == "node_modules":
+                    bind_ro.add(str(parent.parent))
+                    break
+        except OSError:
+            pass
     bind_ro |= {p for p in os.environ.get("ABATHUR_SANDBOX_RO_BINDS", "").split(":") if p}
     for p in sorted(bind_ro):
         if Path(p).exists():
