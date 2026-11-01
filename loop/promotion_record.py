@@ -52,7 +52,14 @@ def main() -> int:
         j = json.loads(b.read_text())
         out["bundle"] = {k: j.get(k) for k in ("terminal_state", "nominatable", "canaries_killed")}
     nom = d / "NOMINATION.md"
-    if nom.is_file():
+    approval = d / "APPROVAL.md"
+    if approval.is_file():
+        # A human approval must not mutate the audited artifact: the nomination page's
+        # bytes are what an auditor receipt is bound to, so the stamp lives beside it.
+        out["approval_source"] = str(approval)
+        out["nomination_approved_line"] = approval_stamp(approval.read_text(), gen)
+    elif nom.is_file():
+        out["approval_source"] = str(nom)
         out["nomination_approved_line"] = approval_stamp(nom.read_text(), gen)
     mh = d / "manifest-hashes.txt"
     if mh.is_file():

@@ -154,3 +154,13 @@
 - 判定单一来源：`scripts/plugins/cage-lifecycle.mjs`（`classifyCage`/`mustRebuild`，规格测试 `cage-lifecycle.test.mjs` 7 例）；笼内自证：`scripts/cage-selfcheck.sh`（输出 `VERDICT=…`）。
 - 事故谱系：2026-10-28 SimpleCut 会话笼自服务重启后仍为无网旧笼（净接口仅 lo、uid_map 单行、shell 恒 pid2、挂载指纹 /var/tmp/abathur.CmX18Guq），杀 pid1/pid2 被同命名空间重生；与 2026-10-22 僵尸进程活过修复同族。
 - 验收口径（沿用伤单）：向该会话发 `grep -c : /proc/net/dev` 返回 >1 且 `ssh REDACTED-SSH-TARGET echo ok` 通。
+
+# 进化世代 G67 晋升条款（2026-11-01T03:54:41Z 机主逐字令「G67同意晋升」；落戳者=阿巴瑟席，未代裁）
+# 谱系：G62（零条款改动）→ G63（SR4-64 清账 / SR4-69 FAIL 开 plan-seg-discipline 债）→ G64 → G65（双 PASS，双债清零）→ G66（未晋升）→ G67（双 PASS）。
+# 审计链如实登记：G67 提名记录最近一次独立审 `sibyl-20261031T155820Z-0501` = APPROVE 2A/1R（independence=INDEPENDENT）；其间 G66 提名记录连续 10 轮独立审全部 REJECT（`d18a`/`6ebc`/`e921`/`c324`/`9343`/`24fc`/`eea4`/`0ca3`/`d062`/`ba2e`），否决点尽在提名纸自身而非机器事实。G66 世代因此**未获晋升**，其证据仍在 `loop-archive/G66`。
+# # 晋升实物：**环内纪律证据 + 器具硬化，零宪章条文改动**（本代不新增、不修改任何宪章条文）。G67/SR4-64 与 G67/SR4-69 双 PASS、`memory_diff` 双 CLEAN、`canaries_killed=[]`、`nominatable=true`（磁盘实读 `bundle.json`）。
+# # 批准戳的存放：`loop-archive/G67/APPROVAL.md`（**不写进 `NOMINATION.md`**）——审计回执绑定的是提名页字节，写入批准戳会使回执失效；`loop/promotion_record.py` 优先读 `APPROVAL.md`，实测 `nomination_approved_line` = `APPROVED G67 at 2026-11-01T03:54:41Z`，rc=0。
+# # 器具硬化（本代交付，均带实跑回执）：机具名词表扫描 `scripts/scan-machine-names.py`（201 文件 0 命中）；运行期发现 `scripts/discover-tools.mjs`；断言 schema 闸 `loop/assertions.py`（`RUNNER_SCHEMA=1`，G67 规格 10 条全绿，回执含 runner/spec 双 sha256）；覆盖面枚举 `loop/coverage.py`（G67 15 格全在）；单一验收入口 `scripts/verify-all.sh`（`VERDICT=G67 GREEN`）；收口前证据闸 `loop/harvest_gen.py`；审计两轮止损 `scripts/audit-rounds.py`（G67 已顶格 rc=3）；判器审计闸（`verdict_problems`、引擎侧会话收据、重判票绑定审计者身份）；每回合 DB 快照链 `looplib.snapshot_db`。
+# # 债务状态（`loop/draw.py` 机械实算）：`regression_duty()` 现返回 `{}`，无开账；`plan-seg-discipline` 与 `anchor-citation-hygiene` 均已在 G65 清零后未再开。
+# # 三章戳逐字随件：`PERFORMANCE-ONLY-IN-LOOP` + `MODEL-DIVERSITY-PENDING` + `CONDITIONAL(D1a)`。语义以 G67 bundle 的 `stamp_meanings` 为准，不得软化为成绩式行文。
+# # 具名缺口（不得省略、不得并入成绩）：①提名记录在 G67 拿过一次 APPROVE，随后因本席新建 G67 证据清单使页面内「无已跟踪清单」断言失效而再被 REJECT；两结论并列存档，不取有利一侧；②`.omo/` 不入 git，本代回执仅本机可见；③所有闸的输入仍是同 uid 可写、无签名的文件，只挡候选不挡操作者（`L-ENV-SEGREGATION` 缺口 G1 在册）；④沙箱插件的笼子出生时间校验已同步进 `.opencode/plugins/sandbox-bash.js`，但需下一次重启才生效；⑤`MODEL-DIVERSITY-PENDING` 与 `CONDITIONAL(D1a)` 未除。
