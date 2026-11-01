@@ -39,11 +39,19 @@ LR_OUT="$OUT" LR_RCF="$RCF" LR_PIDF="$PIDF" \
 echo "LONGRUN-STARTED name=$NAME state=$STATE"
 
 (
+  gone=0
   while [ ! -f "$RCF" ]; do
     if [ -f "$PIDF" ] && [ -d "/proc/$(cat "$PIDF" 2>/dev/null)" ]; then
       printf '%s alive\n' "$(date +%s)" > "$HB"
+      gone=0
     else
       printf '%s gone\n' "$(date +%s)" > "$HB"
+      gone=$((gone + 1))
+      if [ "$gone" -ge 6 ]; then
+        printf 'LONGRUN-NO-EXIT-CODE child vanished without writing rc\n' >&2
+        echo 1 > "$RCF"
+        break
+      fi
     fi
     sleep 5
   done

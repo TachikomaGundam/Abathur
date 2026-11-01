@@ -153,7 +153,7 @@
 - 任一侧出生时间缺失 ⇒ `UNKNOWN`（fail-closed，按重建处理）。
 - 判定单一来源：`scripts/plugins/cage-lifecycle.mjs`（`classifyCage`/`mustRebuild`，规格测试 `cage-lifecycle.test.mjs` 7 例）；笼内自证：`scripts/cage-selfcheck.sh`（输出 `VERDICT=…`）。
 - 事故谱系：2026-10-28 SimpleCut 会话笼自服务重启后仍为无网旧笼（净接口仅 lo、uid_map 单行、shell 恒 pid2、挂载指纹 /var/tmp/abathur.CmX18Guq），杀 pid1/pid2 被同命名空间重生；与 2026-10-22 僵尸进程活过修复同族。
-- 验收口径（沿用伤单）：向该会话发 `grep -c : /proc/net/dev` 返回 >1 且 `ssh REDACTED-SSH-TARGET echo ok` 通。
+- 验收口径（沿用伤单）：向该会话发 `grep -c : /proc/net/dev` 返回 >1，且能以本机内网 SSH 目标连通（具体地址值不落本文件，见 `.omo/tooling.json` 或运维登记）。
 
 # 进化世代 G67 晋升条款（2026-11-01T03:54:41Z 机主逐字令「G67同意晋升」；落戳者=阿巴瑟席，未代裁）
 # 谱系：G62（零条款改动）→ G63（SR4-64 清账 / SR4-69 FAIL 开 plan-seg-discipline 债）→ G64 → G65（双 PASS，双债清零）→ G66（未晋升）→ G67（双 PASS）。

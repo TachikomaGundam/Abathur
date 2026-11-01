@@ -1,8 +1,9 @@
 #!/bin/sh
 # cage-selfcheck.sh —— 在笼子内部跑，输出可机器判定的笼子身份（2026-10-31）
 #
-# 用途：伤单验收（「向该会话发一条 grep -c : /proc/net/dev 返回 >1 且
-# ssh REDACTED-SSH-TARGET echo ok 通」）之前，先证明「自己在哪个笼子里」。
+# 用途：伤单验收（「向该会话发一条 grep -c : /proc/net/dev 返回 >1，且能以
+# 本机内网 SSH 目标连通」——具体地址值不入代码，见 .omo/tooling.json）之前，
+# 先证明「自己在哪个笼子里」。
 # 它不修任何东西：只把出生证据打出来，交给 cage-lifecycle.mjs 判定。
 set -u
 
