@@ -119,6 +119,16 @@ def cmd_archive(gen: str) -> None:
             if p.exists():
                 shutil.copy2(p, out / name)
                 copied[f"{item_dir.name}/{name}"] = sha256_file(p)
+        # Policy: a verdict must stay re-checkable after /tmp dies -- judge identity and
+        # the between-turn DB chain are part of the verdict, not run-time noise (G66 gap).
+        for later in (hd / "judge-work" / "session.txt",
+                      hd / "db-snapshots" / "chain.json"):
+            if later.exists():
+                rel = later.relative_to(hd)
+                q = out / rel
+                q.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(later, q)
+                copied[f"{item_dir.name}/{rel}"] = sha256_file(later)
         # fixture bytes: manifest.json keeps only sha256, so a generated fixture whose
         # source lives nowhere else (SR4-64's post-seal-ops.sh) cannot be rebuilt once
         # /tmp dies. seed_item.pin_fixtures() copies them here; carry the whole subtree.
