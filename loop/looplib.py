@@ -535,6 +535,28 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
     return cmd
 
 
+def sandbox_exec_ok(gen: str, item: str) -> tuple[bool, str]:
+    """Cheap preflight: can the namespace actually exec the CLI it was told to use?
+
+    2026-11-01 G68: a symlink-chain mount bug burned two candidate attempts before the
+    cause was visible, because the failure surfaced as a turn rc=1 rather than as an
+    infrastructure error at launch. This runs the same prefix with --version first.
+    """
+    env = build_env(gen, item, candidate=True)
+    prefix = bwrap_prefix(gen, item, env, workshop_dir(gen, item))
+    if prefix is None:
+        return False, "bwrap unavailable"
+    if not OPENCODE_BIN:
+        return False, "no opencode binary discovered"
+    try:
+        res = subprocess.run(prefix + [OPENCODE_BIN, "--version"],
+                             capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    detail = (res.stdout or res.stderr).strip().splitlines()
+    return res.returncode == 0, (detail[-1] if detail else f"rc={res.returncode}")
+
+
 def run_opencode_turn(env: dict, cwd: Path, title: str, prompt: str, log: Path,
                       session_id: str | None, model: str) -> tuple[int, str]:
     cmd = [OPENCODE_BIN, "run", "--auto", "--pure", "-m", model, "--title", title]

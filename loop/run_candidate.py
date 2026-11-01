@@ -33,6 +33,12 @@ def main():
     ws = L.workshop_dir(gen, item_id)
     title = f"loop-{gen}-{item_id}-cand"
     log = L.harness_dir(gen, item_id) / "cand.out"
+    ok, detail = L.sandbox_exec_ok(gen, item_id)
+    if not ok:
+        print(f"NEEDS_HUMAN: sandbox cannot exec the CLI ({detail}); nothing was graded", file=sys.stderr)
+        (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps(
+            {"state": "INFRA_FAILED", "reason": "sandbox-exec", "detail": detail}, indent=2))
+        sys.exit(3)
     session_id = None
     t0 = time.time()
     for i, turn in enumerate(item["turns"], 1):
