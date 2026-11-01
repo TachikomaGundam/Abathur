@@ -31,10 +31,11 @@ run_step machine-names python3 scripts/scan-machine-names.py
 run_step assertions    python3 loop/assertions.py check "$GEN"
 run_step coverage      python3 loop/coverage.py "$GEN"
 run_step contract      python3 loop/test_bank_contract.py
+run_step item-defects  python3 loop/item_defects.py check
 
 if [ "$fails" -eq 0 ]; then
-  echo "VERDICT=$GEN GREEN steps=4 fails=0"
+  echo "VERDICT=$GEN GREEN steps=5 fails=0"
   exit 0
 fi
-echo "VERDICT=$GEN BLOCKED steps=4 fails=$fails"
+echo "VERDICT=$GEN BLOCKED steps=5 fails=$fails"
 exit 1

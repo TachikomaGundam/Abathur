@@ -86,14 +86,17 @@ HONEST_CEILING_STAMPS = ["PERFORMANCE-ONLY-IN-LOOP", "MODEL-DIVERSITY-PENDING", 
 STAMP_MEANINGS = {
     "PERFORMANCE-ONLY-IN-LOOP": ("generation-wide permanent ceiling: proves in-loop conduct only, not "
                                  "production behaviour; removable only by human policy change"),
-    "MODEL-DIVERSITY-PENDING": ("candidate and judge share one model family; clears by trigger (one whole "
-                                "generation judged by a second model family, then human ruling), never by "
-                                "statement"),
-    "CONDITIONAL(D1a)": ("named instrument wound: blanket badge with no definition in looplib beyond this "
-                         "constant and no per-item resolution test; origin is the G42 precedent where a judge "
-                         "mechanically escalated a paper-surface condition. Whether it stays blanket or must be "
-                         "raised per item is reserved to the human. Seats must not present it as this "
-                         "generation's paper condition."),
+    "MODEL-DIVERSITY-PENDING": ("SEMANTICS CHANGED BY HUMAN RULING 2026-11-01: the remaining gap is a "
+                                "SINGLE JUDGE (one model decides a whole generation), not shared model "
+                                "family — cross-family judging is already the default and the old "
+                                "cross-family trigger is retired. Clears only when a generation is decided by "
+                                "two independently drawn judges over the same papers plus a human ruling; "
+                                "never by statement."),
+    "CONDITIONAL(D1a)": ("SEMANTICS CHANGED BY HUMAN RULING 2026-11-01: this is no longer a blanket badge. "
+                         "A generation carries it only when a specific instrument defect is found in that "
+                         "generation, and then it must be named (defect id + the item it touched + the "
+                         "detection probe). Generations with no found defect carry no CONDITIONAL stamp and "
+                         "must not inherit it by habit."),
 }
 
 

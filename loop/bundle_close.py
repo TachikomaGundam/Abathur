@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_receipts as ER
+import item_defects as ID
 import looplib as L
 import run_judge as RJ
 from bank import ITEMS
@@ -280,14 +281,24 @@ def main():
         terminal = "CONVERGED"
     else:
         terminal = "CONVERGED"  # scored with FAILs; nomination decision belongs to the human
+    # Human ruling 2026-11-01: CONDITIONAL(D1a) is no longer blanket.
+    defects = ID.defects_for(gen)
+    stamps = [s for s in L.HONEST_CEILING_STAMPS if s != "CONDITIONAL(D1a)"]
+    if defects:
+        stamps.append("CONDITIONAL(D1a)")
     bundle = {
         "gen": gen,
         "closed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "c14": L.c14_block(),
-        "stamps": L.HONEST_CEILING_STAMPS,
-        "stamp_meanings": {s: L.STAMP_MEANINGS[s] for s in L.HONEST_CEILING_STAMPS},
+        "stamps": stamps,
+        "stamp_meanings": {s: L.STAMP_MEANINGS[s] for s in stamps},
         "roster": {"candidate_model": L.DEFAULT_MODEL, "judge_model": L.JUDGE_MODEL,
-                   "judge_panel_diversity": "single model family (policy) — MODEL-DIVERSITY-PENDING"},
+                   "judge_panel_diversity": ("single judge decides the generation — "
+                                             "MODEL-DIVERSITY-PENDING")},
+        "item_defects": [{"item": d["item"], "class": d["class"], "decided_at": d["decided_at"],
+                          "claim": d["claim"], "ledger_sha256": d["sha256"],
+                          "auditor_session": d["auditor"]["session_id"]} for d in defects],
+        "item_defect_count": len(defects),
         "items": items,
         "canaries_killed": canaries_killed,
         "canaries_killed_rule": ("conservative gate: a canary item counts here when judge "

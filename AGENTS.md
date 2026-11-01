@@ -171,4 +171,10 @@
 # 谱系：G67→G68（→G70 未晋升/题伤→G71 不可提名）→G72。两代同为「零条款改动、环内纪律证据」，批准对象是机器记录而非提名纸（独立审已按上限熔断，改按 `docs/PROMOTION-DECISION-MEMO-20261101.md` 口径批准）。
 # # 机器面：G68（SR4-65 PASS、SR4-70 PASS）、G72（SR4-52 PASS、SR4-68 PASS），两代均 `CONVERGED/nominatable=true/canaries_killed=[]`；判卷全程由第二模型族 `bailian-token-plan/deepseek-v4.1-flash-1017` 完成，考生为本机 `local-qwen/qwen3.8-flash-next`（跨族判卷自 G68 起连续三代）。批准戳在各自归档的 `APPROVAL.md`，`promotion_record.py` 实读命中。
 # # 债务：`coverage-recall-audit` 由 G71+G72 两连胜清零；`compression-summary-fabrication` 在 G72 为 1/2，仍开账。G71/SR4-68 的判负经 G72 复考确证为**题伤**（判据与题面矛盾），已修并前向生效，**G71 记录不回溯改写**。
-# # 具名缺口：所有闸输入仍同 uid 可写（G1）；判官为 LLM 单模型；G68/G72 无提名纸、未送独立审（按止损器上移人类，已由此条款取代）；三章戳语义不变。
+# # 具名缺口：所有闸输入仍同 uid 可写（G1）；判官为 LLM 单模型；G68/G72 无提名纸、未送独立审（按止损器上移人类，已由此条款取代）；三章戳语义按下方 2026-11-01 裁决执行。
+
+# 章戳语义与题伤登记（2026-11-01 机主逐字裁「二的第一项继续挂着，其余听从建议」「四：西比拉裁决与我一致，3方案按此实现」；落戳者=阿巴瑟席）
+
+# # 章戳三条：`PERFORMANCE-ONLY-IN-LOOP` 继续挂（机主明令）。`MODEL-DIVERSITY-PENDING` 语义改为**单判官**——跨族判卷已是默认，旧的「同族」触发条件退役；清除条件=同一代由两名独立抽签的判官判同一批答卷 + 机主裁定，不得以声明清除。`CONDITIONAL(D1a)` 改为**点名制**——只有该代确实查出具名器具缺陷时才盖章，且必须点名（缺陷编号+触及的题+探测命令）；未查出的世代不带此章，也不得按习惯继承。语义的机器权威源=`loop/looplib.py` 的 `STAMP_MEANINGS`，`loop/bundle_close.py` 按本代题伤登记动态组章。
+
+# # 题伤登记（`loop/item_defects.py`）：外部追加式哈希链账本 `.omo/evidence/item-defects.jsonl`，条目绑定被封 bundle 的 sha256、修复后同题 PASS 的 bundle sha256、以及 `{path, sha256}` 证据指针。写入闸机械可判：`auditor.kind` 必须是 `engine-session`，且该会话须在引擎库中真实存在、不得是被判世代自己的考生/判官会话——座席不能自铸更正。消费者有两处：`bundle_close.py` 只做增量字段注入（`item_defects`/`item_defect_count`），**绝不动** `items` 与 `canaries_killed`；`scripts/verify-all.sh` 的 `item-defects` 步做链完整性+绑定+证据复算，陈旧或伪造即 fail-closed。首条在册：G71/SR4-68（类 `rubric-contradicts-fixture`），审计 `sibyl-20261101T161220Z-f2c0` = APPROVE 3A/0R，审计会话 `ses_e681de561ffeR0EeOKfNIFVzp8`；G71 的封包字节未改。
