@@ -11,7 +11,10 @@ guard's own negated literal, and **6 are `.env` matches inside JS/TS member expr
 `opts.env` and `fx.harness.env`. One of the six is in production code, in `src/core/worktree.ts` —
 a member access, not a file path.
 
-Reproduce with the border CLI and the config the Abathur repo already uses.
+Reproduce with `cd /home/lab/workspace/harness/Abathur && /home/lab/.npm-global/bin/border` — no
+arguments and no config, exactly as recorded in `.omo/evidence/gate4-full-20261101.txt` (rc=1).
+The border source repository on this box is `/home/lab/workspace/harness/border` (verified
+2026-11-01, HEAD `df64444`); all paths in this document are relative to that root.
 
 ## 2. Why the previous draft failed
 
@@ -26,10 +29,16 @@ they sit inside a string literal; they are a property access when they follow a 
 
 ## 3. Proposed change (syntax-aware)
 
-Only the env-path rule's token classification changes. Other rules (home directory, secret patterns,
-private keys) keep their current behaviour, including inside string literals.
+Only the `exfil-cred-location` rule changes — the rule implemented in `src/exfil/rulesPath.ts`
+(section starting at line 28). Its token classification becomes syntax-aware. Other rules (home
+directory, secret patterns, private keys) keep their current behaviour, including inside string
+literals.
 
-For files the scanner classifies as JS/TS source:
+The JS/TS source set is enumerated here, so it is not a judgement call: file extensions `.js`,
+`.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.mts`, `.cts` take the new logic. Every other extension
+(including `.md`, `.txt`, `.yaml`, `.json`) keeps today's behaviour.
+
+For those files:
 
 1. Parse the file with the TypeScript compiler API (`ts.createSourceFile`) using the file's extension
    to pick the script kind.
@@ -44,29 +53,37 @@ For files the scanner classifies as JS/TS source:
 For non-JS/TS files (Markdown, plain text, config), keep today's behaviour: a bare mention is
 reported.
 
+Parse failure (decided here, so nobody has to guess): if a file is classified as JS/TS but the
+parser cannot produce a syntax tree, keep today's behaviour for that file — report every match — and
+write one diagnostic line to stderr naming the file and the parse error. Do not skip the file and do
+not change the exit code for this case.
+
 Dependency note: `typescript` is currently only a devDependency of the border package. Either move it
 to `dependencies` (bundled by esbuild) or vendor a small string/comment lexer. The compiler API is
 preferred: it is the only option that also gets template literals and escapes right.
 
 ## 4. Acceptance fixtures (each pair must be internally consistent)
 
+All fixture paths below are written in full, relative to the **border repository root** (the same
+root that holds `package.json`). Create exactly these paths.
+
 Positive (must be reported):
 
 | file | snippet |
 |---|---|
-| `fixtures/pos/read-secret.js` | `const p = "secrets.env";` |
-| `fixtures/pos/read-nested.ts` | `open("fx/harness/secrets.env")` |
-| `fixtures/pos/doc.md` | `rotate secrets.env nightly` |
-| `fixtures/pos/template.js` | ``const p = `${dir}/secrets.env`;`` |
+| `test/fixtures-span-guard/pos/read-secret.js` | `const p = "secrets.env";` |
+| `test/fixtures-span-guard/pos/read-nested.ts` | `open("fx/harness/secrets.env")` |
+| `test/fixtures-span-guard/pos/doc.md` | `rotate secrets.env nightly` |
+| `test/fixtures-span-guard/pos/template.js` | ``const p = `${dir}/secrets.env`;`` |
 
 Negative (must NOT be reported by this rule):
 
 | file | snippet |
 |---|---|
-| `fixtures/neg/member-access.js` | `const e = opts.env;` |
-| `fixtures/neg/member-access-deep.ts` | `fx.harness.env.drop();` |
-| `fixtures/neg/member-short.js` | `o.env;` |
-| `fixtures/neg/comment.js` | `// opts.env is a property` |
+| `test/fixtures-span-guard/neg/member-access.js` | `const e = opts.env;` |
+| `test/fixtures-span-guard/neg/member-access-deep.ts` | `fx.harness.env.drop();` |
+| `test/fixtures-span-guard/neg/member-short.js` | `o.env;` |
+| `test/fixtures-span-guard/neg/comment.js` | `// opts.env is a property` |
 
 The previous draft's fixture table contained one pair that could not both hold; that is why this
 table is written as four positives and four negatives with the same rule applied to each.
@@ -80,13 +97,25 @@ table is written as four positives and four negatives with the same rule applied
 
 ## 6. Acceptance evidence the border seat should return
 
-1. `npm test` output (same command the border repo already uses) — all green.
-2. `npm run typecheck` — clean.
-3. A run of `border check` over the eight fixtures above showing four reported and four not.
-4. A re-run over the Abathur tree showing the six member-expression findings gone and the 14 others
-   unchanged.
+Commands, written out so no path has to be guessed:
 
-## 7. Open question for the border seat (not for this seat to decide)
+1. In the border repository root: `npm test` — all green.
+2. In the border repository root: `npm run typecheck` — clean.
+3. In the border repository root, after `npm run build`: `node dist/index.js check` — no path argument
+   and no `--config` flag (the Abathur run recorded `config=<none>`). Judge the result by exact path
+   presence in the output: the four `test/fixtures-span-guard/pos/…` paths must appear, the four
+   `test/fixtures-span-guard/neg/…` paths must not.
+4. Against the Abathur tree, run the **repo build**, not the installed binary, so no install step is
+   needed and no guessing is involved:
+   `cd /home/lab/workspace/harness/Abathur && node /home/lab/workspace/harness/border/dist/index.js check`
+   (no args, no config). The old-behaviour baseline is the recorded dispatch in
+   `/home/lab/workspace/harness/Abathur/.omo/evidence/gate4-full-20261101.txt` lines 1–2 (that one used
+   the installed binary, rc=1). After the fix: the six member-expression findings are gone and the
+   remaining 14 appear unchanged. Updating the installed global binary is a human install step and is
+   out of scope here — do not install from the worktree.
 
-If the compiler API is unacceptable as a runtime dependency, say so and propose the lexer; do not
-silently widen the rule to compensate.
+## 7. Dependency choice (decided here, not left to the reader)
+
+Use the TypeScript compiler API and move `typescript` from devDependencies to dependencies. That is
+the instruction; there is nothing to choose. If that move is impossible in the border package, stop
+and report it — do not widen the rule to compensate.
