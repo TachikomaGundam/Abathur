@@ -20,12 +20,19 @@
 - 正样本：真配置文件里的 `/home/...` 字面量仍须触发。
 - 负样本：`doesNotMatch(x, /\/home\//)` 不触发。
 
-## 类 3：exfil-cred-location 命中 JS 语法 `process.env` / `f.env`
+## 类 3：exfil-cred-location 命中 `<长标识符>.env` 成员访问（**本段已就地更正 2026-11-01**）
 
-- 现象：`friction.test.ts:238,274,…`、`self-snapshot.test.ts:84,…` 的 `process.env`、`f.env`（JavaScript 成员表达式）被「env 文件」模式命中。这是**全 JS 仓通用**的规则作者缺陷，非本仓特性。
-- 精化建议：env 文件模式排除成员表达式语境（`<ident>.env` 且 `<ident>` 非文件路径形态；`process.env`/`globalThis.env` 直接白名单）。属蜂群认定的「唯一正当的机器库改动形态=精化谓词」，不是放松。
-- 正样本：`.env`、`~/.pypirc`、`SSHPASS=` 仍须触发。
-- 负样本：`process.env.HOME`、`f.env`。
+- 更正声明：本节初版写「命中 `process.env` / `f.env`」——**错**。该说法由我 grep 源文件推断，未经规则源码复核。读 `border/src/exfil/rulesPath.ts:36-44` 后确认：
+  - `envTokenIsLocation()` 对接收者为 `process`/`os` 的 token **直接返回 false**；
+  - 1 字符接收者（`f.env`）因 `receiver.length >= 3` 不成立也 **false**；
+  - 真正触发的是**接收者 ≥3 字符**的成员访问：`opts.env`、`fx.harness.env`（代码把 `opts`/`harness` 误判为文件干）。
+- 边检输出本身（`.omo/evidence/gate4-full-20261101.txt`）只给「文件 + 规则 + 消息」，**不给命中 token 与行号**；此前表中的行号与代表命中均为我 grep 所得，属推断，已标注。
+- 精化建议（最小语义修正，不放宽）：
+  1. 无 `/` 与 `~` 的 token，仅当「点号分隔的接收者」是**文件名形态**（`[a-z0-9][a-z0-9_-]*`，全小写、无大写字母）才算位置；
+  2. camelCase / 多段式接收者（`opts`、`harness`、`fx.harness`）视为属性访问，不命中；
+  3. 现存的 `process`/`os` 排除与 `?.env` 排除保持不变。
+- 正样本（须仍触发）：`.env`、`staging.env`、`secrets.env`、`deploy/staging.env`、`~/.pypirc`、`SSHPASS=`。
+- 负样本（须不触发）：`process.env`、`o.env`、`opts.env`、`fx.harness.env`、`input?.env`、`prod.env.example`。
 
 ## 误报总账（20 条，绑定 `rc=1` 输出与规则版本）
 
