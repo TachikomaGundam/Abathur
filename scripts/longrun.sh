@@ -35,20 +35,21 @@ printf '{"name":"%s","started_at":"%s","pid":0,"cmd":%s,"status":"starting","rc"
   "$NAME" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CMD_JSON" > "$STATE"
 
 LR_OUT="$OUT" LR_RCF="$RCF" LR_PIDF="$PIDF" \
-  setsid sh -c 'echo $$ > "$LR_PIDF"; "$@" >> "$LR_OUT" 2>&1; echo $? > "$LR_RCF"' sh "$@" &
+  setsid sh -c 'echo $$ > "$LR_PIDF"; "$@" >> "$LR_OUT" 2>&1; echo $? > "$LR_RCF"' sh "$@" \
+  >/dev/null 2>&1 </dev/null &
 echo "LONGRUN-STARTED name=$NAME state=$STATE"
 
-(
+setsid sh -c '
+  NAME="$1"; STATE="$2"; HB="$3"; PIDF="$4"; RCF="$5"; START="$6"; CMD_JSON="$7"
   gone=0
   while [ ! -f "$RCF" ]; do
     if [ -f "$PIDF" ] && [ -d "/proc/$(cat "$PIDF" 2>/dev/null)" ]; then
-      printf '%s alive\n' "$(date +%s)" > "$HB"
+      printf "%s alive\n" "$(date +%s)" > "$HB"
       gone=0
     else
-      printf '%s gone\n' "$(date +%s)" > "$HB"
+      printf "%s gone\n" "$(date +%s)" > "$HB"
       gone=$((gone + 1))
       if [ "$gone" -ge 6 ]; then
-        printf 'LONGRUN-NO-EXIT-CODE child vanished without writing rc\n' >&2
         echo 1 > "$RCF"
         break
       fi
@@ -57,11 +58,12 @@ echo "LONGRUN-STARTED name=$NAME state=$STATE"
   done
   RC=$(cat "$RCF" 2>/dev/null || echo 1)
   END=$(date +%s)
-  printf '%s gone\n' "$END" > "$HB"
-  printf '{"name":"%s","started_at":null,"pid":%s,"cmd":%s,"status":"%s","rc":%s,"ended_at":"%s","elapsed_s":%s}\n' \
+  printf "%s gone\n" "$END" > "$HB"
+  printf "{\"name\":\"%s\",\"started_at\":null,\"pid\":%s,\"cmd\":%s,\"status\":\"%s\",\"rc\":%s,\"ended_at\":\"%s\",\"elapsed_s\":%s}\n" \
     "$NAME" "$(cat "$PIDF" 2>/dev/null || echo 0)" "$CMD_JSON" \
     "$([ "$RC" -eq 0 ] && echo done || echo failed)" "$RC" \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$((END - START))" > "$STATE"
-) >/dev/null 2>&1 &
+' sh "$NAME" "$STATE" "$HB" "$PIDF" "$RCF" "$START" "$CMD_JSON" \
+  >/dev/null 2>&1 </dev/null &
 echo "LONGRUN-WATCHER pid=$!"
 exit 0
