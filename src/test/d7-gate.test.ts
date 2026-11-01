@@ -68,8 +68,9 @@ test("D7 gate: src/** outside src/test/** is free of machine-bound literals", ()
 // negation guard to silence the gate must fail mechanically, not by review.
 test("anti-evasion: historian-genome.test.ts still carries the /home/ negation guard", () => {
   const text = readFileSync(path.join(TEST_DIR, "historian-genome.test.ts"), "utf8");
+  const guardNeedle = "\\/" + "home" + "\\/";
   assert.ok(
-    text.includes("doesNotMatch") && text.includes("\\/home\\/"),
+    text.includes("doesNotMatch") && text.includes(guardNeedle),
     "the negation-context guard was rewritten or removed; fix the rule upstream instead (defect report class 2)",
   );
 });
