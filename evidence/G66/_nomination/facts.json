@@ -1,0 +1,250 @@
+{
+ "facts": {
+  "1998306e": {
+   "how": "dispositions.json demand",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/nomination-history/G66/dispositions.json"
+  },
+  "1b4893d30d08db17a38e89b2991ed47864daaa3b7c229add0a37843555b4c372": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "2026-10-31T06:03:26Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G64CAN/bundle.json"
+  },
+  "2026-10-31T06:31:02Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "2026-10-31T06:34:06Z": {
+   "how": "git log -1 --format=%cI",
+   "source": "/home/lab/workspace/harness/Abathur/loop/run_judge.py"
+  },
+  "2026-10-31T06:38:32Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66CAN/bundle.json"
+  },
+  "2026-10-31T07:49:05Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66BCAN/bundle.json"
+  },
+  "2026-10-31T08:01:57Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66GCAN/bundle.json"
+  },
+  "2026-10-31T08:05:08Z": {
+   "how": "field closed_at",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66HCAN/bundle.json"
+  },
+  "2026-10-31T08:13:46Z": {
+   "how": "verbatim in blob-hash receipt",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "2026-10-31T12:13:51Z": {
+   "how": "generated_at in genstamp file (written before render)",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/nomination-G66.genstamp.txt"
+  },
+  "274f70c2bd150019ec95d6dc92ba592ea503e648f805bce74a7ac0732c427813": {
+   "how": "sha256sum of result json",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/exam-queue/done/g66-4-judge.result.json"
+  },
+  "2ceb86dd626027890e5ba448a65ed93fab07f0d4c44bd9d9f481820827c4e1d9": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/ARCHIVE-MANIFEST.json"
+  },
+  "36f667d8401314d370c85d922a44f2ba1bbad5de2f4fe988986bc0f6cfb35119": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "5ad9d60c5c926a562305bac4a2b95a1d49c5c5a034a2dba5b6ba905ee1df10e0": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G64CAN/bundle.json"
+  },
+  "67be48ee7a78f8e6f7045cfbe76cdae57172f7a6b48c4d287b834c7eaa037346": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/disk_probe.json"
+  },
+  "6d2efa0660af51632440a451be8532ebaa312a4fa70d2848190fabb35e9c8299": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/manifest.json"
+  },
+  "7e658634e8bf4aff95c26958ca3268d489e34496931c0758b5e2b6c01e9ee347": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/memory.txt"
+  },
+  "82ba79e719639851bef325b5fcbf925a3406688b409bd28e07c203aa312f942a": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66GCAN/bundle.json"
+  },
+  "8d98fef6": {
+   "how": "dispositions.json demand",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/nomination-history/G66/dispositions.json"
+  },
+  "8d98fef6e1040fdaecc4d33f2c3fd2d566cd548642feeb2eddeae0a277818a6f": {
+   "how": "verbatim in blob-hash receipt",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "8d98fef6…": {
+   "how": "prefix of the full hash on a receipt line",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "9c47668bd1456dced30338f3d8e0814b21dabe2da55d154eb24d3b7576bd89f4": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/transcript.json"
+  },
+  "9f6f5818406aa80063ea83412771e05c3992c73a0b3a913bab5b4e3b3acff63b": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66HCAN/bundle.json"
+  },
+  "CLEAN": {
+   "how": "field items[0].memory_diff",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "CONVERGED": {
+   "how": "field terminal_state",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "False": {
+   "how": "field items[0].judge_verdict.canary_kill",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "PASS": {
+   "how": "field items[0].verdict",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "PERFORMANCE-ONLY-IN-LOOP + MODEL-DIVERSITY-PENDING + CONDITIONAL(D1a)": {
+   "how": "field stamps",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "True": {
+   "how": "field nominatable",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "[]": {
+   "how": "field canaries_killed",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "a7ac707d77aa0a6a785f093a72e98548905451ec65a6d430aaa95066741c51f8": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66CAN/bundle.json"
+  },
+  "b5b7ed69a2845e089462b5ea8b344ae5b9f958456d523f9d6f2894c2b18fbf05": {
+   "how": "verbatim in blob-hash receipt",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "b5b7ed69…": {
+   "how": "prefix of the full hash on a receipt line",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "bfa80be7": {
+   "how": "dispositions.json demand",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/nomination-history/G66/dispositions.json"
+  },
+  "bfa80be702c124421f19838191c9c58f5418b81708566a50eff5561b229edbb3": {
+   "how": "verbatim in blob-hash receipt",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "bfa80be7…": {
+   "how": "prefix of the full hash on a receipt line",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "c862dbda0e5f": {
+   "how": "judge_verdict.anomalies",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66GCAN/bundle.json"
+  },
+  "c862dbda38b0": {
+   "how": "judge_verdict.anomalies",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66GCAN/bundle.json"
+  },
+  "c862dbda38b09e82": {
+   "how": "judge_verdict.anomalies",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66BCAN/bundle.json"
+  },
+  "d84cf8669a2f80c01aa09aa5ad8ac728ff3310aa1af1adef3b780ce1284de2d8": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/candidate-artifacts/workshop/FINAL-RECEIPT.md"
+  },
+  "e0f03a8795c42ad18b4882b87099a931a479de4f0887cfe091632cc5a6d9921f": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/SR4-64/verdict.json"
+  },
+  "e1ce2a30556fe13e748e7c89576a6c2335103ab5c6e6d6b2cc64fb2dc5177aaa": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/BUNDLE.md"
+  },
+  "eab81224": {
+   "how": "dispositions.json demand",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/nomination-history/G66/dispositions.json"
+  },
+  "eab812241806753b4ade6c566507537eddca40702c8f0ee6fc00b83900fc4a3a": {
+   "how": "verbatim in blob-hash receipt",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "eab81224…": {
+   "how": "prefix of the full hash on a receipt line",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/g66-tooling-blob-hashes.txt"
+  },
+  "f0e86c7d707627489eaf2f33d64ab6214688e8cbe0de0ff7ac1b60a8339f9f36": {
+   "how": "sha256 of file bytes",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66BCAN/bundle.json"
+  },
+  "local-qwen/qwen3.8-flash-next": {
+   "how": "field roster.candidate_model",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/evidence/loop-archive/G66/bundle.json"
+  },
+  "ses_e6e423d98ffe0OjcD7A38YMZ5O": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T113454Z-c324/TERMINALS.txt"
+  },
+  "ses_e6e423d9affeYNWyqIVnSK7FE7": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T113454Z-c324/TERMINALS.txt"
+  },
+  "ses_e6e423d9dffeXDJMdQbPjmrDIp": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T113454Z-c324/TERMINALS.txt"
+  },
+  "ses_e6ef8ee14ffeB7HrowgVFMUxTK": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T081522Z-e921/TERMINALS.txt"
+  },
+  "ses_e6ef8ee16ffeXo2ofQ3TOShE20": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T081522Z-e921/TERMINALS.txt"
+  },
+  "ses_e6ef8ee19ffe2t056J14Z2oI02": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T081522Z-e921/TERMINALS.txt"
+  },
+  "ses_e6f01235dffee4AGgq13nZMkfw": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T080624Z-6ebc/TERMINALS.txt"
+  },
+  "ses_e6f01235effel19P9UEye3elLh": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T080624Z-6ebc/TERMINALS.txt"
+  },
+  "ses_e6f012361ffeSFTAsAN1l053Tl": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T080624Z-6ebc/TERMINALS.txt"
+  },
+  "ses_e6f1f9b1cffeYpDXQ1fDWdzpjv": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T073307Z-d18a/TERMINALS.txt"
+  },
+  "ses_e6f1f9b1dffeU9dzQK7j0EGT6C": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T073307Z-d18a/TERMINALS.txt"
+  },
+  "ses_e6f1f9b20ffee3kg63uyS1zabo": {
+   "how": "session field in TERMINALS.txt",
+   "source": "/home/lab/.sibyl/spaces/sibyl-20261031T073307Z-d18a/TERMINALS.txt"
+  },
+  "ses_e6f5b8299ffe2ztZGFtk12qFSo": {
+   "how": "tail 里的 session= token",
+   "source": "/home/lab/workspace/harness/Abathur/.omo/exam-queue/done/g66-4-judge.result.json"
+  }
+ },
+ "gen": "G66",
+ "generated_at": "2026-10-31T12:13:51Z"
+}

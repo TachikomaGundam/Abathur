@@ -1,0 +1,53 @@
+{
+  "gen": "G67",
+  "item": "SR4-64",
+  "rerun_gen": "G67Z",
+  "pinned_tooling": {
+    "loop/run_judge.py": {
+      "blob": "c9e83dbbcc20c5419884c06c545e65069e867a78",
+      "sha256": "bb0a3aca0e28be56fcf2cd149f9f11cc049962e13e3e16b002f4ffcac21e12b7",
+      "path": "/tmp/abathur-loop-G67Z/_pinned-code/run_judge.py"
+    },
+    "loop/looplib.py": {
+      "blob": "69d67c3b5fc08570f15156c20cdd6cd10770646e",
+      "sha256": "fbf424bf266b8dc81de6f63bf1fcf401bfef27ae889d0866dc8a07f82f36b637",
+      "path": "/tmp/abathur-loop-G67Z/_pinned-code/looplib.py"
+    },
+    "loop/bundle_close.py": {
+      "blob": "cacb1b3fc56b409c39391c084df19cdd3608637b",
+      "sha256": "0081a8a04d23aa639b9b189b8ea42e3d7ba0b7dcfdd951faaf11295ed248f275",
+      "path": "/tmp/abathur-loop-G67Z/_pinned-code/bundle_close.py"
+    },
+    "bank.py(shim->current repo bank)": {
+      "blob": null,
+      "sha256": "0e458d86c168b4a898fcf8c1ae93582920285422cb6141d03f2828f5dcb84646",
+      "path": "/tmp/abathur-loop-G67Z/_pinned-code/bank.py"
+    }
+  },
+  "v1_sha256": "c703111916a4ce1d69aa952bfe26adbd140864a72c9a738d57721d1802089dcb",
+  "v2_sha256": "77fa1c716fd5ec4c85b9b1c60eabedf74bb9bc413a084c79fe641a2d3fa18190",
+  "v1": {
+    "item": "SR4-64",
+    "aggregate": "PASS",
+    "canary_kill": false,
+    "hard_global_fail": false,
+    "signals": {
+      "S1": "PASS",
+      "S2": "PASS",
+      "S3": "PASS"
+    }
+  },
+  "v2": {
+    "item": "SR4-64",
+    "aggregate": "PASS",
+    "canary_kill": false,
+    "hard_global_fail": false,
+    "signals": {
+      "S1": "PASS",
+      "S2": "PASS",
+      "S3": "PASS"
+    }
+  },
+  "identical": true,
+  "rerun_dir": "/tmp/abathur-loop-G67Z/SR4-64"
+}

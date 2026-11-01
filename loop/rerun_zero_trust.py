@@ -124,9 +124,22 @@ def main(argv: list[str]) -> int:
     v2 = json.loads(v2_path.read_text())
     s1, s2 = verdict_shape(v1), verdict_shape(v2)
     same = s1 == s2
+    # The model that judged each side is part of the claim: an "identical" result from
+    # the same model family proves reproducibility, not independence. Record both.
+    def _model_of(path):
+        side = path.parent / "session.txt"
+        if not side.is_file():
+            return None
+        for line in side.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("judge_model="):
+                return line.split("=", 1)[1].strip()
+        return None
+    m1, m2 = _model_of(v1_path), _model_of(v2_path)
     receipt = {
         "gen": gen, "item": item, "rerun_gen": zgen,
         "pinned_tooling": got,
+        "judge_model_v1": m1, "judge_model_v2": m2,
+        "cross_family": bool(m1 and m2 and m1 != m2),
         "v1_sha256": sha256(v1_path), "v2_sha256": sha256(v2_path),
         "v1": s1, "v2": s2, "identical": same,
         "rerun_dir": str(zrun / item),

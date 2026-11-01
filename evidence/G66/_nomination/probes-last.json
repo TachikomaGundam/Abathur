@@ -1,0 +1,872 @@
+{
+ "gen": "G66",
+ "run_at_utc": "2026-10-31T14:41:34Z",
+ "page_sha256": "458fa31be94bf5749b62cd1653d9c773d69be09ed71d44fde358155b22e98d38",
+ "results": [
+  {
+   "id": "G66.terminal_state",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66.nominatable",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66.canaries_killed",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66.closed_at",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G66.SR4-64.verdict",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66BCAN.canaries_killed",
+   "ok": true,
+   "detail": "list_len=1"
+  },
+  {
+   "id": "G66BCAN.closed_at",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G66BCAN.SR4-64.verdict",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66CAN.canaries_killed",
+   "ok": true,
+   "detail": "list_len=1"
+  },
+  {
+   "id": "G66CAN.closed_at",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G66CAN.SR4-64.verdict",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66GCAN.canaries_killed",
+   "ok": true,
+   "detail": "list_len=1"
+  },
+  {
+   "id": "G66GCAN.closed_at",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G66GCAN.SR4-64.verdict",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G66HCAN.canaries_killed",
+   "ok": true,
+   "detail": "list_len=1"
+  },
+  {
+   "id": "G66HCAN.closed_at",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G66HCAN.SR4-64.verdict",
+   "ok": true,
+   "detail": "selector == expected"
+  },
+  {
+   "id": "G-git",
+   "ok": true,
+   "detail": "tracked=3 total=6267"
+  },
+  {
+   "id": "G-manifest",
+   "ok": true,
+   "detail": "matches=0"
+  },
+  {
+   "id": "G-gate",
+   "ok": true,
+   "detail": "ls-files rc=1"
+  },
+  {
+   "id": "G-stamp-1",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G-stamp-2",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G-stamp-3",
+   "ok": true,
+   "detail": "selector resolves to a value"
+  },
+  {
+   "id": "G-disposition",
+   "ok": true,
+   "detail": "admission row: states a limit, checks nothing"
+  },
+  {
+   "id": "G-bundle-face",
+   "ok": true,
+   "detail": "matches=1"
+  },
+  {
+   "id": "G-ballot-store-sibyl-20261031T061736Z-2c2a",
+   "ok": true,
+   "detail": "matches=2"
+  },
+  {
+   "id": "G-ballot-store-sibyl-20261031T073920Z-3fc9",
+   "ok": true,
+   "detail": "matches=1"
+  },
+  {
+   "id": "G-ballot-store-sibyl-20261031T142606Z-d1a9",
+   "ok": true,
+   "detail": "matches=2"
+  },
+  {
+   "id": "G-ballot-store-sibyl-20261031T143448Z-89f3",
+   "ok": true,
+   "detail": "matches=3"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T073307Z-d18a",
+   "ok": true,
+   "detail": "arrays=3 rows=11"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T080624Z-6ebc",
+   "ok": true,
+   "detail": "arrays=3 rows=6"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T081522Z-e921",
+   "ok": true,
+   "detail": "arrays=2 rows=3"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T113454Z-c324",
+   "ok": true,
+   "detail": "arrays=2 rows=10"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T120500Z-9343",
+   "ok": true,
+   "detail": "arrays=2 rows=9"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T123025Z-24fc",
+   "ok": true,
+   "detail": "arrays=3 rows=15"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T123750Z-eea4",
+   "ok": true,
+   "detail": "arrays=3 rows=18"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T124632Z-0ca3",
+   "ok": true,
+   "detail": "arrays=2 rows=13"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T125359Z-d062",
+   "ok": true,
+   "detail": "arrays=2 rows=5"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T133832Z-ba2e",
+   "ok": true,
+   "detail": "arrays=2 rows=13"
+  },
+  {
+   "id": "G-array-count-sibyl-20261031T134919Z-a32c",
+   "ok": true,
+   "detail": "arrays=3 rows=14"
+  },
+  {
+   "id": "G-anomaly-G66-SR4-64",
+   "ok": true,
+   "detail": "text_len=138"
+  },
+  {
+   "id": "G-anomaly-G66BCAN-SR4-64",
+   "ok": true,
+   "detail": "text_len=434"
+  },
+  {
+   "id": "G-anomaly-G66CAN-SR4-64",
+   "ok": true,
+   "detail": "text_len=514"
+  },
+  {
+   "id": "G-anomaly-G66GCAN-SR4-64",
+   "ok": true,
+   "detail": "text_len=381"
+  },
+  {
+   "id": "G-anomaly-G66HCAN-SR4-64",
+   "ok": true,
+   "detail": "text_len=610"
+  },
+  {
+   "id": "audit#0",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#1",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#2",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#3",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#4",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#5",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#6",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#7",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#8",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#9",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "audit#10",
+   "ok": true,
+   "detail": "run present in store"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T073307Z-d18a#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T080624Z-6ebc#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T081522Z-e921#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T081522Z-e921#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T081522Z-e921#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T113454Z-c324#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T120500Z-9343#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#12",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#13",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#14",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123025Z-24fc#15",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#12",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#13",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#14",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#15",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#16",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#17",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T123750Z-eea4#18",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#12",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T124632Z-0ca3#13",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T125359Z-d062#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T125359Z-d062#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T125359Z-d062#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T125359Z-d062#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T125359Z-d062#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#12",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T133832Z-ba2e#13",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#1",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#2",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#3",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#4",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#5",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#6",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#7",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#8",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#9",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#10",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#11",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#12",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#13",
+   "ok": true,
+   "detail": "verbatim"
+  },
+  {
+   "id": "quote:sibyl-20261031T134919Z-a32c#14",
+   "ok": true,
+   "detail": "verbatim"
+  }
+ ]
+}

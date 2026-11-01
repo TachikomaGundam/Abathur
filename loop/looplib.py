@@ -53,7 +53,9 @@ def _box_tooling() -> dict:
 # Model identity is a machine fact: env or the box's tooling registry, never a literal here.
 DEFAULT_MODEL = (os.environ.get("LOOP_MODEL") or os.environ.get("ABATHUR_MODEL")
                  or str(_box_tooling().get("model") or ""))
-JUDGE_MODEL = os.environ.get("LOOP_JUDGE_MODEL", DEFAULT_MODEL)
+JUDGE_MODEL = (os.environ.get("LOOP_JUDGE_MODEL")
+               or str(_box_tooling().get("judge_model") or "")
+               or DEFAULT_MODEL)
 TURN_TIMEOUT = int(os.environ.get("LOOP_TURN_TIMEOUT", "1200"))
 LOOP_DIR = Path(__file__).resolve().parent
 CONSTITUTION_G1 = LOOP_DIR / "constitution_g1.md"
