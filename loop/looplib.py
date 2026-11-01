@@ -57,6 +57,11 @@ JUDGE_MODEL = (os.environ.get("LOOP_JUDGE_MODEL")
                or str(_box_tooling().get("judge_model") or "")
                or DEFAULT_MODEL)
 TURN_TIMEOUT = int(os.environ.get("LOOP_TURN_TIMEOUT", "1200"))
+
+
+def item_timeout(item_id: str) -> int:
+    """Per-item turn ceiling from the box registry; items differ by an order of magnitude."""
+    return int((_box_tooling().get("item_turn_timeout") or {}).get(item_id) or TURN_TIMEOUT)
 LOOP_DIR = Path(__file__).resolve().parent
 CONSTITUTION_G1 = LOOP_DIR / "constitution_g1.md"
 # promoted default face (G47/G48/G49 rulings of 2026-10-16, owner verbatim:
@@ -588,7 +593,8 @@ def sandbox_exec_ok(gen: str, item: str) -> tuple[bool, str]:
 
 
 def run_opencode_turn(env: dict, cwd: Path, title: str, prompt: str, log: Path,
-                      session_id: str | None, model: str) -> tuple[int, str]:
+                      session_id: str | None, model: str,
+                      timeout: int | None = None) -> tuple[int, str]:
     cmd = [OPENCODE_BIN, "run", "--auto", "--pure", "-m", model, "--title", title]
     if session_id:
         cmd += ["--session", session_id]
@@ -622,7 +628,7 @@ def run_opencode_turn(env: dict, cwd: Path, title: str, prompt: str, log: Path,
         lf.write(f"\n===== CMD {' '.join(cmd[:8])}... containment={'bwrap' if prefix else 'NONE'} =====\n".encode())
         lf.flush()
         try:
-            proc = subprocess.run(cmd, env=env, cwd=str(cwd), timeout=TURN_TIMEOUT,
+            proc = subprocess.run(cmd, env=env, cwd=str(cwd), timeout=timeout or TURN_TIMEOUT,
                                   stdout=lf, stderr=subprocess.STDOUT)
             rc = proc.returncode
         except subprocess.TimeoutExpired:

@@ -48,15 +48,31 @@ def main():
             {"state": "INFRA_FAILED", "reason": "sandbox-requires", "detail": missing}, indent=2))
         sys.exit(3)
     session_id = None
+    start_turn = 0
+    state_p = L.harness_dir(gen, item_id) / "candidate_state.json"
+    if state_p.exists():
+        # Safe to resume: a timeout kills the turn's process, not the work already in the session.
+        try:
+            prev = json.loads(state_p.read_text(encoding="utf-8"))
+        except ValueError:
+            prev = {}
+        if prev.get("state") == "INFRA_FAILED" and prev.get("session_id") and prev.get("turn"):
+            start_turn = int(prev["turn"]) - 1
+            session_id = prev["session_id"]
+            print(f"RESUMING turn {start_turn + 1} in session {session_id}")
+    timeout = L.item_timeout(item_id)
     t0 = time.time()
     for i, turn in enumerate(item["turns"], 1):
-        rc, session_id = L.run_opencode_turn(env, ws, title, turn, log, session_id, L.DEFAULT_MODEL)
+        if i <= start_turn:
+            continue
+        rc, session_id = L.run_opencode_turn(env, ws, title, turn, log, session_id,
+                                             L.DEFAULT_MODEL, timeout)
         print(f"turn {i}/{len(item['turns'])} rc={rc} session={session_id}")
         L.snapshot_db(gen, item_id, i)
         if rc != 0:
             print(f"NEEDS_HUMAN: turn {i} rc={rc} (infra failure per SR4 §0.5; do NOT grade as FAIL)", file=sys.stderr)
-            (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps(
-                {"state": "INFRA_FAILED", "turn": i, "rc": rc}, indent=2))
+            state_p.write_text(json.dumps(
+                {"state": "INFRA_FAILED", "turn": i, "rc": rc, "session_id": session_id}, indent=2))
             sys.exit(3)
     tx = L.extract_transcript(gen, item_id, candidate=True)
     probe = L.probe_disk(gen, item_id)
