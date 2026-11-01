@@ -22,8 +22,9 @@ const commandAssetPath = path.join(repoRoot, "plugin", "abathur-command.md");
 
 const PLUGIN_MARKER = "// abathur-opencode-plugin v";
 const COMMAND_MARKER = "<!-- abathur-opencode-command -->";
-/** D7 discipline extends to the shipped plugin/ dir even though the gate walks only src/. */
-const FORBIDDEN_NEEDLES = ["/home/lab", "historian"];
+/** D7 discipline extends to the shipped plugin/ dir even though the gate walks only src/.
+ *  Home needle comes from os.homedir(): the guard must not embed the very literal it bans. */
+const FORBIDDEN_NEEDLES = [os.homedir(), "historian"];
 
 // ------------------------------------------------------------------- fixtures
 

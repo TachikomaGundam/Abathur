@@ -3,13 +3,16 @@
 // The README's manual `grep -rnE ... src/` review is not enforcement — this test
 // IS the CI-style gate: it walks every TypeScript source file under src/, minus
 // the src/test/** carve-out the plan grants (fixtures legitimately name such
-// strings), and asserts each file contains neither "/home/lab" nor a
-// case-sensitive "historian". A violation fails naming EVERY offending file and
-// line. Repo sources resolve relative to this module (promote.test.ts pattern),
-// so the gate is robust to the cwd `node --test` runs from.
+// strings), and asserts each file contains neither this machine's home directory
+// (taken from os.homedir() so the guard itself never embeds the very literal it
+// bans) nor a case-sensitive "historian". A violation fails naming EVERY
+// offending file and line. Repo sources resolve relative to this module
+// (promote.test.ts pattern), so the gate is robust to the cwd `node --test`
+// runs from.
 
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -20,7 +23,7 @@ const SRC_DIR = fileURLToPath(new URL("../../src", import.meta.url));
 const TEST_DIR = path.join(SRC_DIR, "test");
 
 const FORBIDDEN: readonly { readonly label: string; readonly needle: string }[] = [
-  { label: "absolute workspace path", needle: "/home/lab" },
+  { label: "absolute workspace path", needle: os.homedir() },
   { label: "vendor literal", needle: "historian" },
 ];
 
@@ -57,5 +60,16 @@ test("D7 gate: src/** outside src/test/** is free of machine-bound literals", ()
     violations.length,
     0,
     `D7 grep gate violated (${String(violations.length)} hit(s)):\n${violations.join("\n")}`,
+  );
+});
+
+// Pinned by the swarm-ordered disposition for border defect class 2
+// (docs/border-rule-defects-20261101.md): an "evasion rewrite" that deletes the
+// negation guard to silence the gate must fail mechanically, not by review.
+test("anti-evasion: historian-genome.test.ts still carries the /home/ negation guard", () => {
+  const text = readFileSync(path.join(TEST_DIR, "historian-genome.test.ts"), "utf8");
+  assert.ok(
+    text.includes("doesNotMatch") && text.includes("\\/home\\/"),
+    "the negation-context guard was rewritten or removed; fix the rule upstream instead (defect report class 2)",
   );
 });

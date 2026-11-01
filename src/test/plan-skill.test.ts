@@ -17,7 +17,7 @@ function segLine(plan: string, seg: string, over: Record<string, string> = {}): 
   const f = {
     plan, seg,
     "目标": over["目标"] ?? "迁移锚链出仓树",
-    "路径": over["路径"] ?? "/home/lab/a/.omo/anchor",
+    "路径": over["路径"] ?? "/home/dev/a/.omo/anchor",
     "验收": over["验收"] ?? "bash verify.sh | tee out.log",
     "禁项": over["禁项"] ?? "不留软链",
     "回滚": over["回滚"] ?? "mv 四件回旧目录",
@@ -27,7 +27,7 @@ function segLine(plan: string, seg: string, over: Record<string, string> = {}): 
 
 function planFileOf(dir: string): { path: string; hash: string } {
   const grids: [string, string][] = [
-    ["目标", "迁移锚链出仓树"], ["路径", "/home/lab/a/.omo/anchor"],
+    ["目标", "迁移锚链出仓树"], ["路径", "/home/dev/a/.omo/anchor"],
     ["验收", "bash verify.sh"], ["禁项", "不留软链"], ["回滚", "mv 回旧目录"],
   ];
   const p = join(dir, "PLAN.txt");
