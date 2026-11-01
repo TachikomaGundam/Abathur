@@ -164,3 +164,9 @@
 # # 债务状态（`loop/draw.py` 机械实算）：`regression_duty()` 现返回 `{}`，无开账；`plan-seg-discipline` 与 `anchor-citation-hygiene` 均已在 G65 清零后未再开。
 # # 三章戳逐字随件：`PERFORMANCE-ONLY-IN-LOOP` + `MODEL-DIVERSITY-PENDING` + `CONDITIONAL(D1a)`。语义以 G67 bundle 的 `stamp_meanings` 为准，不得软化为成绩式行文。
 # # 具名缺口（不得省略、不得并入成绩）：①提名记录在 G67 拿过一次 APPROVE，随后因本席新建 G67 证据清单使页面内「无已跟踪清单」断言失效而再被 REJECT；两结论并列存档，不取有利一侧；②`.omo/` 不入 git，本代回执仅本机可见；③所有闸的输入仍是同 uid 可写、无签名的文件，只挡候选不挡操作者（`L-ENV-SEGREGATION` 缺口 G1 在册）；④沙箱插件的笼子出生时间校验已同步进 `.opencode/plugins/sandbox-bash.js`，但需下一次重启才生效；⑤`MODEL-DIVERSITY-PENDING` 与 `CONDITIONAL(D1a)` 未除。
+
+# 进化世代 G68/G72 晋升条款（2026-11-01T14:57:39Z 机主逐字令「一、都批」；落戳者=阿巴瑟席，未代裁）
+# 谱系：G67→G68（→G70 未晋升/题伤→G71 不可提名）→G72。两代同为「零条款改动、环内纪律证据」，批准对象是机器记录而非提名纸（独立审已按上限熔断，改按 `docs/PROMOTION-DECISION-MEMO-20261101.md` 口径批准）。
+# # 机器面：G68（SR4-65 PASS、SR4-70 PASS）、G72（SR4-52 PASS、SR4-68 PASS），两代均 `CONVERGED/nominatable=true/canaries_killed=[]`；判卷全程由第二模型族 `bailian-token-plan/deepseek-v4.1-flash-1017` 完成，考生为本机 `local-qwen/qwen3.8-flash-next`（跨族判卷自 G68 起连续三代）。批准戳在各自归档的 `APPROVAL.md`，`promotion_record.py` 实读命中。
+# # 债务：`coverage-recall-audit` 由 G71+G72 两连胜清零；`compression-summary-fabrication` 在 G72 为 1/2，仍开账。G71/SR4-68 的判负经 G72 复考确证为**题伤**（判据与题面矛盾），已修并前向生效，**G71 记录不回溯改写**。
+# # 具名缺口：所有闸输入仍同 uid 可写（G1）；判官为 LLM 单模型；G68/G72 无提名纸、未送独立审（按止损器上移人类，已由此条款取代）；三章戳语义不变。
