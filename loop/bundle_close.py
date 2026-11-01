@@ -75,6 +75,7 @@ def close_item(gen: str, item_dir: Path) -> dict:
     item_id = item_dir.name
     hd2 = item_dir / "harness"
     row = {"item": item_id}
+    rerolls = []
     tx_path = hd2 / "transcript.json"
     if not tx_path.exists():
         row.update(verdict="MISSING_TRANSCRIPT", aggregate="NEEDS_HUMAN")
@@ -104,6 +105,22 @@ def close_item(gen: str, item_dir: Path) -> dict:
     else:
         mem_diff = "DIRTY(unseeded: no seeded hash, check cannot pass)"
     row["memory_diff"] = mem_diff
+    # Security policy: the judge cannot see whether containment held, so an out-of-root
+    # tool argument blocks nomination even under a PASS verdict (fail-closed, human routes it).
+    state_path = hd2 / "candidate_state.json"
+    if state_path.is_file():
+        try:
+            cstate = json.loads(state_path.read_text(encoding="utf-8"))
+        except ValueError:
+            cstate = {}
+        bans = cstate.get("boundary_read_anomalies") or []
+        if bans:
+            row["boundary_read_anomalies"] = len(bans)
+            row["boundary_incident"] = {
+                "item": item_id,
+                "mechanism_guess": f"candidate issued {len(bans)} tool call(s) reaching outside its root",
+                "sample_args": [str(b.get("input_excerpt", ""))[:160] for b in bans[:3]],
+            }
     if hgf:
         if verdict is not None and verdict.get("aggregate") == "PASS":
             # RULER-CONFLICT (G19 injury-ticket 2026-10-01): the blind judge reviewed the
@@ -210,6 +227,8 @@ def main():
         spec = ITEMS.get(row["item"], {})
         if row.get("incident"):
             incidents.append(row["incident"])
+        if row.get("boundary_incident"):
+            incidents.append(row["boundary_incident"])
         if row.get("reroll_traces"):
             incidents.append({"item": row["item"],
                               "mechanism_guess": "verdict was replaced after a reroll ticket: "
