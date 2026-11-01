@@ -27,21 +27,22 @@
 - 正样本：`.env`、`~/.pypirc`、`SSHPASS=` 仍须触发。
 - 负样本：`process.env.HOME`、`f.env`。
 
-## 误报总账（17 条，绑定 `rc=1` 输出与规则版本）
+## 误报总账（20 条，绑定 `rc=1` 输出与规则版本）
 
-绑定物：`border 0.8.2+df6444471d619a7f73a0af3992fa3c5df00f582a`；输出 `.omo/longrun/gate-recheck/out.log`（sha256 见台账条目）；下表为 `5 处真泄露修复后` 预期剩余。
+绑定物：`border 0.8.2+df6444471d619a7f73a0af3992fa3c5df00f582a`；闸完整输出已封存 `.omo/evidence/gate4-full-20261101.txt`（`PRECHECK-DISPATCHED ... rc=1`，20 条 MEDIUM 逐行原文，哈希见台账）。**逐行数以该封存件为准**，下表为分类总账：
 
-| # | 文件:行 | 规则 | 命中文本 | 误报理由 |
-|---|---|---|---|---|
-| 1-3 | worktree.test.ts:40,42,43 | exfil-home-path | `/home/u` | 类 1 假用户名夹具 |
-| 4-7 | bundle.test.ts:340,345,347,348 | exfil-home-path | `/home/other` | 类 1 假用户名夹具 |
-| 8-9 | plugin-tier1.test.ts:127,128 | exfil-home-path | `/home/u/.npm-global/…` | 类 1 假用户名夹具 |
-| 10 | historian-genome.test.ts:40 | exfil-home-path | `/\/home\//` | 类 2 守卫自身 |
-| 11-12 | friction.test.ts:238,274 | exfil-cred-location | `env: f.env` | 类 3 JS 成员表达式 |
-| 13-15 | self-snapshot.test.ts:84 (+2) | exfil-cred-location | `env: fx.harness.env` 等 | 类 3 JS 成员表达式 |
-| 16-17 | 其余 plan-skill/plugin-tier1 行位（以复跑输出为准） | exfil-home-path | 夹具路径 | 类 1 |
+| # | 文件 | 条数 | 规则 | 代表命中 | 误报类别 |
+|---|---|---|---|---|---|
+| 1 | src/core/worktree.ts | 1 | exfil-cred-location | `const env = opts.env ?? process.env;`（:168） | 类 3 JS 成员表达式 |
+| 2 | src/test/bundle.test.ts | 5 | exfil-home-path | `/home/other/...` 夹具 | 类 1 假用户名 |
+| 3 | src/test/friction.test.ts | 2 | exfil-cred-location | `env: f.env` | 类 3 |
+| 4 | src/test/historian-genome.test.ts | 1 | exfil-home-path | 守卫自身 `doesNotMatch(text, /\\/home\\//)` | 类 2 |
+| 5 | src/test/plan-skill.test.ts | 2 | exfil-home-path | `/home/dev/...` 夹具（真泄露换假名后仍触发同形态） | 类 1 |
+| 6 | src/test/plugin-tier1.test.ts | 2 | exfil-home-path | `/home/u/...` 夹具 | 类 1 |
+| 7 | src/test/self-snapshot.test.ts | 3 | exfil-cred-location | `env: fx.harness.env` 等 | 类 3 |
+| 8 | src/test/worktree.test.ts | 4 | exfil-home-path | `/home/u/...` 夹具 | 类 1 |
 
-行数以闸复跑输出为准逐条核销，不做笼统担保。
+计数更正（如实）：本报告初版写 17 条、并曾称「全部在 src/test」——两者皆错。错因：我当时用 `grep 'src/test/'` 统计，把 `src/core/worktree.ts` 的一条挤出视野（正是「只数测得到的」病）。本次总数与分类以封存件逐行重数：20 条 = 类1×13 + 类2×1 + 类3×6，真泄露（5 处，含 `os.homedir()` 守卫针悖论 3 处与夹具真用户名 2 处）已修，修后闸输出中不再出现。
 
 ## 本席不做的事（留裁于机主）
 
