@@ -63,10 +63,10 @@ test("D7 gate: src/** outside src/test/** is free of machine-bound literals", ()
   );
 });
 
-// Pinned by the swarm-ordered disposition for border defect class 2
-// (docs/border-rule-defects-20261101.md): an "evasion rewrite" that deletes the
-// negation guard to silence the gate must fail mechanically, not by review.
-test("anti-evasion: historian-genome.test.ts still carries the /home/ negation guard", () => {
+// Pinned by the swarm-ordered disposition for gate defect class 2
+// (see the dated gate-defect report under docs/): an "evasion rewrite" that deletes
+// the negation guard to silence the gate must fail mechanically, not by review.
+test("anti-evasion: historian-genome.test.ts still carries the home-path negation guard", () => {
   const text = readFileSync(path.join(TEST_DIR, "historian-genome.test.ts"), "utf8");
   const guardNeedle = "\\/" + "home" + "\\/";
   assert.ok(
