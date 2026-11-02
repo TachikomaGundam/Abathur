@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_receipts as ER
 import item_defects as ID
+import instrument_defects as INSTR
 import looplib as L
 import run_judge as RJ
 from bank import ITEMS
@@ -291,9 +292,12 @@ def main():
     else:
         terminal = "CONVERGED"  # scored with FAILs; nomination decision belongs to the human
     # Human ruling 2026-11-01: CONDITIONAL(D1a) is no longer blanket.
+    # Ruling 2026-11-02 (instrument-defect channel v2): instrument defects live in their own
+    # chain; a blocking open entry forces the stamp, and d1a_scan always records that the scan ran.
     defects = ID.defects_for(gen)
+    inst = INSTR.d1a_for(gen)
     stamps = [s for s in L.HONEST_CEILING_STAMPS if s != "CONDITIONAL(D1a)"]
-    if defects:
+    if defects or inst["blocking_open"]:
         stamps.append("CONDITIONAL(D1a)")
     bundle = {
         "gen": gen,
@@ -308,6 +312,12 @@ def main():
                           "claim": d["claim"], "ledger_sha256": d["sha256"],
                           "auditor_session": d["auditor"]["session_id"]} for d in defects],
         "item_defect_count": len(defects),
+        "instrument_defects": [{"defect_id": e["defect_id"], "class": e["class"],
+                                "severity": e.get("severity"), "fixed_at": e.get("fixed_at"),
+                                "ledger_sha256": e["sha256"]}
+                               for e in INSTR.load() if e.get("gen") == gen],
+        "instrument_defect_count": len([e for e in INSTR.load() if e.get("gen") == gen]),
+        "d1a_scan": inst,
         "items": items,
         "canaries_killed": canaries_killed,
         "canaries_killed_rule": ("conservative gate: a canary item counts here when judge "

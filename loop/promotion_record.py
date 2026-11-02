@@ -47,10 +47,24 @@ def main() -> int:
         d = cands[0]
         gen = d.name
     out = {"generation": gen, "evidence_dir": str(d)}
+    d1a_problems: list[str] = []
     b = d / "bundle.json"
     if b.is_file():
         j = json.loads(b.read_text())
         out["bundle"] = {k: j.get(k) for k in ("terminal_state", "nominatable", "canaries_killed")}
+        if "d1a_scan" in j:
+            import instrument_defects as INSTR
+            live = INSTR.d1a_for(gen)
+            stamped = "CONDITIONAL(D1a)" in (j.get("stamps") or [])
+            if live["blocking_open"] and not stamped:
+                d1a_problems.append("blocking instrument defect open but bundle carries no D1a stamp")
+            if stamped and not (live["entries"] or (j.get("item_defect_count") or 0)):
+                d1a_problems.append("D1a stamped with no ledger entry in either chain")
+            if (j.get("d1a_scan") or {}).get("checked") is not True:
+                d1a_problems.append("d1a_scan.checked is not true (scan not evidenced)")
+            out["d1a"] = {"live": live, "stamped": stamped,
+                          "verdict": "REFUSED" if d1a_problems else "CONSISTENT",
+                          "problems": d1a_problems}
     nom = d / "NOMINATION.md"
     approval = d / "APPROVAL.md"
     if approval.is_file():
@@ -72,7 +86,7 @@ def main() -> int:
                          capture_output=True, text=True).stdout.strip().splitlines()
     out["constitution_pointer_history"] = cur
     print(json.dumps(out, ensure_ascii=False, indent=1))
-    return 0
+    return 3 if d1a_problems else 0
 
 
 if __name__ == "__main__":
