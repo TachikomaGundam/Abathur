@@ -201,100 +201,49 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
   });
   try {
     o.tracker.phase(o.genId, `${o.source}-bench`);
-    // UNIT-PARALLEL (owner-approved TICKET-unit-parallel v2): unit tasks run
-    // concurrently in batches of <=4; reps WITHIN a unit stay sequential (the
-    // scenario surface belongs to one unit at a time). Budget sentinels would
-    // double-spend if every task watched the global caps, so caps are sharded
-    // over ALL unit tasks by the identity pattern proven on candidate arms
-    // (shards sum EXACTLY to remaining; batching bounds concurrency only) and
-    // each task self-guards against its absolute slice. Results merge in a
-    // deterministic post-pass in unit order: row content stays byte-identical
-    // to the serial semantics this file has always had.
-    const benchUnits = [...o.spec.bench.units];
-    const entry = o.countersBefore;
-    // Shared spend accumulator (NOT static shards): a toy-budget test proved static
-    // per-task shards starve late units while global budget remains. All tasks read
-    // and add to this ONE accumulator synchronously between awaits, so a sentinel
-    // check never observes a state staler than the latest finished rep - double-spend
-    // is impossible without a yield inside the check, and utilization stays serial-equal.
-    const spend = { tokens: 0, wallS: 0 };
-    interface UnitTaskResult {
-      readonly unitId: string;
-      readonly scores: number[];
-      readonly runIds: string[];
-      readonly failures: string[];
-      tokens: number;
-      wallS: number;
-      provenance: BenchProvenance | null;
-      completeAll: boolean;
-    }
-    const runUnitTask = async (unit: (typeof benchUnits)[number]): Promise<UnitTaskResult> => {
-      const res: UnitTaskResult = { unitId: unit.id, scores: [], runIds: [], failures: [], tokens: 0, wallS: 0, provenance: null, completeAll: true };
+    outer: for (const unit of o.spec.bench.units) {
       for (let rep = 0; rep < o.reps; rep += 1) {
         const running: BudgetCounters = {
-          candidates: entry.candidates,
-          modelCalls: entry.modelCalls,
-          tokens: entry.tokens + spend.tokens,
-          wallS: round3(entry.wallS + spend.wallS),
+          candidates: o.countersBefore.candidates,
+          modelCalls: o.countersBefore.modelCalls,
+          tokens: o.countersBefore.tokens + tokens,
+          wallS: round3(o.countersBefore.wallS + wallS),
         };
         if (budgetExhausted(running, o.caps)) {
-          res.completeAll = false;
-          break;
+          complete = false;
+          break outer;
         }
         const sandbox = path.join(o.sandboxRoot, `${unit.id}-${String(rep)}`);
         await bundle.adapter.reset(sandbox);
         await bundle.adapter.seed(sandbox);
         const started = Date.now();
         const run = await bundle.adapter.run(unit, sandbox, o.spec.bench.timeoutS);
-        const repWall = (Date.now() - started) / 1000;
-        res.wallS += repWall;
-        spend.wallS += repWall;
-        res.provenance ??= run.benchProvenance;
-        res.tokens += run.metrics.tokensEst;
-        spend.tokens += run.metrics.tokensEst;
+        wallS += (Date.now() - started) / 1000;
+        provenance ??= run.benchProvenance;
+        tokens += run.metrics.tokensEst;
+        const row = rows.get(unit.id);
+        if (row === undefined) cannotAnswer(`bench: unknown unit '${unit.id}' returned from spec`);
         if (run.status !== "ok") {
-          res.failures.push(`${unit.id} rep ${String(rep)}: run ${run.status}: ${run.note ?? ""}`);
+          row.failures.push(`${unit.id} rep ${String(rep)}: run ${run.status}: ${run.note ?? run.status}`);
           continue;
         }
         const score = await bundle.adapter.score(unit, sandbox);
         if (score.kind === "scored" && !Number.isFinite(score.result.score)) {
-          // r21 injury ticket: a NaN/Inf score is a BROKEN RULER, not a number -
+          // r21 injury ticket: a NaN/Inf score is a BROKEN RULER, not a number —
           // it must never become a replicate (vacuous aggregates minted bogus
           // nominations: stats saw finite-looking rows and judged on nothing).
-          res.failures.push(`${unit.id} rep ${String(rep)}: grader score not finite (${String(score.result.score)})`);
+          row.failures.push(`${unit.id} rep ${String(rep)}: grader score not finite (${String(score.result.score)}) — ruler failure, never counts as evidence`);
         } else if (score.kind === "scored") {
-          res.scores.push(score.result.score);
-          res.runIds.push(runId(o.genId, unit.id, rep));
+          row.scores.push(score.result.score);
+          row.runIds.push(runId(o.genId, unit.id, rep));
           if (!score.result.pass) {
-            res.failures.push(`${unit.id} rep ${String(rep)}: scored ${String(score.result.score)} (not passing)`);
+            row.failures.push(`${unit.id} rep ${String(rep)}: scored ${String(score.result.score)} (not passing)`);
           }
         } else {
-          res.failures.push(`${unit.id} rep ${String(rep)}: grader inconclusive: ${score.reason}`);
+          row.failures.push(`${unit.id} rep ${String(rep)}: grader inconclusive: ${score.reason}`);
         }
       }
-      return res;
-    };
-    const UNIT_BATCH = 4;
-    const taskResults: UnitTaskResult[] = [];
-    for (let start = 0; start < benchUnits.length; start += UNIT_BATCH) {
-      const batch = benchUnits.slice(start, start + UNIT_BATCH);
-      const outs = await Promise.all(batch.map((unit) => runUnitTask(unit)));
-      taskResults.push(...outs);
     }
-    for (const res of taskResults) {
-      tokens += res.tokens;
-      wallS += res.wallS;
-      provenance ??= res.provenance;
-      if (!res.completeAll) {
-        complete = false;
-      }
-      const row = rows.get(res.unitId);
-      if (row === undefined) cannotAnswer(`bench: unknown unit '${res.unitId}' returned from task`);
-      row.scores.push(...res.scores);
-      row.runIds.push(...res.runIds);
-      row.failures.push(...res.failures);
-    }
-
   } finally {
     bundle.release();
   }
