@@ -312,15 +312,21 @@ async function evolve(
     };
     const benchOut = new Map<string, Awaited<ReturnType<typeof benchTarget>>>();
     const ARM_BATCH = 3;
+    // Batching limits CONCURRENCY only; the budget shard runs over the GLOBAL arm
+    // index across ALL toBench arms, so Σ shards == remainingBudget exactly even
+    // when arms span several batches (a per-batch shard would re-grant the full
+    // remaining to every batch = cross-batch double-spend, found by self-review).
+    const armsN = Math.max(1, toBench.length);
+    const shard = (v: number, g: number): number => Math.floor(v / armsN) + (g === 0 ? v % armsN : 0);
     for (let start = 0; start < toBench.length; start += ARM_BATCH) {
       const batch = toBench.slice(start, start + ARM_BATCH);
-      const shard = (v: number, i: number): number => Math.floor(v / batch.length) + (i === 0 ? v % batch.length : 0);
       const outs = await Promise.all(batch.map(async (c, i) => {
+        const g = start + i;
         const armCaps: BudgetCaps = {
-          maxCandidates: entryCounters.candidates + shard(remainingBudget.candidates, i),
-          maxModelCalls: entryCounters.modelCalls + shard(remainingBudget.modelCalls, i),
-          maxTokens: entryCounters.tokens + shard(remainingBudget.tokens, i),
-          maxWallS: entryCounters.wallS + shard(remainingBudget.wallS, i),
+          maxCandidates: entryCounters.candidates + shard(remainingBudget.candidates, g),
+          maxModelCalls: entryCounters.modelCalls + shard(remainingBudget.modelCalls, g),
+          maxTokens: entryCounters.tokens + shard(remainingBudget.tokens, g),
+          maxWallS: entryCounters.wallS + shard(remainingBudget.wallS, g),
         };
       const out = await benchTarget({
         spec: { ...spec, repoPath: c.worktreePath },
