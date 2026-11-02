@@ -5,7 +5,7 @@
     "bwrap-prefix-paste": {
       "label": "把已包装的沙箱命令前缀再贴回执行",
       "status": "fix-landed",
-      "fix_commit": null,
+      "fix_commit": "0d1bf1a",
       "exam_item": null,
       "deadline_utc": "2026-11-09T00:00:00Z",
       "gate": ".opencode/plugins/sandbox-bash.js:137 (SANDBOX-PREFIX-COPIED)",
@@ -14,7 +14,7 @@
     "citation-fabrication": {
       "label": "写出不存在的文件路径、越界行号或不存在的行为",
       "status": "fix-landed",
-      "fix_commit": null,
+      "fix_commit": "0d1bf1a",
       "exam_item": null,
       "deadline_utc": "2026-11-09T00:00:00Z",
       "gate": "scripts/check-citations.py（存在性→行号范围→紧邻符号同现）",
