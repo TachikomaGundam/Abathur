@@ -38,6 +38,8 @@ PATTERNS = [
 EXEMPT = {
     "loop/bank.py": "exam question bank: quotes past incidents as content",
     "scripts/test_rule2_fixtures.py": "test fixtures: machine names are the input under test",
+    "loop/test_boundary_scan.py": "test fixtures: machine paths are the input under test",
+    "loop/fixtures/anchor/stamp.sh": "vendored gate fixture (byte-fidelity pinned at G82): defaults are env-overridable machine-local",
     "loop/bell_hgf_five.py": "bell fixture: the probe is required to touch box paths",
     "scripts/check-frozen-a.sh": "release check: absolute defaults for this box's own artifacts",
     "scripts/sandbox-blast-radius.mjs": "blast-radius probe: sibling paths are its input",
