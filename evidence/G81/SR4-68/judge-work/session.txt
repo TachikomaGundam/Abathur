@@ -1,0 +1,5 @@
+session=ses_e644b84fcffe0X2Yefe43MWVCA
+rc=0
+elapsed_s=520.2
+judge_model=bailian-token-plan/deepseek-v4.1-flash-1017
+verdict_sha256=a6c3a4c6bbfbb238dff6ac870de69e20c7f489b3975cf0391ae4a13609917434
