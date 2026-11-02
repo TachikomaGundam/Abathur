@@ -98,8 +98,8 @@ export class ToyBenchAdapter implements BenchAdapter {
     };
   }
 
-  async score(unit: BenchUnit, sandboxDir?: string): Promise<ScoreOutcome> {
-    const sandbox = sandboxDir ?? this.activeSandbox;
+  async score(unit: BenchUnit): Promise<ScoreOutcome> {
+    const sandbox = this.activeSandbox;
     if (sandbox === null) {
       cannotAnswer(
         "toy adapter: score() called before any reset()/seed()/run() — no sandbox yet",

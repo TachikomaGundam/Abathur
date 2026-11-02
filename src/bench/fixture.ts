@@ -180,10 +180,10 @@ export class FixtureScenariosAdapter implements BenchAdapter {
     };
   }
 
-  async score(unit: BenchUnit, sandboxDir?: string): Promise<ScoreOutcome> {
+  async score(unit: BenchUnit): Promise<ScoreOutcome> {
     await this.ensureStarted();
     gateVal(unit, this.valRunAllowed());
-    const sandbox = sandboxDir ?? this.activeSandbox;
+    const sandbox = this.activeSandbox;
     if (sandbox === null) {
       cannotAnswer(
         "fixture adapter: score() called before any reset()/seed()/run() — no sandbox yet",
