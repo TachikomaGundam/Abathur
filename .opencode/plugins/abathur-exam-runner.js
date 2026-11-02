@@ -309,6 +309,17 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       }
       try { fs.rmSync(path.join(claimed, `${name}.json`), { force: true }) } catch {}
       log(logfile, `DONE ${name} rc=${rc} ${elapsed}s`)
+      // hygiene: a converged harvest means every run-dir file is hash-pinned in the
+      // archived manifest — release the run dir without waiting for a manual sweep
+      if (rc === 0 && req.stage === "harvest") {
+        const rc2 = spawn(PYTHON, [path.join(root, "loop/clean_run.py"), "reclaim", req.gen],
+                          { cwd: root, stdio: "ignore" })
+        rc2.on("close", (c) => log(logfile, `RECLAIM ${req.gen} rc=${c}`))
+        rc2.on("error", (e) => log(logfile, `RECLAIM-ERROR ${req.gen} ${e?.message || e}`))
+      }
+      // retention: done/ receipts are transient carriers — the durable record is the
+      // ledger; prune beyond a window, newest-generation receipts never touched
+      if (rc === 0) pruneDone()
       active.delete(name)
       if (active.size) writeOwn()
       else { try { fs.rmSync(ownFile(), { force: true }) } catch {} }
@@ -319,7 +330,30 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
 
   const poll = async () => {
     if (disposed) return
-    reconcile()
+  reconcile()
+
+  const pruneDone = () => {
+    let files = []
+    try { files = fs.readdirSync(done).filter((f) => f.endsWith(".result.json")) } catch { return }
+    const gens = new Set()
+    for (const f of files) {
+      const m = f.match(/g(\d+)/i)
+      if (m) gens.add(Number(m[1]))
+    }
+    const sorted = [...gens].sort((a, b) => b - a)
+    if (sorted.length <= 3) return
+    const cutoff = sorted[2]
+    const day = Date.now() - 24 * 3600 * 1000
+    let pruned = 0
+    for (const f of files) {
+      const m = f.match(/g(\d+)/i)
+      if (!m || Number(m[1]) >= cutoff) continue
+      const p = path.join(done, f)
+      try { if (fs.statSync(p).mtimeMs < day) { fs.rmSync(p, { force: true }); pruned++ } } catch {}
+    }
+    if (pruned) log(logfile, `PRUNE-DONE n=${pruned} cutoff=G${cutoff}`)
+  }
+
     let files = []
     try {
       files = fs.readdirSync(queue)
