@@ -35,7 +35,7 @@
 | A | 37 | path | `src/**` 的正则字面量含 `\\\\…` 反斜杠路径模式（Windows 路径处理） | 判为**规则误报**：`path-pattern` 在正则源码上命中；建议上游精化（不把正则字面量当路径）。代码侧不改 | 待上游/待裁 |
 | B | 2 | path | `README.md:275,556` 出现本机家目录示例 | **修文档**：改写成 `/home/<user>/…` 占位 | 可立即做 |
 | C | 5 | content | `graders/historian/grader-core.mjs` 历史行 34/39/41 `VERIFY_* = "HIST11…"` | 夹具常量。机器依据：同文件相邻行是评分夹具路径常量（`_sandbox/eval10/...`）；值形不是任何厂商 key 格式 | 定性有据；**放行权归机主** |
-| D | 2 | content | `src/test/fixtures-wt.ts:20` `user.email=test@abathur.local` | git 身份夹具（同行 `user.name=abathur…`），本地域形态 | 定性有据；放行权归机主 |
+| D | 2 | content | `src/test/fixtures-wt.ts:20` 的 git 身份夹具邮箱字段（用户名 + 分隔符 + 本地域，本文件不转录字面量） | git 身份夹具（同行是固定用户名），本地域形态 | 定性有据；放行权归机主 |
 
 **结论**：P3 过闸在 B 修完 + A/C/D 获得具名裁定（上游精化或机主具名降级）后才可能。**我不自行豁免**。
 
