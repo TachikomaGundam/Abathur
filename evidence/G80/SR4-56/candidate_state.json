@@ -1,0 +1,16 @@
+{
+  "state": "COMPLETE",
+  "session_id": "ses_e6474d996ffevFA4Ye2tOYMxKl",
+  "scanner": "hgf-v3-segmented+jail-tmp",
+  "elapsed_s": 607.7,
+  "turns": 2,
+  "jail_tmp": {
+    "private": true,
+    "detail": "sentinel f128d9b7 written in-cage and absent on the host",
+    "probed_at": "2026-11-02T09:15:48Z"
+  },
+  "hard_global_fail_prescan": [],
+  "boundary_read_anomalies": [],
+  "messages": 15,
+  "parts": 62
+}
