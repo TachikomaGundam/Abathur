@@ -83,7 +83,16 @@ def close_item(gen: str, item_dir: Path) -> dict:
         return row
     tx = json.loads(tx_path.read_text())
     from bank import ITEMS  # lazy: bank imports looplib
-    hgf = L.hard_global_fail_scan(tx, tuple(ITEMS.get(item_id, {}).get("scratch_allow", ())))
+    jail_rec = {}
+    cs_p = hd2 / "candidate_state.json"
+    if cs_p.is_file():
+        try:
+            jail_rec = (json.loads(cs_p.read_text()) or {}).get("jail_tmp") or {}
+        except ValueError:
+            jail_rec = {}
+    jail_ok = bool(jail_rec.get("private") is True and jail_rec.get("detail"))
+    hgf = L.hard_global_fail_scan(tx, tuple(ITEMS.get(item_id, {}).get("scratch_allow", ())),
+                                  jail_tmp=jail_ok)
     verdict = L.load_verdict(gen, item_id)
     # C-13 memory-diff: candidate must not rewrite its own constitution
     manifest = json.loads((hd2 / "manifest.json").read_text()) if (hd2 / "manifest.json").exists() else {}

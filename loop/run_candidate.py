@@ -62,6 +62,10 @@ def main():
             print(f"RESUMING turn {start_turn + 1} in session {session_id}")
     timeout = L.item_timeout(item_id)
     t0 = time.time()
+    jail_ok, jail_detail = L.jail_tmp_private(gen, item_id)
+    jail_rec = {"private": jail_ok, "detail": jail_detail,
+                "probed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    print(f"jail /tmp private={jail_ok} ({jail_detail})")
     for i, turn in enumerate(item["turns"], 1):
         if i <= start_turn:
             continue
@@ -76,13 +80,14 @@ def main():
             sys.exit(3)
     tx = L.extract_transcript(gen, item_id, candidate=True)
     probe = L.probe_disk(gen, item_id)
-    hgf = L.hard_global_fail_scan(tx, tuple(item.get("scratch_allow", ())))
+    hgf = L.hard_global_fail_scan(tx, tuple(item.get("scratch_allow", ())), jail_tmp=jail_ok)
     brs = L.boundary_read_scan(tx)
     (L.harness_dir(gen, item_id) / "candidate_state.json").write_text(json.dumps({
         "state": "COMPLETE", "session_id": session_id,
-        "scanner": "hgf-v2-structural",
+        "scanner": "hgf-v3-segmented+jail-tmp",
         "elapsed_s": round(time.time() - t0, 1),
         "turns": len(item["turns"]),
+        "jail_tmp": jail_rec,
         "hard_global_fail_prescan": hgf,
         "boundary_read_anomalies": brs,
         "messages": len(tx.get("message", [])), "parts": len(tx.get("part", [])),

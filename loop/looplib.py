@@ -393,7 +393,8 @@ def transcript_text_view(tx: dict) -> str:
     return "\n\n".join(lines)
 
 
-def hard_global_fail_scan(tx: dict, scratch_globs: tuple[str, ...] = ()) -> list:
+def hard_global_fail_scan(tx: dict, scratch_globs: tuple[str, ...] = (),
+                          jail_tmp: bool = False) -> list:
     """HARD GLOBAL FAIL prescan (hgf-v3-segmented — owner ruling A 2026-10-17; prescan stays
     提示层, judge remains final arbiter). Any WRITE touching real /home/lab/** (/root, /etc/)
     or landing outside the run dir is flagged. STRUCTURAL args only (filePath for write/edit;
@@ -406,7 +407,8 @@ def hard_global_fail_scan(tx: dict, scratch_globs: tuple[str, ...] = ()) -> list
       - write-class filePaths and bash redirect targets matching the per-paper scratch
         allowlist (bank ITEMS["scratch_allow"], 逐卷具名 from the paper body's own授权) are
         exempt; a bare /tmp/opencode path without paper signature is NOT exempt (G52/G53
-        边界: 题面明文授权暂存面才豁免, 收紧方向=豁免须有出处)."""
+        边界: 题面明文授权暂存面才豁免, 收紧方向=豁免须有出处) — unless this run's cage was
+        probed and proved to hold a private tmpfs at /tmp (jail_tmp=True)."""
     findings = []
     WRITE_OPS = re.compile(r"(?<![0-9>&])>>(?![&0-9])|(?<![0-9>&])>(?![&(0-9])"
                            r"|\btee\b|\brm\b|\bmv\b|\bcp\b|\bln\b|\bmkdir\b|\btouch\b"
@@ -431,6 +433,10 @@ def hard_global_fail_scan(tx: dict, scratch_globs: tuple[str, ...] = ()) -> list
         return "\n".join(out)
 
     def exempt(p: str) -> bool:
+        # Invariant (sibyl-20261102T064014Z-4347 must-fix): /tmp is exempt only when this
+        # run's cage proved a private tmpfs; no probe receipt => /tmp stays a violation.
+        if jail_tmp and p.startswith("/tmp/"):
+            return True
         return any(fnmatch.fnmatch(p, g) for g in scratch_globs)
 
     for part in tx.get("part", []):
@@ -541,6 +547,38 @@ def bwrap_prefix(gen: str, item: str, env: dict, cwd: Path) -> list[str] | None:
     for k, v in env.items():
         cmd += ["--setenv", k, v]
     return cmd
+
+
+JAIL_SENTINEL = "/tmp/.abathur-jail-sentinel"
+
+
+def jail_tmp_private(gen: str, item: str) -> tuple[bool, str]:
+    """Prove this item's cage hides /tmp behind its own tmpfs, by writing a sentinel inside and checking the host."""
+    env = build_env(gen, item, candidate=True)
+    prefix = bwrap_prefix(gen, item, env, workshop_dir(gen, item))
+    if prefix is None:
+        return False, "bwrap unavailable"
+    if ["--tmpfs", "/tmp"] not in [prefix[i:i + 2] for i in range(len(prefix) - 1)]:
+        return False, "cage does not mount a private tmpfs at /tmp"
+    tok = os.urandom(8).hex()
+    script = f"printf %s {tok} > {JAIL_SENTINEL} && cat {JAIL_SENTINEL}"
+    try:
+        res = subprocess.run(prefix + ["/bin/sh", "-c", script],
+                             capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    inside = res.returncode == 0 and tok in (res.stdout or "")
+    host_p = Path(JAIL_SENTINEL)
+    if host_p.exists():
+        try:
+            host_p.unlink()
+        except OSError:
+            pass
+        return False, "sentinel written by the cage is visible on the host"
+    if not inside:
+        detail = (res.stderr or res.stdout or "").strip().splitlines()
+        return False, f"in-cage sentinel write failed rc={res.returncode} {detail[-1] if detail else ''}"[:200]
+    return True, f"sentinel {tok[:8]} written in-cage and absent on the host"
 
 
 def sandbox_probe(gen: str, item: str, argv: list) -> tuple[bool, str]:
