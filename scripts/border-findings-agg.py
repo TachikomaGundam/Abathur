@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate a `border check --json` report with closure assertions.
+"""Aggregate a gate `check --json` report with closure assertions.
 
 Why this exists: every number that reaches a decision document must be
 recomputable from a tracked script, not from a one-off /tmp scratch file.
