@@ -21,7 +21,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -49,6 +51,36 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# Filename whitelist. A manifest publishes NAMES as well as hashes; a name that
+# embeds an address, an identity or a credential shape is itself an exposure that
+# no content rule would catch (the file body may be clean). Fail-closed: anything
+# not matching is refused rather than sanitised, because renaming would break the
+# hash-to-name binding the manifest exists to provide.
+SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+FORBIDDEN_IN_NAME = re.compile(r"(?:@|\d+\.\d+\.\d+\.\d+|:\/\/|[A-Za-z]:\\\\)")
+
+
+def check_name(rel: str) -> None:
+    parts = rel.split("/")
+    if len(parts) > 3:
+        raise SystemExit(f"REFUSED: manifest name too deep: {rel!r}")
+    for seg in parts:
+        if not SEGMENT_RE.match(seg) or FORBIDDEN_IN_NAME.search(seg):
+            raise SystemExit(f"REFUSED: manifest name not publishable: {rel!r}")
+
+
+def git_blob(path: Path) -> str:
+    out = subprocess.run(["git", "-C", str(REPO), "hash-object", str(path)],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    return out
+
+
+def git_head() -> str:
+    out = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    return out
 
 
 def main() -> int:
@@ -110,8 +142,21 @@ def main() -> int:
                 take(f"_nomination/{f.name}", f)
 
     sums = "".join(f"{digest}  {rel}\n" for rel, digest in sorted(copied))
+    for rel, _digest in copied:
+        check_name(rel)
+    manifest = {
+        "gen": args.gen,
+        "commit": git_head(),
+        "files": [
+            {"path": rel, "sha256": digest,
+             "git_blob": "(dry-run)" if args.dry_run else git_blob(dst / rel)}
+            for rel, digest in sorted(copied)
+        ],
+    }
     if not args.dry_run:
         (dst / "SHA256SUMS").write_text(sums, encoding="utf-8")
+        (dst / "MANIFEST.json").write_text(
+            json.dumps(manifest, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"PUBLISH-EVIDENCE {args.gen} files={len(copied)} -> {dst}")
     print(f"sums_sha256={hashlib.sha256(sums.encode()).hexdigest()}")
     for rel, digest in sorted(copied)[:6]:

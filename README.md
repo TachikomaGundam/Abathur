@@ -272,7 +272,7 @@ crossing one truncates to `inconclusive` (exit 2), never to a fake pass.
   the config dir; the npm package directory is read-only at runtime.
 - Source under `src/` contains **zero** machine or product literals
   (`src/test/**` fixtures are exempt by design). The CI
-  gate: `grep -rnE '/home/lab|historian' src/` yields nothing outside
+  gate: `grep -rnE '$HOME|historian' src/` yields nothing outside
   `src/test/**` fixtures. Config templates spell out placeholders instead.
 - Machine paths enter only through config and env: a `${VAR}`-literal
   `repoPath` fingerprints over the **unresolved** bytes, so spec identity is
@@ -553,7 +553,7 @@ sha256 与状态
 ### D7 解耦保证
 
 - 基因组注册表与一切可写产物都在**树外**、配置目录下；运行时 npm 包目录只读。
-- `src/` 下的源码**零**机器 / 产品字面量（`src/test/**` 夹具按设计豁免）。CI 闸门：`grep -rnE '/home/lab|historian' src/`
+- `src/` 下的源码**零**机器 / 产品字面量（`src/test/**` 夹具按设计豁免）。CI 闸门：`grep -rnE '$HOME|historian' src/`
   在 `src/test/**` 夹具之外一无所获。配置模板用占位符表达。
 - 机器路径只从配置与环境变量进入：`${VAR}` 字面量形式的 `repoPath` 按**未解析**
   字节参与指纹计算，因此规格身份与机器无关（abathur-self 在任何机器都是
