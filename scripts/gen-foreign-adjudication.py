@@ -55,8 +55,8 @@ def main() -> int:
     body = [
         "# 外线提交逐笔裁定表（INCIDENT-20261103）",
         "",
-        "生成器：`/home/lab/workspace/harness/Abathur/scripts/gen-foreign-adjudication.py`（复算命令：`python3 scripts/gen-foreign-adjudication.py`）。",
-        "数据源：`/home/lab/workspace/harness/Abathur/docs/evidence-manifests/ACKNOWLEDGED-FOREIGN-COMMITS.txt` 的 44 枚 sha，逐笔读 `git show`。",
+        f"生成器：`{REPO}/scripts/gen-foreign-adjudication.py`（复算命令：`python3 scripts/gen-foreign-adjudication.py`）。",
+        f"数据源：`{ACK}` 的 {len(shas)} 枚 sha，逐笔读 `git show`。",
         "",
         "**这张表不能由本席裁定。** 每一行的「裁定」列必须由具名人类签认（台账人类条目），",
         "或由 `sibyl_audit`（`independence=INDEPENDENT`，审计会话可在引擎库对账）出意见后仍由人类签认。",
