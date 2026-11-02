@@ -1,6 +1,6 @@
 # 晋升审计：G4（首次晋升）到 G83（2026-11-03）
 
-审计人：阿巴瑟席。对象：宪章记载的 **33 次晋升**。本文第四版。前两版判 REJECT（`sibyl-20261102T195208Z-3701` 0A/3R、`sibyl-20261102T200253Z-b053` 1A/2R），驳点处置见第九、十节；第三版仍被 `sibyl-20261102T201047Z-46d3` 判 1A/2R（该轮确认第九、十节十条已落实，仅余四条），第四条处置见第十一节。
+审计人：阿巴瑟席。对象：宪章记载的 **33 次晋升**。本文**第五版**。前四版均判 REJECT（`sibyl-20261102T195208Z-3701` 0A/3R、`sibyl-20261102T200253Z-b053` 1A/2R、`sibyl-20261102T201047Z-46d3` 1A/2R、`sibyl-20261102T202251Z-7938` 1A/2R），驳点处置依次见第九、十、十一、十二节。第四轮已独立复算确认事实层无异议，剩余驳回点集中在取数当场性与扫描范围。
 
 ## 一、能证什么，不能证什么
 
@@ -49,11 +49,12 @@
 
 ### F2 外线提交长期存在：触到生产码，未触到考道
 
-- 44 笔 `abathur-seat <abathur@local>`，2026-10-07 → 2026-11-03。
+- 该身份在本仓共 **48 笔**：`git log --format='%H %ad' --author='abathur-seat <abathur@local>'`（HEAD 谱系）= 44 笔，2026-10-07T03:15 → 2026-11-03T03:03；`--all` = 48 笔，多出的 4 笔只存在于改写前备份 ref `original/refs/heads/main` 上：`7bfb4aac`（2026-10-03T22:11:53+08:00）、`d23bfba3`（10-04T02:03:06）、`a6ba1cf0`（10-04T02:58:52）、`d6542f4a`（10-04T11:57:56）。因此身份清点的窗口起点应为 **2026-10-03**，不是 10-07。（该 4 笔的归类由第四轮审计 `sibyl-20261102T202251Z-7938` 抓出；本版据其更正。）
 - 分布：`graders/pcb-agent/**`（他线评分器长期寄放）36 次文件触碰；`src/` 下 **10 笔提交**（含 `src/core/evolve/run-loop.ts` 4 次、8 个 `src/test/*`）；`release/notes/RELEASE-NOTES.md`。
 - 零笔触及 `loop/`、`.opencode/`、`.omo/`。
-- 44 笔无一在任何 tag（逐笔 `git tag --contains` 全空），无一在 `release/0.4.0`。
-- 事故窗口（2026-11-02T18:48Z–19:28Z）内的**整点外锚戳记**：`TICK ts=2026-11-02T19:17:11Z` 报 `ANCHOR-OK` 且 `RECON-OK`（`~/.local/share/abathur/anchor/nightly.log` 第 1639–1640 行），即该时刻 `AGENTS.md` 与台账尾哈希与链上最新戳一致。
+- 44 笔（HEAD 谱系）无一在任何 tag（逐笔 `git tag --contains` 全空），无一在 `release/0.4.0`；`git branch -r --contains <sha>` 对 44 笔全部无输出。
+- **提交计数的可证边界**：本地 git 对象库同 uid 可写（第一节），所以「这个 sha 存在且内容如此」只在**本地对象库未被篡改**的前提下成立。可复算命令：`git cat-file -t <sha>`、`git log --format=%H --author=… `。未取得远端回执的部分不当作外部背书的证据——与 `.omo/` 下的工件同等对待。
+- 事故窗口（2026-11-02T18:48Z–19:28Z）内的**整点外锚戳记**：`~/.local/share/abathur/anchor/nightly.log` 第 **1639** 行 `TICK ts=2026-11-02T19:17:11Z`、第 **1640** 行 `RECON-OK`、第 **1641** 行 `ANCHOR-OK`（三行逐字引用；第四轮审计指出原稿把 `ANCHOR-OK` 记在 1639–1640 是行号错误），即该时刻 `AGENTS.md` 与台账尾哈希与链上最新戳一致。
 - **文件 mtime 不作为证据**：`touch -d` 可任意伪造时间，mtime 只能当线索。第一节已认定同 uid 可写，故此处只用整点锚链（需要改链才能伪造）下结论。
 
 **结论必须限定在探针覆盖内**：
@@ -71,7 +72,7 @@
 ## 五、责任归属（含本席）
 
 - **本席责任（不软化）**：`abathur-seat` 使用的邮箱 `abathur@local` 与本席同一；身份闸一个月内只校验邮箱、不校验名，本席从未复检；44 笔外线提交 27 天未被发现，因为锚链只戳文件哈希、不查提交流；镜像钉值长期缺失。这四项都是本席的治理失职。
-- **符号链＝L-ENGINE-ISOLATION 复发违规（本次立案）**：全局 `@tachikomagundam/abathur` 于 2026-11-02T16:20:01+0800 被建成指向工作树的符号链（`ls -la --time-style=full-iso` 实测）。归因尝试：`.bash_history` 无 `npm link`/`ln -s …/Abathur` 记录；引擎会话库该时段 123 个会话（多线并跑），按 `npm link` 字样检索只命中本审计自身。**归因结论 DISPUTED**——不指认他席，也不排除本席。处置：本席已撤除（见第七节第 10 条回执）。
+- **符号链＝L-ENGINE-ISOLATION 复发违规（本次立案）**：全局 `@tachikomagundam/abathur` 曾被建成指向工作树的符号链。建立时刻 **2026-11-02T16:20:01+0800** 来自撤除前的 `ls -la --time-style=full-iso` 输出，属**线索**（符号链 mtime 可用 `touch -h -d` 伪造，与 F2 已降级的 mtime 同类）；锚链只戳文件哈希、不戳符号链，因此该时刻**没有链上证据**，本文件不把它当作已证事实。已证事实只有两条：撤除前 `readlink` 指向 `../../../../workspace/harness/Abathur`、撤除后 `which abathur` 无输出（第七节第 10 条回执）。归因尝试：`.bash_history` 无 `npm link`/`ln -s …/Abathur` 记录；引擎会话库该时段 123 个会话（多线并跑），按 `npm link` 字样检索只命中本审计自身。**归因结论 DISPUTED**——不指认他席，也不排除本席。
 - **他线责任**：PCB 席在其自书 `STRIP-LIST-for-abathur-line-20261103.md` 承认六笔写入并已 revert；其获本仓路径的依据在其侧文档，需其线自查。本席不代其定罪。
 - **匿名面**：同 uid 且无审计日志，无法把 2026-11-02 18:48Z 的动作归到具体进程。DISPUTED 到进程层，可归到身份字符串层。
 
@@ -88,7 +89,7 @@
 | # | 措施 | 回执 |
 |---|---|---|
 | 1 | 提交身份闸改 `Name <email>` 双键 | 四例实测：`abathur-seat<abathur@local>` 拒、`abathur` 过、机主身份过、`x@y` 拒 |
-| 2 | `scripts/check-foreign-commits.py` + 具名债务账 | 账文件绝对路径 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/ACKNOWLEDGED-FOREIGN-COMMITS.txt`，53 行＝44 枚 sha＋9 行说明；当前 `pending_adjudication=44 new_foreign=0`，VERDICT 文案带「not amnesty」 |
+| 2 | `scripts/check-foreign-commits.py` + 具名债务账 | 账文件绝对路径 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/ACKNOWLEDGED-FOREIGN-COMMITS.txt`，当场实测 **66 行 = 44 枚 sha + 22 行非 sha**（复算：`wc -l …` 与 `grep -c '^[0-9a-f]\{40\}$' …`）；当前 `pending_adjudication=44 new_foreign=0 other_ref_foreign=0 quarantined_ref_commits=107`，VERDICT 文案带「not amnesty」 |
 | 3 | `verify-all.sh` 第 8 步接入上述闸 | `steps=8` |
 | 4 | `scripts/audit-promotions.py`、`scripts/promotion-inventory.py` | 本日修正后输出 33 代、缺档 6 代 |
 | 5 | 事故报告 `docs/INCIDENT-20261103-foreign-commits.md` | 已存在（须按 44 笔口径复核） |
@@ -99,7 +100,11 @@
 
 - 账头四条写入规则：本席不得自增；一行只有在人类签认或 `sibyl_audit` 回执（`independence=INDEPENDENT`，审计会话可在引擎库对账）附卷后才算有效；未裁定前一律 PENDING；同 uid 可写的残留以文字披露。
 - 闸输出改为 `pending_adjudication=<n>` + 逐行 `PENDING-ADJUDICATION` + VERDICT 文案带 `not amnesty`；**加行不再等于静默放过**。
-- 验收探针：追加一个不在账内的假 sha → 重跑必须出现对应 `PENDING-ADJUDICATION` 行且计数 +1；若加行后输出变成干净的 `OK`，本条不成立。
+- **扫描范围修正（第四轮驳回点，`sibyl-20261102T202251Z-7938`）**：原实现只扫 `origin/main..HEAD`，于是活在改写前备份 ref 上的 4 笔同身份提交从未被看见——闸报 `new_foreign=0` 而盘上仍有未裁定外线提交。现实现扫 `HEAD` 全谱系，并单独扫 `--all --not HEAD`：不属于已声明历史 ref 的归 `OTHER-REF-FOREIGN`（判败），属于的归 `quarantined_ref_commits`（计数+具名，不判败，因为它们是 filter-repo 改写前的历史）。声明文件 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/QUARANTINED-REFS.txt`（当前仅 `original/refs/heads/main`，107 笔；该文件同 uid 可写，属同类残留）。
+- **探针回执（两项，均用 `--ack` 副本，不污染真账）**：
+  - A 账本清空（只留注释行）→ `pending_adjudication=0 new_foreign=44` rc=1，且逐行打印 44 条 `FOREIGN`。证明账本被清空不能洗白。
+  - B 账本删去 1 枚 sha → `pending_adjudication=43 new_foreign=1` rc=1。证明少一行就立刻有一笔暴露，加行/删行都可见。
+  - 结论：闸的判败条件不再只依赖「账本里有没有这一行」，账本只能把已知历史降级为 PENDING，不能把未知提交变成通过。
 
 ### 待落地（本席可自执行）
 
@@ -136,7 +141,7 @@
 | G67/G68/G72 标 VERIFIED 与自身定义矛盾 | 新增 APPROVAL-ONLY 类，严格 VERIFIED 计数为 0 |
 | F3 混入非晋升代 | 拆成晋升面 4 代 / 非晋升面 4 代 |
 | G73–G83 无处置 | 已加「零晋升」实测说明（11/11 无批准件） |
-| 44 vs 53 条目冲突 | 已澄清：文件 53 行 = 44 枚 sha + 9 行说明 |
+| 44 vs 53 条目冲突 | 已澄清并再次更正：文件当场实测 **66 行 = 44 枚 sha + 22 行非 sha**（第四轮审计指出 53/9 已被磁盘证伪） |
 | 「零笔触考道」不足以排除引擎操纵 | 已补引擎面：考道不经 dist/，但全局符号链使战役面仍在风险中；列第 10 条整改 |
 | 锚链本地可写→第 6 条不闭合根因 | 已改为 bundle 入链 + historian 页对账 |
 | 第 7 条重建血统可能误删合法提交 | 已改为「先逐笔裁定」 |
@@ -173,3 +178,19 @@
 | 第 6 条链头对比缺具名命令与负例 | 已落 `scripts/anchor-head-check.sh` 并实跑：正例 `POS_RC=0`，负例（改 1 字节）`NEG_RC=1`；同时写明 `ledger-tail` 只有 64 KiB 滚动窗口、永久背书待 infra 工单（6b/6c） |
 
 **仍未闭合、已披露**：债务账与本席同 uid 可写；归档不在锚链永久覆盖内；`.omo/evidence/loop-archive/**` 无外部副本；进程级归因需 auditd 或异 uid（第 11 条）。
+
+## 十二、第四版被驳回的处置（`sibyl-20261102T202251Z-7938`，1A/2R）
+
+该轮独立复算了事实层并确认无异议（33 代四类计数、G73–G83 零批准、10 笔 `src/`、锚链窗口、`/home/lab/workspace/infra/anchor-chain/stamp.sh:71` 的 64 KiB 语义、第三轮四条为工件级处置）。驳回集中在七处可复算缺陷：
+
+| 驳回点 | 处置（本版已改 / 已跑） |
+|---|---|
+| 债务账「53 行＝44＋9」被磁盘证伪（实为 66 行） | 改为当场实测 **66 行 = 44 枚 sha + 22 行非 sha**，并给复算命令（§7 表第 2 条、§9 表） |
+| F2 只清点窗口内 44 笔；`--all` 为 48 笔 | 已按完整清点改写：44 笔（HEAD）+ 4 笔（`original/refs/heads/main`：`7bfb4aac`/`d23bfba3`/`a6ba1cf0`/`d6542f4a`，2026-10-03→10-04），窗口起点改 **2026-10-03**（§4 F2） |
+| 闸的扫描范围把备份 ref 上的同身份提交永久藏在视野外（`new_foreign=0` 假绿） | 已改实现：扫 `HEAD` 全谱系 + 单独扫 `--all --not HEAD`；新增 `OTHER-REF-FOREIGN`（判败）与 `quarantined_ref_commits`（具名计数）；新增声明文件 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/QUARANTINED-REFS.txt`；实跑 `head_commits=425 other_ref_commits=257 pending_adjudication=44 new_foreign=0 other_ref_foreign=0 quarantined_ref_commits=107` rc=0（§7 第 2 条） |
+| 加行探针只有判据没有回执 | 已实跑两项（`--ack` 副本，不污染真账）：A 清空账本 → `pending=0 new_foreign=44` rc=1；B 删 1 枚 sha → `pending=43 new_foreign=1` rc=1（§7 第 2 条） |
+| `nightly.log` 行号：`ANCHOR-OK` 实为第 1641 行 | 已改 1639/1640/1641 三行逐字引用（§4 F2） |
+| §5 用符号链 mtime（`ls -la --time-style=full-iso`）钉 dev-link 建立时刻 | 已降级为**线索**并明示锚链不戳符号链、该时刻无链上证据；只保留 `readlink` 与撤除后 `which` 两条已证事实（§5） |
+| 提交计数被列在「能证」而未加不可证限定 | 已加边界声明（本地对象库同 uid 可写）并给复算命令；44 笔的 `git branch -r --contains` 全空回执同时列出（§4 F2） |
+
+**本版新增的残留（同样不闭合）**：`QUARANTINED-REFS.txt` 与本席同 uid 可写——把任意 ref 声明为「历史备份」即可让该 ref 上的外线提交转成不判败的 `quarantined` 计数。缓解只有三条：该文件不被信任（每次审计须自己跑 `git rev-list original/refs/heads/main` 复核 107 这个数）、`quarantine` 只对「不在 HEAD 谱系」的提交生效、任何 ref 若被推送到远端则须人工复核。真闭合仍要靠异 uid 写面（第 11 条）或远端镜像。
