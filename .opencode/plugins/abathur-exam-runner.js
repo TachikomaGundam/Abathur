@@ -105,6 +105,19 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       if (!alive(p.host_pid) || !alive(p.pid)) continue
       MODEL_STAGES.has(p.stage) ? model++ : cheap++
     }
+    // Legacy-format entries (pre-restart running.json, no host_pid) with a live
+    // child must count too — otherwise a restart mid-job lets the fresh host
+    // double-book the model lane while the orphan child is still working.
+    // Observed 2026-11-02: TAKE ... model=0 while g80-4 child was alive.
+    try {
+      const rec = JSON.parse(fs.readFileSync(path.join(queue, "running.json"), "utf8"))
+      const jobs = Array.isArray(rec?.jobs) ? rec.jobs : (rec?.name ? [rec] : [])
+      for (const j of jobs) {
+        if (!j?.name || active.has(j.name)) continue
+        if (!alive(j.pid)) continue
+        MODEL_STAGES.has(j.stage) ? model++ : cheap++
+      }
+    } catch {}
     return { model, cheap }
   }
   const sidFile = path.join(queue, "last-session.txt")
