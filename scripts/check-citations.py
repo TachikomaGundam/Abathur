@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CITE = re.compile(r"([\w][\w./-]*\.(?:py|sh|js|mjs|ts|md|json)):(\d+)(?:-(\d+))?")
+CITE = re.compile(r"(/?[\w][\w./-]*\.(?:py|sh|js|mjs|ts|md|json)):(\d+)(?:-(\d+))?")
 TICK = re.compile(r"`([^`]+)`")
 
 
@@ -75,17 +75,21 @@ def main(argv: list[str]) -> int:
     if not args:
         print(__doc__.splitlines()[0], file=sys.stderr)
         return 2
-    doc = Path(args[0])
-    if not doc.is_absolute():
-        doc = ROOT / doc
-    if not doc.is_file():
-        print(f"no such document: {doc}", file=sys.stderr)
-        return 2
-    problems = check(doc, "--strict-symbols" in argv)
-    for p in problems:
-        print("PROBLEM " + p)
-    print(f"CITATIONS {'OK' if not problems else 'PROBLEMS'} doc={doc.name} problems={len(problems)}")
-    return 0 if not problems else 1
+    rc = 0
+    for raw_doc in args:
+        doc = Path(raw_doc)
+        if not doc.is_absolute():
+            doc = ROOT / doc
+        if not doc.is_file():
+            print(f"no such document: {doc}", file=sys.stderr)
+            return 2
+        problems = check(doc, "--strict-symbols" in argv)
+        for p in problems:
+            print("PROBLEM " + p)
+        print(f"CITATIONS {'OK' if not problems else 'PROBLEMS'} doc={doc.name} problems={len(problems)}")
+        if problems:
+            rc = 1
+    return rc
 
 
 if __name__ == "__main__":

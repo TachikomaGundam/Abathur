@@ -34,10 +34,11 @@ run_step contract      python3 loop/test_bank_contract.py
 run_step item-defects  python3 loop/item_defects.py check
 run_step instrument-defects python3 loop/instrument_defects.py check
 run_step recurrence   python3 loop/recurrence.py check
+run_step foreign-commits python3 scripts/check-foreign-commits.py
 
 if [ "$fails" -eq 0 ]; then
-  echo "VERDICT=$GEN GREEN steps=7 fails=0"
+  echo "VERDICT=$GEN GREEN steps=8 fails=0"
   exit 0
 fi
-echo "VERDICT=$GEN BLOCKED steps=7 fails=$fails"
+echo "VERDICT=$GEN BLOCKED steps=8 fails=$fails"
 exit 1
