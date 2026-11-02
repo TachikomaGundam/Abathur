@@ -1,0 +1,81 @@
+{
+ "commit": "58564944954b7e4ac4dfb393c62deca9f38a2eb6",
+ "files": [
+  {
+   "git_blob": "9c208a7e08b5d7d9e2557a1a772b9f1c2667a2be",
+   "path": "ARCHIVE-MANIFEST.json",
+   "sha256": "d49925a93a07d46e0e5406907e7f42e720fc3f45de566986341e37d6337e52e0"
+  },
+  {
+   "git_blob": "f3bd85b23df344d6a8571352d658a74bc97ccde5",
+   "path": "BUNDLE.md",
+   "sha256": "24d15bb5b10bdfffdcda7a1fc0e6ddec74f4145ed856518a3f461cb5b3a3f792"
+  },
+  {
+   "git_blob": "45386a3519f5c4436444561e8c2be5a9fc189ee2",
+   "path": "SR4-62/candidate_state.json",
+   "sha256": "dac612efcff5a318124abc761ddcabbb6aa2a1b6fd72c7ea211fb0a5b9147c08"
+  },
+  {
+   "git_blob": "03732c79b8b293eaa458575ad575862b9c23f790",
+   "path": "SR4-62/disk_probe.json",
+   "sha256": "8d16ee06b08f218722ca9df062bef74bd1712d721883dc8e2cf7dad0bb36b84a"
+  },
+  {
+   "git_blob": "4ca0c6a4ce95ac2dcef729b13fc91d8fc9b92853",
+   "path": "SR4-62/judge-work/session.txt",
+   "sha256": "3648ef3f8af7c1825111c3f459237b11e35e4bb941ed02f50e9bd687691616c8"
+  },
+  {
+   "git_blob": "0c39f9eb413fc69977acbec4e5e292c45cb6c3bd",
+   "path": "SR4-62/manifest.json",
+   "sha256": "385e7bf3124e5e6284b88055a4e52725f72092821d165bba7f9c99c176c43c96"
+  },
+  {
+   "git_blob": "db9e3488ca56a6c755d2970305fcbce802fc917c",
+   "path": "SR4-62/transcript.json",
+   "sha256": "5f3ad3a171c97eba8503ca3ec996eede34cd054e5b6563125f494259cdaed7dd"
+  },
+  {
+   "git_blob": "42c1bd12a706d171a432ccd0ef2323d923bc98aa",
+   "path": "SR4-62/verdict.json",
+   "sha256": "299dbbc522595498f371225cb84ac0a7d36a83a82bda8823aad3b8ea4def75a6"
+  },
+  {
+   "git_blob": "7805b079b3daeb1b49e14cbd2d5f732ea4caa9ad",
+   "path": "SR4-64/candidate_state.json",
+   "sha256": "5ca3f0a37ae0a8557135409dc4489b72b4b207df0fe26c5e1f4c918a72a133d5"
+  },
+  {
+   "git_blob": "29bd059af06e3613bec372f1b75c4911a86dbd18",
+   "path": "SR4-64/disk_probe.json",
+   "sha256": "b820481b5e8d263131f07888f05560994f57ca28b8c03fad929ee1f67884a5a8"
+  },
+  {
+   "git_blob": "173643c04420944fd2031e6784e2564576384089",
+   "path": "SR4-64/judge-work/session.txt",
+   "sha256": "bce54a1d2f8cb4a21189e50d22a59916d7907695d9cba438eeaf7bc39a0c97c8"
+  },
+  {
+   "git_blob": "fd416276a9d05774ec96c4ccb4eca7d4ec2627fb",
+   "path": "SR4-64/manifest.json",
+   "sha256": "49394528e963d1651b29bf860657e9e324178aba2b87bb68e8ed94b0e15b2219"
+  },
+  {
+   "git_blob": "5418157f295a45cd5a2f266d718f44727c7fe8fc",
+   "path": "SR4-64/transcript.json",
+   "sha256": "9de4867cffc848794466ce12a0c37767631cdf671cd5580d07e7ba5b358122c7"
+  },
+  {
+   "git_blob": "eaf487ab1e835a3870c64fea6ad85d2c813b329d",
+   "path": "SR4-64/verdict.json",
+   "sha256": "f4dea76bdc4fbc7f9d8c83d46b40cb06003a017c84f057b8ac305afa0e5b0425"
+  },
+  {
+   "git_blob": "d5119d2377f9d4881b6bd20e0568a7d2950b416c",
+   "path": "bundle.json",
+   "sha256": "3994a450cc54a35185b605d805252361b4bbf2ef6c4a451abcb1870283792f77"
+  }
+ ],
+ "gen": "G83"
+}
