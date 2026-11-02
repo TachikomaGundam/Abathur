@@ -15,7 +15,7 @@
 | 内网远端 `internal/main` | **有 28 笔** | 逐笔 `git branch -r --contains <sha>`：28 笔命中 `internal/HEAD -> internal/main`；16 笔不在任何远端 |
 | 引擎源码 `src/` | **有 10 笔** | `git show --name-only`；事故波 6 笔已于 2026-11-03T03:28:41 被 revert，`git diff 4e213dd HEAD -- src/` 为空 |
 | 考道 `loop/`、题库、判卷脚本 | **干净** | 48 笔零命中 |
-| 治理 `AGENTS.md`、台账、锚链 | **干净（有尾锚 + 链复算）** | ①`bash /home/lab/workspace/infra/anchor-chain/verify.sh` → `rc=0`，输出 `v2 链接=96; legacy-v1=2(断链=1, 史前具名伤)`——**这证明的是「v2 链的 96 个逐枚哈希链接自洽 + 最新戳与台账/AGENTS.md 现值一致」**，不等于覆盖 10-07→11-03 每个整点戳（逐时戳由 cron 每小时写，本轮未逐条复算）；legacy-v1 断链 1 为史前具名伤，本轮未修；②事故窗口内整点 `TICK`：`/home/lab/.local/share/abathur/anchor/nightly.log` 第 1639–1641 行 `TICK ts=2026-11-02T19:17:11Z` / `RECON-OK … self=451ef5d3b10f…` / `ANCHOR-OK …`（`sed -n '1639,1641p'`，文件 146501 字节）——该 tick **落在事故窗口内且报 ANCHOR-OK**，是「窗口内这两个文件未被改写」的证据；③`python3 loop/instrument_defects.py check` → `INSTRUMENT-DEFECTS OK entries=4` `rc=0`；④`python3 loop/recurrence.py check` → `RECURRENCE OK events=2 classes=6` `rc=0`。全部回执见 `.omo/evidence/gate-receipts-20261103.log`（sha256 `eb0e22fffebe2a44beb1539c5586bb74bf4e0dca35dd33c1f26d293f897d97d5`） |
+| 治理 `AGENTS.md`、台账、锚链 | **干净（有尾锚 + 链复算）** | ①`bash /home/lab/workspace/infra/anchor-chain/verify.sh` → `rc=0`，输出 `v2 链接=96; legacy-v1=2(断链=1, 史前具名伤)`——**这证明的是「v2 链的 96 个逐枚哈希链接自洽 + 最新戳与台账/AGENTS.md 现值一致」**，不等于覆盖 10-07→11-03 每个整点戳（逐时戳由 cron 每小时写，本轮未逐条复算）；legacy-v1 断链 1 为史前具名伤，本轮未修；②事故窗口内整点 `TICK`：`/home/lab/.local/share/abathur/anchor/nightly.log` 第 1639–1641 行 `TICK ts=2026-11-02T19:17:11Z` / `RECON-OK … self=451ef5d3b10f…` / `ANCHOR-OK …`（`sed -n '1639,1641p'`；该文件由 cron 每小时追加，大小是活变量——本呈报不写死字节数，复算请用 `stat -c%s` 当场取值）——该 tick **落在事故窗口内且报 ANCHOR-OK**，是「窗口内这两个文件未被改写」的证据；③`python3 loop/instrument_defects.py check` → `INSTRUMENT-DEFECTS OK entries=4` `rc=0`；④`python3 loop/recurrence.py check` → `RECURRENCE OK events=2 classes=6` `rc=0`。全部回执见 `.omo/evidence/gate-receipts-20261103.log`（sha256 `eb0e22fffebe2a44beb1539c5586bb74bf4e0dca35dd33c1f26d293f897d97d5`） |
 | 他线器材 `graders/pcb-agent/**` | **有 34 笔** | 长期寄放，迁移工单在册 |
 | 备份 ref `original/refs/heads/main` | **有 107 笔非授权身份** | 闸实跑 `quarantined_ref_commits=107`；构成：`Wiki.js` 87 + `abathur@harness.local` 15 + `abathur-seat` 4 + `AbathurRebuild` 1。该 ref 与 HEAD **零共享提交**（`git rev-list original/refs/heads/main --not HEAD | wc -l` = 151，整体为改写前历史） |
 | 归档证据 `.omo/evidence/loop-archive/**` | **不可证** | 不在 git、不在锚链永久覆盖内；只能标 UNVERIFIABLE，不得写「未发生」 |
@@ -78,7 +78,7 @@ G73–G83 共 11 代无批准件、无提名件，**零晋升**，不混入上�
 
 ## 八、对 `a866` 九条唯一 must-fix 的逐条处置
 
-`a866` 三票持久化文件在 `/home/lab/.sibyl/spaces/sibyl-20261102T204449Z-a866/`，逐票 `must_fix` 条目数实测 **MELCHIOR 4 + BALTHASAR 5 + CASPER 3 = 12 行**（`json.JSONDecoder().raw_decode` 于各文件的 `"must_fix":[...]` 处取值，回执 `/tmp/auc4.txt`）。其中 CASPER 3 行为中文条目的英文重复，去重后 **9 条唯一**。上一版写「13 行/10 条」是错的（把 c455 的一轮条目算进了 a866），本版更正。
+`a866` 三票持久化文件在 `/home/lab/.sibyl/spaces/sibyl-20261102T204449Z-a866/`，逐票 `must_fix` 条目数实测 **MELCHIOR 4 + BALTHASAR 5 + CASPER 3 = 12 行**（`json.JSONDecoder().raw_decode` 于各文件的**首个** `"must_fix":[...]` 处取值——`MELCHIOR.md` 含 parse/repair 两份票面 JSON，不排除重复会数出 16 行；回执 `/home/lab/workspace/harness/Abathur/.omo/evidence/a866-mustfix-count-20261103.txt`，sha256 `eedb4dc51cff7dee7cdfbbe9b4afe75f464927ae47b5da4a21bf6971e5a8ebcd`）。其中 CASPER 3 行为中文条目的英文重复，去重后 **9 条唯一**。上一版写「13 行/10 条」是错的（把 c455 的一轮条目算进了 a866），本版更正。
 
 | # | a866 原文要点 | 处置 |
 |---|---|---|
