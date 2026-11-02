@@ -41,6 +41,25 @@ class BankContract(unittest.TestCase):
         bad = sorted(i for i in draw.CLASS_OF if i not in ITEMS)
         self.assertEqual(bad, [], f"CLASS_OF names unknown items: {bad}")
 
+    def test_setups_never_read_mutable_omo_surface(self):
+        # G82 seed crash: setup_sr4_62 read .omo/anchor/stamp.sh, which the
+        # 2026-10-22 anchor migration removed. Fixture bytes belong to the repo face.
+        import ast
+
+        def reads_omo(fn) -> bool:
+            tree = ast.parse(inspect.getsource(fn))
+            return any(isinstance(n, ast.Constant) and isinstance(n.value, str)
+                       and ".omo" in n.value for n in ast.walk(tree))
+
+        bad = sorted(i for i, it in ITEMS.items()
+                     if callable(it.get("setup")) and reads_omo(it["setup"]))
+        self.assertEqual(bad, [], f"setups must read repo fixtures, not .omo: {bad}")
+
+    def test_pinned_anchor_fixtures_present(self):
+        root = Path(__file__).resolve().parent / "fixtures" / "anchor"
+        missing = [f for f in ("stamp.sh", "chainlib.sh") if not (root / f).is_file()]
+        self.assertEqual(missing, [], f"pinned gate fixtures missing: {missing}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
