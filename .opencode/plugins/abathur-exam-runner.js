@@ -54,8 +54,9 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
   const queue = path.join(root, ".omo", "exam-queue")
   const done = path.join(queue, "done")
   const rejected = path.join(queue, "rejected")
+  const claimed = path.join(queue, "claimed")
   const logfile = path.join(queue, "runner.log")
-  for (const d of [queue, done, rejected]) { try { fs.mkdirSync(d, { recursive: true }) } catch {} }
+  for (const d of [queue, done, rejected, claimed]) { try { fs.mkdirSync(d, { recursive: true }) } catch {} }
 
   // 两道执行面：候选/判卷会拉起模型会话，彼此争用同一个端点，故单独限流；
   // 其余阶段是秒级子进程，没有理由排在长作业后面（实测 131 件里 111 件 <1s）。
@@ -64,6 +65,48 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
   const MAX_CHEAP = Number(process.env.ABATHUR_MAX_CHEAP_JOBS || 4)
   const active = new Map()    // name → {pid, stage}
   const runningNames = () => [...active.keys()]
+  // Cross-process truth: claims are atomic renames into claimed/; each host owns
+  // exactly one state file running-<pid>.json (single writer); lane counters sum
+  // every live host's file. (Two-host double-take + shared-file wipe, 2026-11-02.)
+  const ownFile = () => path.join(queue, `running-${process.pid}.json`)
+  const writeOwn = () => {
+    const jobs = [...active.entries()].map(([name, info]) => ({
+      name, stage: info.stage, gen: info.gen, item: info.item,
+      started_at: info.started_at, pid: info.pid, host_pid: process.pid,
+    }))
+    const tmp = `${ownFile()}.tmp`
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ jobs }))
+      fs.renameSync(tmp, ownFile())
+    } catch (e) { log(logfile, `RUNNING-WRITE-FAIL ${e?.message || e}`) }
+  }
+  const peerJobs = () => {
+    const out = []
+    let names = []
+    try { names = fs.readdirSync(queue) } catch { return out }
+    for (const f of names) {
+      if (!/^running-\d+\.json$/.test(f)) continue
+      const pid = Number(f.slice("running-".length, -".json".length))
+      if (pid === process.pid) continue
+      let rec
+      try { rec = JSON.parse(fs.readFileSync(path.join(queue, f), "utf8")) } catch { continue }
+      for (const job of Array.isArray(rec?.jobs) ? rec.jobs : []) {
+        if (!job?.name) continue
+        out.push({ ...job, host_pid: pid, file: f })
+      }
+    }
+    return out
+  }
+  const alive = (pid) => !!pid && fs.existsSync(`/proc/${pid}`)
+  const laneCounts = () => {
+    let model = 0, cheap = 0
+    for (const v of active.values()) MODEL_STAGES.has(v.stage) ? model++ : cheap++
+    for (const p of peerJobs()) {
+      if (!alive(p.host_pid) || !alive(p.pid)) continue
+      MODEL_STAGES.has(p.stage) ? model++ : cheap++
+    }
+    return { model, cheap }
+  }
   const sidFile = path.join(queue, "last-session.txt")
   const readAddr = () => {
     try {
@@ -163,49 +206,69 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
     log(logfile, `PENDING n=${pending.length} mode=${burst ? "burst" : "solo"} dwell=${dwell}ms`)
   }
 
-  const reconcile = () => {
-    const rf = path.join(queue, "running.json")
-    let rec
-    try { rec = JSON.parse(fs.readFileSync(rf, "utf8")) } catch { return }
-    const jobs = Array.isArray(rec?.jobs) ? rec.jobs : (rec?.name ? [rec] : [])
-    if (!jobs.length) return
+  const drainEntries = (jobs, source) => {
     const keep = []
     for (const job of jobs) {
       if (!job?.name) continue
       if (active.has(job.name)) { keep.push(job); continue }
-      if (job.pid && fs.existsSync(`/proc/${job.pid}`)) { keep.push(job); continue }
+      if (alive(job.host_pid ?? job.pid) && alive(job.pid)) { keep.push(job); continue }
+      if (alive(job.pid)) { try { process.kill(job.pid, "SIGTERM") } catch {} }
       const target = path.join(done, `${job.name}.result.json`)
-      if (fs.existsSync(target)) {
-        log(logfile, `RECONCILED ${job.name} cleared-stale-noop`)
-        continue
+      const claimedFile = path.join(claimed, `${job.name}.json`)
+      if (!fs.existsSync(target)) {
+        let won = true
+        if (fs.existsSync(claimedFile)) {
+          try { fs.renameSync(claimedFile, `${claimedFile}.reclaimed`) } catch { won = false }
+        }
+        if (won) {
+          const result = {
+            gen: job.gen, item: job.item, stage: job.stage, rc: -1, kind: "INTERRUPTED", elapsed_s: null,
+            tail: "进程在结果落盘前消失；此前可能已有工件，先查 run dir 再决定重跑",
+          }
+          try { fs.writeFileSync(target, JSON.stringify(result, null, 1), { flag: "wx" }) } catch { won = false }
+          if (won) {
+            log(logfile, `RECONCILED ${job.name} kind=INTERRUPTED src=${source}`)
+            queueReceipt(
+              `作业中断：${job.name}（gen=${job.gen} item=${job.item} stage=${job.stage}）——终态记录已补写 kind=INTERRUPTED；` +
+              `若工件已存在可先判卷，不要盲目重跑。结果文件 done/${job.name}.result.json`
+            )
+          }
+        }
       }
-      const result = {
-        gen: job.gen, item: job.item, stage: job.stage, rc: -1, kind: "INTERRUPTED", elapsed_s: null,
-        tail: "进程在结果落盘前消失；此前可能已有工件，先查 run dir 再决定重跑",
-      }
-      try { fs.writeFileSync(target, JSON.stringify(result, null, 1)) } catch (e) {
-        log(logfile, `RECONCILE-FAIL ${job.name} ${e?.message || e}`)
-      }
-      log(logfile, `RECONCILED ${job.name} kind=INTERRUPTED`)
-      queueReceipt(
-        `作业中断：${job.name}（gen=${job.gen} item=${job.item} stage=${job.stage}）——终态记录已补写 kind=INTERRUPTED；` +
-        `若工件已存在可先判卷，不要盲目重跑。结果文件 done/${job.name}.result.json`
-      )
+      try { fs.rmSync(claimedFile, { force: true }) } catch {}
     }
-    try { fs.writeFileSync(rf, JSON.stringify({ jobs: keep })) } catch {}
+    return keep
+  }
+
+  const reconcile = () => {
+    const legacy = path.join(queue, "running.json")
+    try {
+      const rec = JSON.parse(fs.readFileSync(legacy, "utf8"))
+      const jobs = Array.isArray(rec?.jobs) ? rec.jobs : (rec?.name ? [rec] : [])
+      const keep = drainEntries(jobs, "legacy").filter((j) => alive(j.pid))
+      if (!keep.length) fs.rmSync(legacy, { force: true })
+      else fs.writeFileSync(legacy, JSON.stringify({ jobs: keep }))
+    } catch {}
+    let names = []
+    try { names = fs.readdirSync(queue) } catch { return }
+    for (const f of names) {
+      if (!/^running-\d+\.json$/.test(f)) continue
+      const hostPid = Number(f.slice("running-".length, -".json".length))
+      if (hostPid === process.pid) continue
+      const fpath = path.join(queue, f)
+      let rec
+      try { rec = JSON.parse(fs.readFileSync(fpath, "utf8")) } catch { continue }
+      const jobs = Array.isArray(rec?.jobs) ? rec.jobs : []
+      const withHost = jobs.map((j) => (j ? { ...j, host_pid: j.host_pid ?? hostPid } : j))
+      const keep = drainEntries(withHost, f).filter((j) => alive(j.host_pid) && alive(j.pid))
+      if (!keep.length) { try { fs.rmSync(fpath, { force: true }) } catch {} }
+      else { try { fs.writeFileSync(fpath, JSON.stringify({ jobs: keep })) } catch {} }
+    }
   }
 
   reconcile()
 
-  const persistRunning = () => {
-    const jobs = [...active.entries()].map(([name, info]) => ({
-      name, stage: info.stage, gen: info.gen, item: info.item,
-      started_at: info.started_at, pid: info.pid,
-    }))
-    try {
-      fs.writeFileSync(path.join(queue, "running.json"), JSON.stringify({ jobs }))
-    } catch (e) { log(logfile, `RUNNING-WRITE-FAIL ${e?.message || e}`) }
-  }
+  const persistRunning = () => writeOwn()
 
   const runJob = (name, req) => new Promise((resolve) => {
     const script = path.join(root, STAGES[req.stage])
@@ -231,11 +294,11 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
       try { fs.writeFileSync(path.join(done, `${name}.result.json`), JSON.stringify(result, null, 1)) } catch (e) {
         log(logfile, `RESULT-WRITE-FAIL ${name} ${e?.message || e}`)
       }
-      try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {}
+      try { fs.rmSync(path.join(claimed, `${name}.json`), { force: true }) } catch {}
       log(logfile, `DONE ${name} rc=${rc} ${elapsed}s`)
       active.delete(name)
-      if (active.size) persistRunning()
-      else { try { fs.rmSync(path.join(queue, "running.json"), { force: true }) } catch {} }
+      if (active.size) writeOwn()
+      else { try { fs.rmSync(ownFile(), { force: true }) } catch {} }
       queueReceipt(`gen=${req.gen} item=${req.item} stage=${req.stage} rc=${rc} 用时=${elapsed}s name=${name}`)
       resolve(result)
     })
@@ -246,18 +309,20 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
     reconcile()
     let files = []
     try {
-      files = fs.readdirSync(queue).filter((f) => f.endsWith(".json") && f !== "running.json").sort()
+      files = fs.readdirSync(queue)
+        .filter((f) => f.endsWith(".json") && f !== "running.json" && !/^running-\d+\.json$/.test(f))
+        .sort()
     } catch { return }
     if (!files.length) return
     for (const f of files) {
-      const modelActive = [...active.values()].filter((v) => MODEL_STAGES.has(v.stage)).length
-      const cheapActive = active.size - modelActive
       const name = f.replace(/\.json$/, "")
       const file = path.join(queue, f)
+      const mine = path.join(claimed, f)
+      try { fs.renameSync(file, mine) } catch { continue }
       let req
-      try { req = JSON.parse(fs.readFileSync(file, "utf8")) } catch (e) {
+      try { req = JSON.parse(fs.readFileSync(mine, "utf8")) } catch (e) {
         fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: `无法解析：${e.message}` }))
-        fs.rmSync(file, { force: true })
+        fs.rmSync(mine, { force: true })
         log(logfile, `REJECT ${name} 无法解析`)
         continue
       }
@@ -267,14 +332,17 @@ export const AbathurExamRunner = async ({ client, directory, worktree }) => {
         : !STAGES[req.stage] ? `stage 非法 ${req.stage}` : null
       if (bad) {
         fs.writeFileSync(path.join(rejected, `${name}.json`), JSON.stringify({ reason: bad, request: req }))
-        fs.rmSync(file, { force: true })
+        fs.rmSync(mine, { force: true })
         log(logfile, `REJECT ${name} ${bad}`)
         continue
       }
       const isModel = MODEL_STAGES.has(req.stage)
-      if (isModel ? modelActive >= MAX_MODEL : cheapActive >= MAX_CHEAP) continue
-      fs.rmSync(file, { force: true })
-      log(logfile, `TAKE ${name} ${req.gen}/${req.item}/${req.stage} lane=${isModel ? "model" : "cheap"} active=${active.size}`)
+      const lanes = laneCounts()
+      if (isModel ? lanes.model >= MAX_MODEL : lanes.cheap >= MAX_CHEAP) {
+        try { fs.renameSync(mine, file) } catch {}
+        continue
+      }
+      log(logfile, `TAKE ${name} ${req.gen}/${req.item}/${req.stage} lane=${isModel ? "model" : "cheap"} model=${lanes.model} cheap=${lanes.cheap}`)
       runJob(name, req).catch((e) => log(logfile, `JOB-ERROR ${name} ${e?.message || e}`))
     }
   }
