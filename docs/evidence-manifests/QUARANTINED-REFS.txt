@@ -14,7 +14,12 @@
 #      ACKNOWLEDGED-FOREIGN-COMMITS.txt: seat self-declaration is void without a
 #      named adjudicator.
 #
+# Format: <ref> <expected-commit-count>
+# The count is `git rev-list <ref> | wc -l` (ALL commits on that ref, not just the
+# foreign-identity subset). The gate fails on any mismatch: a declaration it cannot
+# check is worthless, and a growing backup ref must not pass silently.
+#
 # Verification command (replay):
 #   git rev-list original/refs/heads/main | wc -l
 #   git for-each-ref --format='%(refname)' | grep '^refs/original/'
-original/refs/heads/main
+original/refs/heads/main 151

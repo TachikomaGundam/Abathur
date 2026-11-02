@@ -7,17 +7,23 @@
 # as PENDING-ADJUDICATION and fails closed on any NEW identity outside
 # .git/allowed-identities.
 #
-# WRITE RULE (binding; added 2026-11-03 after sibyl-20261102T201047Z-46d3):
+# WRITE RULE (binding; added 2026-11-03 after sibyl-20261102T201047Z-46d3,
+# strengthened after sibyl-20261102T203622Z-db86):
 #   1. The seat may NOT append a sha to this file on its own authority. A
 #      self-appended line is void and must be removed.
 #   2. A line becomes valid only when a named adjudicator signs it: a human
 #      approval entry (ledger/INTENT-LEDGER human entry) or, as附卷 evidence only,
 #      a sibyl_audit receipt with independence=INDEPENDENT whose auditor session
 #      ID reconciles against the engine DB.
-#   3. Until then the status of every line here is PENDING.
-#   4. Residual risk (disclosed, not closed): this file is same-uid writable, so
-#      the gate can be silenced by whoever can write it. It therefore ranks with
-#      the pre-commit hook: accident-proofing only, not a security boundary.
+#   3. Enforcement is fail-closed: ANY sha line here makes the gate exit 1
+#      (VERDICT=FAIL-PENDING). So appending a line cannot turn a red gate green —
+#      it can only change FOREIGN into FAIL-PENDING, both red. `--allow-pending`
+#      exists for pre-adjudication exploration and must never gate a release.
+#   4. Residual risk (disclosed, not closed): this file is same-uid writable. The
+#      only defence against a self-appended line is that it still leaves the gate
+#      RED until a human signs, plus an auditor re-deriving `git log --author`.
+#      It therefore ranks with the pre-commit hook: accident-proofing, not a
+#      security boundary.
 # Owner decision pending: rewrite history (strip) vs keep-and-label.
 
 1686dbc2d2d566b64b279ec5e98189ae0f6abb36

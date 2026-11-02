@@ -89,17 +89,22 @@ def commits(rev_args: list[str]) -> list[tuple[str, str, str, str]]:
     return rows
 
 
-def quarantined_refs(path: Path) -> list[str]:
-    """Declared historical refs (e.g. filter-repo backups). Not an amnesty:
-    commits reachable from HEAD are still scanned by the HEAD pass."""
+def quarantined_refs(path: Path) -> list[tuple[str, int | None]]:
+    """Declared historical refs (e.g. filter-repo backups), each with an optional
+    expected commit count. A count mismatch is drift and fails closed: the gate is
+    not allowed to trust a declaration it cannot check."""
     if not path.exists():
         return []
-    pats = []
+    out: list[tuple[str, int | None]] = []
     for raw in path.read_text().splitlines():
         line = raw.split("#", 1)[0].strip()
-        if line:
-            pats.append(line)
-    return pats
+        if not line:
+            continue
+        parts = line.split()
+        ref = parts[0]
+        expected = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+        out.append((ref, expected))
+    return out
 
 
 def refs_containing(sha: str) -> str:
@@ -117,6 +122,7 @@ def is_registered(name: str, email: str, entries: list[tuple[str | None, str]]) 
 
 def main(argv: list[str]) -> int:
     ack_path = ACK
+    allow_pending = "--allow-pending" in argv
     if "--ack" in argv:
         i = argv.index("--ack")
         if i + 1 >= len(argv):
@@ -130,13 +136,18 @@ def main(argv: list[str]) -> int:
     head_rows = commits(["HEAD"])
     other_rows = commits(["--all", "--not", "HEAD"])
 
-    qpats = quarantined_refs(QUARANTINE)
+    qdecl = quarantined_refs(QUARANTINE)
     q_shas: set[str] = set()
-    for pat in qpats:
+    q_drift: list[tuple[str, int | None, int]] = []
+    for ref, expected in qdecl:
         try:
-            q_shas.update(git("rev-list", pat).split())
+            shas = git("rev-list", ref).split()
         except SystemExit:
+            q_drift.append((ref, expected, -1))
             continue
+        q_shas.update(shas)
+        if expected is not None and expected != len(shas):
+            q_drift.append((ref, expected, len(shas)))
 
     new_foreign: list[tuple[str, str, str, str]] = []
     debt: list[tuple[str, str, str, str]] = []
@@ -165,19 +176,35 @@ def main(argv: list[str]) -> int:
     for sha, name, email, subject in other_foreign:
         print(f"  OTHER-REF-FOREIGN {sha[:9]} {name} <{email}> [{refs_containing(sha)}] {subject}")
     if quarantined:
-        refs = ",".join(qpats)
+        refs = ",".join(r for r, _ in qdecl)
         print(
             f"  QUARANTINED {len(quarantined)} commit(s) reachable only from declared "
             f"historical refs [{refs}] — see {QUARANTINE.name}; must never be pushed"
         )
+    for ref, expected, actual in q_drift:
+        print(
+            f"  QUARANTINE-DRIFT {ref} declared={expected} actual={actual} — "
+            "declaration does not match the repository; fix the declaration or the ref"
+        )
 
+    if q_drift:
+        print("VERDICT=FOREIGN-COMMITS FAIL — quarantine declaration drift")
+        return 1
     if new_foreign or other_foreign:
         print("VERDICT=FOREIGN-COMMITS FAIL — unregistered identity on this repository")
+        return 1
+    if debt and not allow_pending:
+        print(
+            f"VERDICT=FOREIGN-COMMITS FAIL-PENDING — {len(debt)} unadjudicated foreign "
+            "commit(s). PENDING is not a pass: a named adjudicator must sign each line "
+            "(see ACKNOWLEDGED-FOREIGN-COMMITS.txt write rule). --allow-pending exists "
+            "for pre-adjudication exploration only and must never gate a release."
+        )
         return 1
     if debt:
         print(
             "VERDICT=FOREIGN-COMMITS OK (with PENDING-ADJUDICATION items — "
-            "not amnesty; see ACKNOWLEDGED-FOREIGN-COMMITS.txt write rule)"
+            "not amnesty; --allow-pending was passed)"
         )
         return 0
     print("VERDICT=FOREIGN-COMMITS OK")

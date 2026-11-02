@@ -89,7 +89,7 @@
 | # | 措施 | 回执 |
 |---|---|---|
 | 1 | 提交身份闸改 `Name <email>` 双键 | 四例实测：`abathur-seat<abathur@local>` 拒、`abathur` 过、机主身份过、`x@y` 拒 |
-| 2 | `scripts/check-foreign-commits.py` + 具名债务账 | 账文件绝对路径 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/ACKNOWLEDGED-FOREIGN-COMMITS.txt`，当场实测 **66 行 = 44 枚 sha + 22 行非 sha**（复算：`wc -l …` 与 `grep -c '^[0-9a-f]\{40\}$' …`）；当前 `pending_adjudication=44 new_foreign=0 other_ref_foreign=0 quarantined_ref_commits=107`，VERDICT 文案带「not amnesty」 |
+| 2 | `scripts/check-foreign-commits.py` + 具名债务账 | 账文件绝对路径 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/ACKNOWLEDGED-FOREIGN-COMMITS.txt`，当场实测 **66 行 = 44 枚 sha + 22 行非 sha**（复算：`wc -l …` 与 `grep -c '^[0-9a-f]\{40\}$' …`）；**现状是红灯且必须保持红灯**：`pending_adjudication=44` → `VERDICT=FOREIGN-COMMITS FAIL-PENDING` rc=1。`--allow-pending` 只用于裁定前的探查（rc=0），不得用于发布门 |
 | 3 | `verify-all.sh` 第 8 步接入上述闸 | `steps=8` |
 | 4 | `scripts/audit-promotions.py`、`scripts/promotion-inventory.py` | 本日修正后输出 33 代、缺档 6 代 |
 | 5 | 事故报告 `docs/INCIDENT-20261103-foreign-commits.md` | 已存在（须按 44 笔口径复核） |
@@ -101,10 +101,14 @@
 - 账头四条写入规则：本席不得自增；一行只有在人类签认或 `sibyl_audit` 回执（`independence=INDEPENDENT`，审计会话可在引擎库对账）附卷后才算有效；未裁定前一律 PENDING；同 uid 可写的残留以文字披露。
 - 闸输出改为 `pending_adjudication=<n>` + 逐行 `PENDING-ADJUDICATION` + VERDICT 文案带 `not amnesty`；**加行不再等于静默放过**。
 - **扫描范围修正（第四轮驳回点，`sibyl-20261102T202251Z-7938`）**：原实现只扫 `origin/main..HEAD`，于是活在改写前备份 ref 上的 4 笔同身份提交从未被看见——闸报 `new_foreign=0` 而盘上仍有未裁定外线提交。现实现扫 `HEAD` 全谱系，并单独扫 `--all --not HEAD`：不属于已声明历史 ref 的归 `OTHER-REF-FOREIGN`（判败），属于的归 `quarantined_ref_commits`（计数+具名，不判败，因为它们是 filter-repo 改写前的历史）。声明文件 `/home/lab/workspace/harness/Abathur/docs/evidence-manifests/QUARANTINED-REFS.txt`（当前仅 `original/refs/heads/main`，107 笔；该文件同 uid 可写，属同类残留）。
-- **探针回执（两项，均用 `--ack` 副本，不污染真账）**：
-  - A 账本清空（只留注释行）→ `pending_adjudication=0 new_foreign=44` rc=1，且逐行打印 44 条 `FOREIGN`。证明账本被清空不能洗白。
-  - B 账本删去 1 枚 sha → `pending_adjudication=43 new_foreign=1` rc=1。证明少一行就立刻有一笔暴露，加行/删行都可见。
-  - 结论：闸的判败条件不再只依赖「账本里有没有这一行」，账本只能把已知历史降级为 PENDING，不能把未知提交变成通过。
+- **探针回执（四项，均用 `--ack` 副本或可回滚的 sed，不污染真账）**：
+  - A 账本清空（只留注释行）→ `pending_adjudication=0 new_foreign=44` rc=1，且逐行打印 44 条 `FOREIGN`。
+  - B 账本删去 1 枚 sha → `pending_adjudication=43 new_foreign=1` rc=1。
+  - C 插入路径（第五轮 `sibyl-20261102T203622Z-db86` 指出的盲区）→ 闸已改为**任何 sha 行都判败**：真实账本原样跑 `pending_adjudication=44 … VERDICT=FOREIGN-COMMITS FAIL-PENDING` **rc=1**；只有显式 `--allow-pending` 才 rc=0。因此「把新外线提交的 sha 追加进账本」只能把 `FOREIGN` 换成 `FAIL-PENDING`，两者都是红灯，**升不到绿**。
+  - D 声明漂移 → 把 `QUARANTINED-REFS.txt` 的期望计数从 151 改成 150，闸输出 `QUARANTINE-DRIFT original/refs/heads/main declared=150 actual=151`、`VERDICT=… FAIL — quarantine declaration drift` **rc=1**；改回 151 后恢复（见 §12 的 C/D 处置）。
+  - 结论：闸的绿灯只有一种来源——**没有未裁定的外线提交**。账本与声明文件都只能把「未知」变「红着等你签」，不能把它们变绿。
+
+**仍不闭合、必须由人类或异 uid 面解决**：账本与 `QUARANTINED-REFS.txt` 本身同 uid 可写；闸的绿灯只等于「没有未裁定的外线提交」，不等于「没有人能写这些文件」。真闭合＝异 uid 写面或远端镜像。
 
 ### 待落地（本席可自执行）
 
@@ -193,4 +197,17 @@
 | §5 用符号链 mtime（`ls -la --time-style=full-iso`）钉 dev-link 建立时刻 | 已降级为**线索**并明示锚链不戳符号链、该时刻无链上证据；只保留 `readlink` 与撤除后 `which` 两条已证事实（§5） |
 | 提交计数被列在「能证」而未加不可证限定 | 已加边界声明（本地对象库同 uid 可写）并给复算命令；44 笔的 `git branch -r --contains` 全空回执同时列出（§4 F2） |
 
-**本版新增的残留（同样不闭合）**：`QUARANTINED-REFS.txt` 与本席同 uid 可写——把任意 ref 声明为「历史备份」即可让该 ref 上的外线提交转成不判败的 `quarantined` 计数。缓解只有三条：该文件不被信任（每次审计须自己跑 `git rev-list original/refs/heads/main` 复核 107 这个数）、`quarantine` 只对「不在 HEAD 谱系」的提交生效、任何 ref 若被推送到远端则须人工复核。真闭合仍要靠异 uid 写面（第 11 条）或远端镜像。
+**本版新增的残留（同样不闭合）**：`QUARANTINED-REFS.txt` 与本席同 uid 可写——把任意 ref 声明为「历史备份」即可让该 ref 上的外线提交转成不判败的 `quarantined` 计数。缓解只有三条：该文件不被信任（每次审计须自己跑 `git rev-list original/refs/heads/main | wc -l` 复核 151 这个数）、`quarantine` 只对「不在 HEAD 谱系」的提交生效、任何 ref 若被推送到远端则须人工复核。真闭合仍要靠异 uid 写面（第 11 条）或远端镜像。
+
+## 十三、第五版被驳回的处置（`sibyl-20261102T203622Z-db86`，**APPROVE 2A/1R**，附四条 must-fix）
+
+该轮独立复算了三项磁盘事实（66 行=44+22、`QUARANTINED-REFS.txt` 仅 1 条、`nightly.log` 1639/1640/1641 三行逐字），并确认扫描修复与「不把缓解写成闭合」两维度达标；四条 must-fix 如下，全部已落：
+
+| 驳回点 | 处置 |
+|---|---|
+| 结论句「账本不能把未知提交变成通过」与实跑 `rc=0` 矛盾；插入路径零覆盖 | 闸改为 **PENDING 即判败**（`FAIL-PENDING` rc=1），`--allow-pending` 仅供探查；探针 C 记录原样跑 rc=1。插入 sha 只能从 FOREIGN 变 FAIL-PENDING，无法升绿（§7 第 2 条） |
+| `QUARANTINED-REFS` 无外部锚，可自增 ref 洗白 | 声明格式改 `ref <期望提交数>`，闸做**计数比对**，不符即 `QUARANTINE-DRIFT` 判败；探针 D 记录 declared=150/actual=151 → rc=1。外部锚（入链/人类签认）待 infra 工单，文中如实列为不闭合 |
+| 写入规则说「须签认才算有效」，实现却见行即计 PENDING | 规则改写为实现：**任何 sha 行立即生效为 PENDING，而 PENDING 一律判败**——两者对齐后，规则不再是「说了但不执行」（账头第 3 条已重写） |
+| F2 行号引用缺宿主侧复算命令、路径未绝对化 | 已改为绝对路径 `/home/lab/.local/share/abathur/anchor/nightly.log` 并给 `sed -n '1639,1641p'` 复算命令，三行预期随文 |
+
+**本版新增的不闭合（如实列出）**：闸现在**恒红灯**直到 44 笔逐行人类签认——这是设计意图（绿灯不得建立在未裁定外线提交之上），代价是发布门与 `verify-all` 第 8 步在此期间始终红。裁定表见 `docs/INCIDENT-20261103-FOREIGN-COMMITS-ADJUDICATION.md`。
