@@ -13,6 +13,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { openSync as fsOpenAppend } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,30 @@ export function wrapCommand({ bwrap, workspace, cmd, net, bornAt, launcherStarte
 
 function log(line) { try { fs.appendFileSync(LOG, `${new Date().toISOString()} ${line}\n`); } catch { /* 日志不可写不阻断 */ } }
 
+/**
+ * 复发账原始事件（单一写者=本插件；loop/recurrence.py 只读聚合）。
+ * 目的：闸拦下的行为病必须可数，否则「第三次同病=方法违规」没有触发器。
+ * 不写哈希链（链的单一写者是 recurrence.py）；每行自带 body sha256 供篡改检出。
+ */
+function appendGateBlock(repoRoot, cls, gate, detail) {
+  try {
+    const dir = path.join(repoRoot, ".omo", "evidence");
+    fs.mkdirSync(dir, { recursive: true });
+    const body = {
+      ts: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      class: cls,
+      gate,
+      detail: String(detail).slice(0, 300),
+    };
+    const canon = JSON.stringify(body, Object.keys(body).sort());
+    const sha = createHash("sha256").update(canon).digest("hex");
+    fs.appendFileSync(path.join(dir, "gate-blocks.jsonl"),
+                      JSON.stringify({ ...body, sha256: sha }) + "\n", "utf8");
+  } catch (e) {
+    log(`GATE-BLOCK-LOG-FAILED ${e?.message || e}`);
+  }
+}
+
 export const SandboxBash = async ({ directory }) => {
   const repoRoot = path.resolve(HERE, "..", "..");
   if (!shouldWrap(directory, repoRoot)) return {};
@@ -134,6 +159,7 @@ export const SandboxBash = async ({ directory }) => {
       const marker = COPY_MARKERS.find((m) => args.command.includes(m));
       if (marker) {
         log(`REFUSE copied-prefix marker=${marker}`);
+        appendGateBlock(repoRoot, "bwrap-prefix-paste", "sandbox-bash.js:137", marker);
         throw new Error("SANDBOX-PREFIX-COPIED: this command already carries a sandbox prefix (usually pasted back from earlier output). Send the bare command only — wrapping is the plugin's job.");
       }
       const bornAt = new Date().toISOString();
