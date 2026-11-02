@@ -295,6 +295,52 @@ async function evolve(
     // resume) still counts for the exit status — the ledger verdict stands.
     const reported = new Set<string>();
 
+    // PARALLEL-ARMS (TICKET-parallel-arms engine half): un-resumed arms bench in
+    // batches of up to 3 (ticket load cap). Each arm already owns its sandboxRoot/
+    // genId (D-e12b), its candidate worktree, and a read-only score bank; ledger
+    // appends, friction notes and the budget accumulator stay deterministic-order in
+    // the sequential post-pass below. Budget sentinels compare ABSOLUTE counters:
+    // arm i sees caps = entry + shard_i and the shards sum EXACTLY to the remaining
+    // budget at entry, so parallel arms cannot double-spend the shared caps.
+    const entryCounters = counters;
+    const toBench = session.applied.filter((c) => resume.candidatesByTree.get(c.treeSha) === undefined);
+    const remainingBudget: BudgetCounters = {
+      candidates: Math.max(0, caps.maxCandidates - entryCounters.candidates),
+      modelCalls: Math.max(0, caps.maxModelCalls - entryCounters.modelCalls),
+      tokens: Math.max(0, caps.maxTokens - entryCounters.tokens),
+      wallS: Math.max(0, caps.maxWallS - entryCounters.wallS),
+    };
+    const benchOut = new Map<string, Awaited<ReturnType<typeof benchTarget>>>();
+    const ARM_BATCH = 3;
+    for (let start = 0; start < toBench.length; start += ARM_BATCH) {
+      const batch = toBench.slice(start, start + ARM_BATCH);
+      const shard = (v: number, i: number): number => Math.floor(v / batch.length) + (i === 0 ? v % batch.length : 0);
+      const outs = await Promise.all(batch.map(async (c, i) => {
+        const armCaps: BudgetCaps = {
+          maxCandidates: entryCounters.candidates + shard(remainingBudget.candidates, i),
+          maxModelCalls: entryCounters.modelCalls + shard(remainingBudget.modelCalls, i),
+          maxTokens: entryCounters.tokens + shard(remainingBudget.tokens, i),
+          maxWallS: entryCounters.wallS + shard(remainingBudget.wallS, i),
+        };
+      const out = await benchTarget({
+        spec: { ...spec, repoPath: c.worktreePath },
+        genId: c.genId,
+        reps,
+        caps: armCaps,
+        countersBefore: entryCounters,
+        sandboxRoot: path.join(sandboxBase, c.genId),
+        source: "candidate",
+        tracker,
+        configDir: opts.configDir,
+        ...(opts.includeVal === true ? { includeVal: true } : {}),
+        ...(configEnv === undefined ? {} : { env: configEnv }),
+        ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: c.commitSha } } : {}),
+      });
+        return [c.candidateId, out] as const;
+      }));
+      for (const [id, out] of outs) benchOut.set(id, out);
+    }
+
     for (const c of session.applied) {
       const prior = resume.candidatesByTree.get(c.treeSha);
       if (prior !== undefined) {
@@ -304,20 +350,8 @@ async function evolve(
         lines.push(`candidate ${c.candidateId}: tree ${c.treeSha.slice(0, 12)} already in ledger — resume reuses verdict '${verdict}', no re-bench, no double spend`);
         continue;
       }
-      const out = await benchTarget({
-        spec: { ...spec, repoPath: c.worktreePath },
-        genId: c.genId,
-        reps,
-        caps,
-        countersBefore: counters,
-        sandboxRoot: path.join(sandboxBase, c.genId),
-        source: "candidate",
-        tracker,
-        configDir: opts.configDir,
-        ...(opts.includeVal === true ? { includeVal: true } : {}),
-        ...(configEnv === undefined ? {} : { env: configEnv }),
-        ...(selfMode ? { selfBench: { ...selfBenchBase, candidateCommit: c.commitSha } } : {}),
-      });
+      const out = benchOut.get(c.candidateId);
+      if (out === undefined) throw new Error(`run-loop: benched arm ${c.candidateId} missing in post-pass`);
       counters = addCounters(counters, out.spent);
       fric?.noteBench(out);
       // The candidate's own slot is already committed by the session clamp; it
