@@ -227,7 +227,7 @@ export async function benchTarget(o: BenchTargetOptions): Promise<BenchTargetOut
           row.failures.push(`${unit.id} rep ${String(rep)}: run ${run.status}: ${run.note ?? run.status}`);
           continue;
         }
-        const score = await bundle.adapter.score(unit);
+        const score = await bundle.adapter.score(unit, sandbox);
         if (score.kind === "scored" && !Number.isFinite(score.result.score)) {
           // r21 injury ticket: a NaN/Inf score is a BROKEN RULER, not a number —
           // it must never become a replicate (vacuous aggregates minted bogus

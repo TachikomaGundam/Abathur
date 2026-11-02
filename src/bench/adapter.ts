@@ -65,8 +65,11 @@ export interface BenchAdapter {
   seed(sandboxDir: string): Promise<void>;
   /** Execute one unit in the sandbox, hard-capped at timeoutS seconds. */
   run(unit: BenchUnit, sandboxDir: string, timeoutS: number): Promise<RunResult>;
-  /** Grade one unit via bench.graderCommand (toy: node grader.mjs {unit.path}). */
-  score(unit: BenchUnit): Promise<ScoreOutcome>;
+  /** Grade one unit via bench.graderCommand (toy: node grader.mjs {unit.path}).
+   *  sandboxDir: explicit sandbox under test. Optional callers fall back to the
+   *  last reset/seed/run sandbox; unit-parallel drivers MUST pass it so a shared
+   *  adapter never grades one unit inside another unit's sandbox. */
+  score(unit: BenchUnit, sandboxDir?: string): Promise<ScoreOutcome>;
 }
 
 // ------------------------------------------------------- command template engine
