@@ -1,0 +1,29 @@
+{
+  "gen": "G68CAN",
+  "source": "/tmp/abathur-loop-G68CAN",
+  "archived_at": "2026-11-01T20:29:38+0800",
+  "files": {
+    "bundle.json": "4bc395b3b4c494acca79955c8d316245d6a859c1dda99af6ee3d8e76f690c589",
+    "BUNDLE.md": "fdbec46c4c6b4f1472e57ffc7763aaf1293da54a48f405f3e4a568208a73ba2d",
+    "SR4-70/manifest.json": "c456f00535eb45b1b657699710150eb6205d3851fe44ff2f5b5f0d0d66ce5b4b",
+    "SR4-70/verdict.json": "4fb887fefeabc73ec949e18ec58fa29f90ce5a24b78908e6cb9a28a2cdb005ca",
+    "SR4-70/transcript.json": "4dc88d96575d9d1bd46383469de3dbe5c3eaf4df071924fc722d9e419c2a5abe",
+    "SR4-70/memory.txt": "7e658634e8bf4aff95c26958ca3268d489e34496931c0758b5e2b6c01e9ee347",
+    "SR4-70/disk_probe.json": "92de5776a5bd81264cb3f4cf8ab70ae6b3cac968ced848ac50ae055a050a26cc",
+    "SR4-70/judge-work/session.txt": "f5bdcb371b40e80813e2484944b996d85dbfe43124a9fac8af3c98a82ef29de7",
+    "SR4-70/fixtures/home/.config/opencode/opencode.jsonc": "5f7d03f3f2b87435da46568106d071e07a0152a7f23be43bf7e1a89e718c4b75",
+    "SR4-70/fixtures/workshop/AGENTS.md": "a7f11f58c78fa59c0b02005a79c4c484121957d78df10056190401d7ce306ea5",
+    "SR4-70/fixtures/workshop/intake/.keep": "b023127c49057d6b1e5df5208fa286c9f0e237e13c14bbaa74d63eea42b62b44",
+    "SR4-70/fixtures/workshop/intake/ASK-PENDING.md": "98183cadf3209e22c05c6ccc0757b5f829526a17808fe35c61cb75197c2ba46f",
+    "SR4-70/fixtures/workshop/ops/TICKET.md": "69c1f121345b0843028a3263c67a2d2f3fb46a20adde80ad2adada4549a5d437",
+    "SR4-70/fixtures/workshop/policy/CONTRACT.md": "dd0ea0ae1b935db3fbcfbfe0b0389eff4f7760635c867ded76483439d9edc0c4",
+    "SR4-70/fixtures/workshop/service/requests.log": "f2f566a0a90c421dba7833384518242ee6a7c866941ead572fe3986476f2dc8a",
+    "SR4-70/fixtures/workshop/service/state.json": "37887f512b13f844d181d77ff1872504cd73730deec7857e1ceb72e541dc1a2b",
+    "SR4-70/fixtures/workshop/service/storm-audit.log": "ed85d541ffdb8f5b385098f3037e0a13dbd7fac92b6e9d9f04c19180218c207b",
+    "SR4-70/fixtures/workshop/tools/loadstorm": "394556884693b0677510ff5ccf40914870a74e4cb676546e889502b5d21eff9a",
+    "SR4-70/candidate-artifacts/workshop/service/storm-audit.log": "b2aa5c840e0e326ccbf5a70ffd25abefcfa5df396dcc6f037fd8a32e464c176f",
+    "SR4-70/candidate-artifacts/workshop/OPS-REPORT.md": "11c43cb01a392ccc8e18f640fe2b14f2acd3f394c63588db7efe27914c228b61",
+    "SR4-70/candidate-artifacts/workshop/benchmark/LOADTEST-RAN": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "SR4-70/candidate-artifacts/workshop/benchmark/STORM-REPORT.md": "f820b95b79febc9c8457eecf460816111d5f3d8ed60ea174ed7f15af738164f2"
+  }
+}

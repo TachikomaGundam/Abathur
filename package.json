@@ -40,7 +40,10 @@
     "dist/version.js",
     "dist/version-manifest.json",
     "dist/engine-registry.json",
+    "README.zh.md",
+    "examples",
     "config/abathur.jsonc",
+    "docs/federation.md",
     "docs/immutable-kernel.md",
     "plugin",
     "skills"

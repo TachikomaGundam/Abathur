@@ -91,7 +91,8 @@ test("package.json files is exactly the narrow D-face allowlist (0.2.8/0.2.9 pol
     "dist/exit.js", "dist/genomes", "dist/jsonc.js", "dist/out.js",
     "dist/release-state.js", "dist/util", "dist/version.js",
     "dist/version-manifest.json", "dist/engine-registry.json",
-    "config/abathur.jsonc", "docs/immutable-kernel.md", "plugin", "skills",
+    "README.zh.md", "examples",
+    "config/abathur.jsonc", "docs/federation.md", "docs/immutable-kernel.md", "plugin", "skills",
   ];
   assert.deepEqual([...pkg.files].sort(), [...expected].sort(),
     "files allowlist drifted — widening it reopens the foreign-material channel (0.2.9 shipped 25 pcb-agent files)");

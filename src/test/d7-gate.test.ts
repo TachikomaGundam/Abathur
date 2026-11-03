@@ -63,6 +63,20 @@ test("D7 gate: src/** outside src/test/** is free of machine-bound literals", ()
   );
 });
 
+// The public READMEs are the one shipped surface a human reads first. After the
+// D7 example itself leaked this machine's home path, the gate covers the docs
+// too: a literal that is banned from src/ must not be pasted into the manual.
+test("D7 gate: public READMEs carry no machine-bound home path", () => {
+  const repo = fileURLToPath(new URL("../..", import.meta.url));
+  for (const name of ["README.md", "README.zh.md"]) {
+    const text = readFileSync(path.join(repo, name), "utf8");
+    assert.ok(
+      !text.includes(os.homedir()),
+      `${name} leaks this machine's home path (${os.homedir()}) — describe the guard, do not paste its target`,
+    );
+  }
+});
+
 // Pinned by the swarm-ordered disposition for gate defect class 2
 // (see the dated gate-defect report under docs/): an "evasion rewrite" that deletes
 // the negation guard to silence the gate must fail mechanically, not by review.
