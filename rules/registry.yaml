@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "generated_note": "Single authority for v2 rules. YAML 1.2 JSON subset; read with JSON.parse. Generated text lives in rules/generated/RULES.md and must not be edited by hand.",
+  "clauses": [
+    {
+      "id": "P-REGISTRY-01",
+      "class": "P",
+      "statement": "Every rule has one registry entry with a statement, an executable check, and either an exam item or a named exemption.",
+      "check": { "cmd": "node --test test/registry.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/registry-schema.log"
+    },
+    {
+      "id": "B-MODULE-BOUNDARY-01",
+      "class": "B",
+      "statement": "Kernel modules communicate only through their index.mjs interfaces; no deep imports and no shared mutable globals.",
+      "check": { "cmd": "node --test test/module-boundary.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/module-boundary.log"
+    },
+    {
+      "id": "P-GENERATE-01",
+      "class": "P",
+      "statement": "Rule text is generated from the registry deterministically; generated files carry the registry digest and are never hand-edited.",
+      "check": { "cmd": "node --test test/generate.test.mjs", "expect_rc": 0 },
+      "no_exam_reason": "Infrastructure check; the planning exam item SR4-76 already covers plan-vs-registry discipline.",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/generate.log"
+    },
+    {
+      "id": "A-IDENTITY-01",
+      "class": "A",
+      "statement": "A commit is attributed only when name and email match one registered identity byte-for-byte; everything else is UNATTRIBUTED.",
+      "check": { "cmd": "node --test test/identity.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-77",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w2/identity.log"
+    },
+    {
+      "id": "C-EVIDENCE-CHAIN-01",
+      "class": "C",
+      "statement": "Evidence is an append-only hash chain; any rewrite, deletion, or reordering is detectable by recomputation.",
+      "check": { "cmd": "node --test test/evidence.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-78",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w2/evidence-chain.log"
+    },
+    {
+      "id": "C-ANCHOR-BRIDGE-01",
+      "class": "C",
+      "statement": "External anchoring runs through an injected command; an unconfigured anchor fails closed with rc=2.",
+      "check": { "cmd": "node --test test/anchor.test.mjs", "expect_rc": 0 },
+      "no_exam_reason": "Infrastructure check; requires a machine-local anchor command that exams cannot own.",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w2/anchor-bridge.log"
+    },
+    {
+      "id": "D-VERDICT-SCHEMA-01",
+      "class": "D",
+      "statement": "A verdict has a closed schema; malformed shapes and empty reasons are rejected with named violations.",
+      "check": { "cmd": "node --test test/verdict.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-79",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w3/verdict-schema.log"
+    },
+    {
+      "id": "D-DEFECT-LEDGER-01",
+      "class": "D",
+      "statement": "Item defects and instrument defects are separate ledgers; auditors must be verified engine sessions; two rejections escalate to the human.",
+      "check": { "cmd": "node --test test/defects.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-80",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w3/defect-ledgers.log"
+    },
+    {
+      "id": "P-EXAM-REGISTRY-01",
+      "class": "P",
+      "statement": "The exam bank is data-driven, canary coverage is explicit, and SR4-76 carries a fake-plan rubric with four required findings.",
+      "check": { "cmd": "node --test test/exam.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w3/exam-registry.log"
+    },
+    {
+      "id": "P-BELL-RUNNER-01",
+      "class": "P",
+      "statement": "Bell mode must kill a planted fake answer; live mode must pass a legitimate answer; both run through injected seat and judge commands.",
+      "check": { "cmd": "node --test test/runner.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w3/sr4-76-bell-live.log"
+    },
+    {
+      "id": "B-SURFACE-01",
+      "class": "B",
+      "statement": "Surface writes are checked before execution; E1 cannot write E2, E0 cannot write E3, and human-gate operations never execute.",
+      "check": { "cmd": "node --test test/surface.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-77",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/surface.log"
+    },
+    {
+      "id": "H-LANE-01",
+      "class": "H",
+      "statement": "Cross-lane writes are attributed from actor evidence; unattributable events stay DISPUTED and never name a seat.",
+      "check": { "cmd": "node --test test/lane.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-80",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/lane.log"
+    },
+    {
+      "id": "G-HYGIENE-01",
+      "class": "G",
+      "statement": "Reclaim deletes only when a manifest matches every file hash and no target is on the evidence denylist.",
+      "check": { "cmd": "node --test test/hygiene.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-78",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w5/hygiene.log"
+    },
+    {
+      "id": "F-RECURRENCE-01",
+      "class": "F",
+      "statement": "The second recurrence of a defect class demands a structural fix; the third is a method violation.",
+      "check": { "cmd": "node --test test/recurrence.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-79",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w5/recurrence.log"
+    },
+    {
+      "id": "E-HUMAN-GATE-01",
+      "class": "E",
+      "statement": "Promote, tombstone, and publish are human gates: print a prescription with an absolute path and a reason, exit non-zero, never execute.",
+      "check": { "cmd": "node --test test/cli.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-77",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/cli.log"
+    },
+    {
+      "id": "P-ANTI-COPY-01",
+      "class": "P",
+      "statement": "The anti-copy gate runs through an injected command; every carried file needs a registered override with an independent audit receipt.",
+      "check": { "cmd": "node --test test/copygate.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/copy-similarity.log"
+    },
+    {
+      "id": "C-RECEIPT-INDEX-01",
+      "class": "C",
+      "statement": "The receipt index lists every closed wave with absolute paths and hashes; missing or stale entries fail the check.",
+      "check": { "cmd": "node --test test/receipts.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-78",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/receipt-index.log"
+    }
+  ]
+}
