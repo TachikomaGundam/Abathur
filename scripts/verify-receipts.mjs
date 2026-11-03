@@ -49,6 +49,9 @@ for (const task of tasks) {
     pending.push(task.id);
     continue;
   }
+  // F1's own output is the file this run produces; the plan forbids
+  // verifying it while it is being written.
+  if (task.id === "F1") continue;
   if (!task.evidence) {
     process.stdout.write(`RECEIPT FAIL task ${task.id}: missing Evidence field\n`);
     failed += 1;

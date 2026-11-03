@@ -3,9 +3,9 @@
 No entries.
 
 Policy: at most 3 entries and at most 10% of the v2 file count. Each entry must
-name a v1 path, a v2 path, a reason, and an independent `sibyl_audit` receipt
-(APPROVE + INDEPENDENT + the entry text sha256). Entries are written as
-backticked paths on one line so the copy gate can parse them.
+name a v1 path, a v2 path, a reason, and an independent review-adapter receipt
+(APPROVE + INDEPENDENT + a run id + the entry text sha256). The adapter is
+injected by the operator; no product name is written into code or rules.
 
 Format when an entry exists (one line per entry): a backticked v1 path, an arrow,
 a backticked v2 path, the reason, an independent audit receipt with the words
