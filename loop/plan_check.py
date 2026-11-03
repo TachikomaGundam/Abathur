@@ -7,7 +7,7 @@
 判定面（任一失败 rc=1，逐条具名）：
   1. 八节标题齐备、各一次、顺序固定。
   2. `## Scope` 下 `### Must NOT have` 存在且至少一条非占位条目。
-  3. `## Todos` 至少一条任务；任务行顶格 `- [ ] <编号>. <标题>`。
+  3. `## Todos` 至少一条任务；任务行顶格 `- [ ] <编号>. <标题>`（`- [x]` 同样接受，状态不改变结构校验）。
   4. 每条任务含十字段：Class / Clause / Wave / Depends / What to do / References /
      Acceptance / Evidence / QA / Commit，且值非占位。
   5. Class 取值属于 A–H 或 P；全计划并集覆盖 A–H 与 P（八类 + 规划类）。
@@ -70,8 +70,8 @@ REQUIRED_FIELDS = [
 ]
 
 PLACEHOLDER_RE = re.compile(r"(<fill\b|<\s*\.\.\.\s*>|<\s*[A-Za-z\u4e00-\u9fff][^<>]{0,40}?>|\bTBD\b|\bTODO\b|待定|占位)")
-TASK_RE = re.compile(r"^- \[ \] (\d+)\.\s+(\S.*)$")
-INDENTED_TASK_RE = re.compile(r"^\s+- \[ \] \d+\.")
+TASK_RE = re.compile(r"^- \[(?: |x|X)\] (\d+)\.\s+(\S.*)$")
+INDENTED_TASK_RE = re.compile(r"^\s+- \[(?: |x|X)\] \d+\.")
 FIELD_RE = re.compile(r"^\s+([A-Za-z][A-Za-z0-9 /()-]*?)\s*:\s*(.*)$")
 FIELD_BOLD_RE = re.compile(r"^\s*(?:[-*]\s+)?\*\*([^*]+?)\*\*\s*:?\s*(.*)$")
 ACCEPTANCE_RC_RE = re.compile(r"(?:rc|exit)\s*=?\s*-?\d", re.IGNORECASE)
@@ -222,7 +222,7 @@ def parse_tasks(body: list[str], v: Violations) -> list[dict]:
 
 def check_dag(tasks: list[dict], v: Violations) -> None:
     if not tasks:
-        v.add("`## Todos` 没有任何任务行（顶格 `- [ ] N. 标题`）")
+        v.add("`## Todos` 没有任何任务行（顶格 `- [ ] N. 标题` 或 `- [x] N. 标题`）")
         return
     by_num = {t["num"]: t for t in tasks}
     waves = sorted({t["wave"] for t in tasks if "wave" in t})
@@ -370,8 +370,10 @@ def selftest() -> int:
         1,
     )
     bold = GOOD.replace("  Class: A\n", "  - **Class:** A\n", 1)
+    closed = GOOD.replace("- [ ]", "- [x]")
     cases = [
         ("good", GOOD, 0),
+        ("closed-checkboxes", closed, 0),
         ("indent-task", GOOD.replace("- [ ] 1. 任务 A", "  - [ ] 1. 任务 A"), 1),
         ("no-must-not", GOOD.replace("- 不复制旧码\n", ""), 1),
         ("same-wave-dep", same_wave, 0),
