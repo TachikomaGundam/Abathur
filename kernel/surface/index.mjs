@@ -1,6 +1,17 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * E1 means "this repository". Resolve it from this module so the policy keeps
+ * working after the single-repo move (no hard-coded tree name). A caller that
+ * runs the installed package can override with ABATHUR_REPO_ROOT.
+ */
+export const REPO_ROOT = process.env.ABATHUR_REPO_ROOT
+  ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
 export const SURFACES = {
   E0: { name: "one-shot discarded", writes: ["/tmp/e0/"], forbids: ["/home/", "/etc/"] },
-  E1: { name: "seat worktree", writes: ["/home/lab/workspace/harness/Abathur-v2/"], forbids: [] },
+  E1: { name: "seat worktree", writes: [REPO_ROOT.endsWith("/") ? REPO_ROOT : `${REPO_ROOT}/`], forbids: [] },
   Q: { name: "release checkout", writes: ["/home/lab/workspace/release/"], forbids: [] },
   E2: { name: "production", writes: [], forbids: ["*"] },
   E3: { name: "remote write", writes: [], forbids: ["*"] },
@@ -39,7 +50,7 @@ export function assertSurface(request, policy = SURFACES) {
 
 /** Human-gate text: absolute command + why a human must hold the key. */
 export function humanGatePrescription(op, target) {
-  const at = target && target.startsWith("/") ? target : "/home/lab/workspace/harness/Abathur-v2";
+  const at = target && target.startsWith("/") ? target : REPO_ROOT;
   if (op === "promote") {
     return `HUMAN-GATE promote: run \`node ${at}/cli/abathur-v2.mjs promote --id <id>\` in a terminal; the owner holds the approval key.`;
   }
