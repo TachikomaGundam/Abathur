@@ -32,10 +32,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from review_state import review_runs_path, review_spaces_dir  # noqa: E402
+
 ARCHIVE = REPO / ".omo" / "evidence" / "loop-archive"
 EVIDENCE = REPO / ".omo" / "evidence"
 MANIFESTS = REPO / "docs" / "evidence-manifests"
-RUNS = Path.home() / ".sibyl" / "runs.json"
+RUNS = review_runs_path()
 SCRIPT = Path(__file__).resolve()
 
 HEX_RUN = re.compile(r"\b[0-9a-f]{7,}\b")
@@ -286,7 +289,7 @@ def _json_array(text: str, key: str) -> list:
 
 def _ticket_text(run: str) -> str | None:
     """Ballots carry the demands; TERMINALS.txt is only the ballot log."""
-    space = Path.home() / ".sibyl" / "spaces" / run
+    space = review_spaces_dir() / run
     if space.is_dir():
         parts = [p.read_text(encoding="utf-8", errors="replace")
                  for p in sorted(space.glob("*.md"))]
@@ -301,7 +304,7 @@ def _ticket_text(run: str) -> str | None:
 
 def _ticket_files(run: str) -> list[Path]:
     """Every ballot file for a run, so no seat's demands can be dropped."""
-    space = Path.home() / ".sibyl" / "spaces" / run
+    space = review_spaces_dir() / run
     if space.is_dir():
         files = sorted(space.glob("*.md"))
         if files:
@@ -459,7 +462,7 @@ def enumerate_gaps(gen: str, audits: list[dict], mustfix: list[dict]) -> list[di
                      "probe": {"kind": "present_in", "path": str(bundle_path),
                                "pattern": "DECORATIVE"}})
     listed = {str(a["run"]) for a in audits}
-    spaces = Path.home() / ".sibyl" / "spaces"
+    spaces = review_spaces_dir()
     if spaces.is_dir():
         for space in sorted(spaces.iterdir()):
             if not space.is_dir() or space.name in listed:

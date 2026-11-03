@@ -16,6 +16,7 @@ sys.path.insert(0, str(LOOP_DIR))
 
 import bank  # noqa: E402
 import draw  # noqa: E402
+from review_state import review_spaces_dir  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 ARCH = REPO / ".omo/evidence/loop-archive"
@@ -57,9 +58,10 @@ def main() -> int:
 def nominate_preflight() -> bool:
     """If .omo/pending-nominate.json exists, generate that generation's nomination page.
 
-    Why through the queue: loop/nominate.py must read ~/.sibyl/spaces to prove an
-    audit id exists, and the seat's bash sandbox sees a private tmpfs at /home/lab
-    (so ~/.sibyl is invisible there). Queue jobs run host-side, where it is visible.
+    Why through the queue: loop/nominate.py must read the review spaces root to
+    prove an audit id exists, and the seat's bash sandbox sees a private tmpfs at
+    /home/lab (so the review root is invisible there). Queue jobs run host-side,
+    where it is visible.
     Spec: {"gen": "G66", "audits": ["<runid>", ...], "gaps": ["<text>", ...]}
     """
     import json as _json
@@ -80,7 +82,7 @@ def nominate_preflight() -> bool:
         out.parent.mkdir(parents=True, exist_ok=True)
         with out.open("w", encoding="utf-8") as fh:
             for run in runs:
-                space = Path.home() / ".sibyl" / "spaces" / run
+                space = review_spaces_dir() / run
                 fh.write(f"########## {run} :: {space} ##########\n")
                 if not space.is_dir():
                     fh.write("(no such space)\n")

@@ -17,7 +17,7 @@ the disease; prose patches never cured it. This generator removes the class:
 Contract:
   python3 loop/nominate.py GEN [--audit RUNID ...] [--gap TEXT ...] [--dry-run]
 
-  --audit  sibyl run id; ~/.sibyl/spaces/<runid> must exist, else refused.
+  --audit  independent-review run id; its space under ABATHUR_REVIEW_HOME must exist, else refused.
   --gap    a named gap; at least one is required.
 
 Exit: 0 written + both gates green, 1 gate/contract failure (nothing written), 2 usage.
@@ -35,11 +35,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "loop"))
 
 from verify_nomination_literals import ISO, SHA, SHA_PREFIX  # noqa: E402
+from review_state import review_spaces_dir  # noqa: E402
 
 ARCHIVE = os.path.join(REPO, ".omo", "evidence", "loop-archive")
 EVIDENCE = os.path.join(REPO, ".omo", "evidence")
 CHECKER = os.path.join(REPO, "loop", "verify_nomination_literals.py")
-SIBYL_SPACES = os.path.expanduser("~/.sibyl/spaces")
+REVIEW_SPACES = str(review_spaces_dir())
 
 
 def sha256_file(path: str) -> str:
@@ -274,7 +275,7 @@ def main() -> int:
     bundle = load_json(bpath)
 
     for run in audits:
-        space = os.path.join(SIBYL_SPACES, run)
+        space = os.path.join(REVIEW_SPACES, run)
         if not os.path.isdir(space):
             print(f"nominate: audit {run} has no space at {space} — refusing to cite it", file=sys.stderr)
             return 1
@@ -406,7 +407,7 @@ def main() -> int:
     add("")
     if audits:
         for run in audits:
-            space = os.path.join(SIBYL_SPACES, run)
+            space = os.path.join(REVIEW_SPACES, run)
             votes = [f for f in sorted(os.listdir(space)) if f.endswith(".md")]
             ballots, sessions, approve, reject = tally_ballots(space)
             tpath = os.path.join(space, "TERMINALS.txt")
