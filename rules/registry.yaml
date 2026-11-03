@@ -141,8 +141,8 @@
     {
       "id": "P-REVIEW-PORT-01",
       "class": "P",
-      "statement": "Independent review is an abstract mechanism: code, rules and generated text never name a review product; the local adapter is injected by the operator and its receipt must carry verdict, independence, run and artifact_sha256.",
-      "check": { "cmd": "node scripts/scan-coupling.mjs", "expect_rc": 0 },
+      "statement": "Independent review is an abstract mechanism: code, rules and generated text never name a review product; the local adapter is injected by the operator (ABATHUR_REVIEW_CMD) and its receipt must carry verdict, independence, run and artifact_sha256; unset means REVIEW UNDISPATCHABLE rc=2.",
+      "check": { "cmd": "node scripts/scan-coupling.mjs && node --test test/coupling.test.mjs test/review.test.mjs", "expect_rc": 0 },
       "no_exam_reason": "Mechanical scan covers every v2 code/rule/doc file; no separate exam item is claimed for this guard.",
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/coupling.log"
     }

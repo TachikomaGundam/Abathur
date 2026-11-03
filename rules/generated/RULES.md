@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: a23f177be73d1b61560a378615e64250b888429c25f1c52b667ac7d024d8212b
+registry-sha256: 90a7ed6f766a89b32ff869cfe3062a8be6b6b8de0a66cbccc0c867be5639fb24
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -138,3 +138,11 @@ Every rule has one registry entry with a statement, an executable check, and eit
 - check: `node --test test/registry.test.mjs` expects rc=0
 - exam: SR4-76
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/registry-schema.log`
+
+## P-REVIEW-PORT-01 (P)
+
+Independent review is an abstract mechanism: code, rules and generated text never name a review product; the local adapter is injected by the operator (ABATHUR_REVIEW_CMD) and its receipt must carry verdict, independence, run and artifact_sha256; unset means REVIEW UNDISPATCHABLE rc=2.
+
+- check: `node scripts/scan-coupling.mjs && node --test test/coupling.test.mjs test/review.test.mjs` expects rc=0
+- exam exemption: Mechanical scan covers every v2 code/rule/doc file; no separate exam item is claimed for this guard.
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/coupling.log`

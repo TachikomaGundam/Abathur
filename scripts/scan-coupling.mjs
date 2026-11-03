@@ -10,11 +10,11 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-const PRODUCT = ["si", "byl"].join("");
-const TOKEN = new RegExp(PRODUCT, "i");
+const PRODUCTS = [["si", "byl"].join(""), String.fromCharCode(0x897f, 0x6bd4, 0x62c9)];
+const TOKEN = new RegExp(PRODUCTS.join("|"), "i");
 const EXTS = new Set([".mjs", ".js", ".cjs", ".ts", ".yaml", ".yml", ".json", ".md"]);
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".omo", "__pycache__"]);
-const SKIP_FILES = new Set(["package-lock.json", "docs/MAPPING-v1-v2.md"]);
+const SKIP_FILES = new Set(["package-lock.json"]);
 
 function walk(root) {
   const out = [];

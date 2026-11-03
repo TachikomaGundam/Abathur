@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const product = ["si", "byl"].join("");
+const productZh = String.fromCharCode(0x897f, 0x6bd4, 0x62c9);
 
 test("v2 tree has no hard-coded review product name", () => {
   const result = spawnSync(process.execPath, ["scripts/scan-coupling.mjs"], {
@@ -19,7 +20,7 @@ test("v2 tree has no hard-coded review product name", () => {
 test("scanner catches a planted product name", () => {
   const dir = mkdtempSync(join(tmpdir(), "coupling-"));
   try {
-    writeFileSync(join(dir, "bad.mjs"), `// ${product}\nexport const x = 1;\n`);
+    writeFileSync(join(dir, "bad.mjs"), `// ${product}\n// ${productZh}\nexport const x = 1;\n`);
     const result = spawnSync(process.execPath, ["scripts/scan-coupling.mjs", "--root", dir], {
       cwd: process.cwd(),
       encoding: "utf8",
