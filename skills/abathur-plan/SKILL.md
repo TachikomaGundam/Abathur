@@ -63,8 +63,8 @@ rc=0 通过；rc=1 逐条 VIOLATION；rc=2 用法/环境错。判定面：字段
 - 波次无环：任务依赖必须严格位于更早波次。
 
 ### 3 独立评审 review
-- 调用 `sibyl_audit(artifact=<计划绝对路径>, goal=...)`，必须 `verdict=APPROVE` 且 `independence=INDEPENDENT`。
-- 回执绑定计划 sha256；计划字节一变，旧回执失效，必须重审。
+- 评审是抽象机制：调用任一独立审适配器，接口 = artifact（路径或字节）+ goal；回执必须含 `verdict`、`independence`、`run`、`artifact_sha256`。本机实现由环境注入，适配器名不写进规则或代码。
+- 必须 `verdict=APPROVE` 且 `independence=INDEPENDENT`；回执绑定计划 sha256，计划字节一变旧回执失效，必须重审。
 - 同一文档两轮 REJECT → 上呈机主，附全部回执；不自动开第三轮。
 
 ### 4 执行 execution

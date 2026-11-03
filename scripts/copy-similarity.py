@@ -8,26 +8,32 @@
 判定面：
   1. 逐对相似度（主判据）：对每个 v1 文本文件，取它在全部 v2 文本文件中最大的
      unigram 多重集 Jaccard 相似度；≥ 阈值（默认 0.80）且无有效 CARRY-OVERRIDES 条目 → 失败。
+     主判据保留标识符字面（不做 `ID` 归一），因此“语法形状相同但命名不同”不再算拷贝。
   2. 字节同一（硬判据）：v1 文件 git blob 哈希出现在 v2 集合中，且无有效 override →
      失败（即使标注为「重写」）。
-  3. 前缀/包装拷贝（辅助硬判据）：v1 文件的有序 5-gram 多重集被单个 v2 文件覆盖 ≥ 0.80
-     （且 v1 token 数 ≥ 15）且无 override → 失败；该判据抓「无关代码前置 + 原函数整体搬运」。
+  3. 前缀/包装/改名拷贝（辅助硬判据）：v1 文件的有序 5-gram 多重集（标识符归一为 `ID`）
+     被单个 v2 文件覆盖 ≥ 0.80（且 v1 token 数 ≥ 15）且无 override → 失败；该判据抓
+     「无关代码前置 + 原函数整体搬运」与「只改标识符名的搬运」。
   4. CARRY-OVERRIDES 配额：条目 ≤ 3 且 ≤ v2 文件数的 10%；每条须含独立审回执
-     （`APPROVE` + `INDEPENDENT` + `sibyl-<ts>-<hex>` 或 `ses_<id>`）与条目文本 sha256。
+     （`APPROVE` + `INDEPENDENT` + `run=<id>`/`session=<id>`）与条目文本 sha256。
 
-归一化政策（与交接件 §2 步骤 2 第 2 条对齐，并记录一处尺伤修正）：
+归一化政策（与交接件 §2 步骤 2 第 2 条对齐，并记录两处尺伤修正）：
   - 代码文件（.py/.js/.mjs/.cjs/.ts/.tsx/.jsx/.sh/.go/.rs）：剥离 `#`、`//`、`/* */`
-    注释与字符串字面量；标识符归一为单一标记 `ID`；保留数字与标点。
+    注释与字符串字面量。主判据保留标识符字面；5-gram 判据把标识符归一为 `ID`。
   - 散文/数据文件（.md/.txt/.json/.yaml/.yml/.toml）：不剥注释、不做 ID 归一；
     取小写词 token（保持语义，避免「任意两篇英文」都被判成拷贝）。
-  - 尺伤记录：交接件字面的「v1 文件对 v2 全部文件并集算 containment」在本机实测
+  - 尺伤记录 1：交接件字面的「v1 文件对 v2 全部文件并集算 containment」在本机实测
     对任意两篇不同代码也接近 1.0（并集覆盖了所有通用标点与 `ID`），无法判别；
-    故主判据改为逐对最大 Jaccard，并以有序 5-gram 包含度补抓前缀/包装拷贝。
+    故主判据改为逐对最大 Jaccard。
+  - 尺伤记录 2（2026-11-03 机主授权修尺）：主判据原先把所有标识符归一为 `ID`，
+    导致无关对照对（`src/test/version.test.ts` 对 `test/lane.test.mjs`）得 0.837，
+    高于阈值；现改为保留标识符字面，5-gram 归一化判据继续抓改名搬运。
     四枚必拦夹具 + 一枚对照夹具是本工具的行为权威判据（`--selftest`）。
 
 CARRY-OVERRIDES 条目格式（写在 v2 的 docs/CARRY-OVERRIDES.md）：
-  - `<v1 相对路径>` | reason: <为何不是重写> | receipt: sibyl-<ts>-<hex> APPROVE INDEPENDENT | text_sha256: <hex>
-  行内必须同时出现 APPROVE、INDEPENDENT、一个 sibyl 运行号或引擎会话号、以及条目文本哈希。
+  - `<v1 相对路径>` | reason: <为何不是重写> | receipt: APPROVE INDEPENDENT run=<id> | text_sha256: <hex>
+  行内必须同时出现 APPROVE、INDEPENDENT、一个独立审运行号（run= 或 session=）以及条目文本哈希。
+  评审实现不写死：本机可以用任意独立审适配器，只要回执带这三个字段。
 
 用法：
   python3 scripts/copy-similarity.py [--v1 DIR] [--v2 DIR] [--overrides FILE]
@@ -103,6 +109,19 @@ def tokens_for(path_rel: str, text: str) -> list[str]:
     return WORD_RE.findall(text.lower())
 
 
+def tokens_preserve(path_rel: str, text: str) -> list[str]:
+    """Identifier-preserving tokens for the primary Jaccard score.
+
+    Comments and string literals are still stripped; identifiers keep their
+    literal spelling. This is what stops "same syntax shape, different names"
+    from scoring as a copy.
+    """
+    ext = Path(path_rel).suffix.lower()
+    if ext in CODE_EXTS:
+        return TOKEN_RE.findall(strip_code_noise(text))
+    return WORD_RE.findall(text.lower())
+
+
 def git_blob_sha(data: bytes) -> str:
     h = hashlib.sha1()
     h.update(f"blob {len(data)}\0".encode())
@@ -144,8 +163,9 @@ def list_files(root: Path, allow_plain: bool) -> list[str]:
     return keep
 
 
-def load_set(root: Path, rels: list[str]) -> tuple[dict[str, list[str]], dict[str, str], list[str]]:
+def load_set(root: Path, rels: list[str]) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, str], list[str]]:
     tokens_map: dict[str, list[str]] = {}
+    preserve_map: dict[str, list[str]] = {}
     blobs: dict[str, str] = {}
     skipped: list[str] = []
     for rel in rels:
@@ -164,8 +184,9 @@ def load_set(root: Path, rels: list[str]) -> tuple[dict[str, list[str]], dict[st
             skipped.append(f"{rel} (non-utf8)")
             continue
         tokens_map[rel] = tokens_for(rel, text)
+        preserve_map[rel] = tokens_preserve(rel, text)
         blobs[rel] = git_blob_sha(data)
-    return tokens_map, blobs, skipped
+    return tokens_map, preserve_map, blobs, skipped
 
 
 def ngrams(tokens: list[str], n: int = 5) -> Counter:
@@ -202,7 +223,7 @@ def parse_overrides(path: Path, v2_count: int) -> tuple[dict[str, dict], list[st
         has_receipt = (
             "APPROVE" in line
             and "INDEPENDENT" in line
-            and re.search(r"(sibyl-\d{8}T\d{6}Z-[0-9a-f]{4,}|ses_[A-Za-z0-9]+)", line)
+            and re.search(r"(?:run|session|review)[=:]\s*[A-Za-z0-9_.:-]{4,}", line)
         )
         text_sha = re.search(r"text_sha256:\s*([0-9a-f]{16,64})", line)
         for cand in candidates:
@@ -239,13 +260,13 @@ def evaluate(v1: Path, v2: Path, overrides_path: Path, threshold: float, allow_p
     if not v2_rels:
         print(f"COPY-GATE ERROR: v2 文件集为空: {v2} —— 空集不得当通过，rc=2")
         return 2
-    v1_tokens_map, v1_blobs, v1_skipped = load_set(v1, v1_rels)
-    v2_tokens_map, v2_blobs, v2_skipped = load_set(v2, v2_rels)
+    v1_tokens_map, v1_preserve_map, v1_blobs, v1_skipped = load_set(v1, v1_rels)
+    v2_tokens_map, v2_preserve_map, v2_blobs, v2_skipped = load_set(v2, v2_rels)
     if not v2_tokens_map:
         print(f"COPY-GATE ERROR: v2 无可用文本文件: {v2} —— rc=2")
         return 2
-    v1_counters = {rel: Counter(toks) for rel, toks in v1_tokens_map.items()}
-    v2_counters = {rel: Counter(toks) for rel, toks in v2_tokens_map.items()}
+    v1_counters = {rel: Counter(toks) for rel, toks in v1_preserve_map.items()}
+    v2_counters = {rel: Counter(toks) for rel, toks in v2_preserve_map.items()}
     v2_ngrams = {rel: ngrams(toks) for rel, toks in v2_tokens_map.items()}
 
     overrides, errors = parse_overrides(overrides_path, len(v2_counters))
@@ -334,7 +355,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--threshold", type=float, default=0.80)
     ap.add_argument("--allow-plain", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("paths", nargs="*", help="optional positional V1 V2 (same as --v1/--v2)")
     args = ap.parse_args(argv[1:])
+
+    if args.paths:
+        if len(args.paths) > 2:
+            ap.error("最多接受两个位置参数：V1 V2")
+        args.v1 = args.paths[0]
+        if len(args.paths) == 2:
+            args.v2 = args.paths[1]
 
     if args.selftest:
         here = Path(__file__).resolve().parent
