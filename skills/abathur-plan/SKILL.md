@@ -45,3 +45,30 @@ rc=0 通过；rc=1 逐条 VIOLATION；rc=2 用法/环境错。判定面：字段
 ## 诚实边界
 
 此协议是留痕+可审计，不是物理拦截。单席极端压力下可跳过——压力服从性归考题面（SR4-69 族）。执行段实际触碰文件集合必须是该段路径格的子集（审计者自工具记录取）。
+
+## 四段生命周期（draft → plan → review → execution；自 v2 重构起生效）
+
+本节只增不改：上方五格协议仍是执行段的落账格式；本节在它之上增加计划的生命周期。
+
+### 1 草案 draft
+- 落点 `.omo/drafts/<slug>.md`。必填字段：`intent` / `classification` / `plan_path` / `status` / `next_action`。
+- 新会话恢复时第一步完整读该文件，从字段继续；禁止凭聊天记忆重建状态。
+- 状态机：`drafting → awaiting-approval → planned → reviewing → approved → executing → closed`。
+
+### 2 计划 plan
+- 落点 `.omo/plans/<slug>.md`。模板权威是 `docs/PLAN-TEMPLATE.md`（八节标题逐字、顺序固定）。
+- 机械门：`python3 loop/plan_check.py <计划绝对路径>` 必须输出 `PLAN-CHECK OK ... rc=0`。
+- 每条任务顶格书写，至少含：`Class:`（A–H 或 P）、`Clause:`、`Wave:`、`Depends:`、
+  `Acceptance:`（命令 + 期望 rc）、`Evidence:`（路径）、`QA:`。
+- 波次无环：任务依赖必须严格位于更早波次。
+
+### 3 独立评审 review
+- 调用 `sibyl_audit(artifact=<计划绝对路径>, goal=...)`，必须 `verdict=APPROVE` 且 `independence=INDEPENDENT`。
+- 回执绑定计划 sha256；计划字节一变，旧回执失效，必须重审。
+- 同一文档两轮 REJECT → 上呈机主，附全部回执；不自动开第三轮。
+
+### 4 执行 execution
+- 每波三件套：机器判据通过（回执落盘）/ `rules/registry.yaml` 增条款（含 check + exam_item 或 no_exam_reason）/ `.omo/evidence/` 落证据（绝对路径 + sha256）。
+- 段末沿用上方 `[PLAN-SEG]` / `[PLAN-SEG-END]` 条目：命令原文 + exit + log sha256。
+- 波次来源=计划的 `## Execution strategy`；实际与计划漂移即停段、重宣布、记伤。
+
