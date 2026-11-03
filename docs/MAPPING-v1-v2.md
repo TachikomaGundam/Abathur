@@ -1,6 +1,6 @@
 # v1 -> v2 mapping
 
-Generated: 2026-11-03T05:21:53.260Z
+Generated: 2026-11-03T06:46:34.987Z
 
 - v1 root: `/home/lab/workspace/harness/Abathur`
 - v2 root: `/home/lab/workspace/harness/Abathur-v2`
