@@ -1,70 +1,28 @@
 {
   "name": "@tachikomagundam/abathur",
-  "version": "0.4.0",
-  "description": "Evolution harness: observe failures, mutate, re-bench, select — human-gated promotion, offline lineage bundles.",
-  "author": "TachikomaGundam",
+  "version": "0.5.0",
   "type": "module",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/TachikomaGundam/Abathur.git"
+  "description": "Abathur v2: evolution harness rebuilt around nine methodological classes (A-H + P).",
+  "bin": {
+    "abathur": "cli/abathur-v2.mjs"
   },
-  "bugs": {
-    "url": "https://github.com/TachikomaGundam/Abathur/issues"
-  },
-  "homepage": "https://github.com/TachikomaGundam/Abathur#readme",
   "engines": {
     "node": ">=22.22.1"
   },
-  "bin": {
-    "abathur": "dist/cli.js"
-  },
-  "main": "dist/cli.js",
-  "exports": {
-    ".": "./dist/cli.js",
-    "./server": "./plugin/abathur.ts",
-    "./package.json": "./package.json"
+  "scripts": {
+    "test": "node --test",
+    "rules": "node cli/abathur-v2.mjs rules validate",
+    "gate:copy": "node scripts/copy-gate.mjs"
   },
   "files": [
-    "dist/bench",
-    "dist/cli.js",
-    "dist/commands",
-    "dist/config.js",
-    "dist/core",
-    "dist/exit.js",
-    "dist/genomes",
-    "dist/jsonc.js",
-    "dist/out.js",
-    "dist/release-state.js",
-    "dist/util",
-    "dist/version.js",
-    "dist/version-manifest.json",
-    "dist/engine-registry.json",
-    "config/abathur.jsonc",
-    "docs/immutable-kernel.md",
-    "plugin",
-    "skills"
+    "cli",
+    "kernel",
+    "exam",
+    "rules",
+    "scripts",
+    "config",
+    "docs",
+    "README.md"
   ],
-  "scripts": {
-    "build": "rm -rf dist && tsc && node scripts/copy-assets.mjs && node scripts/gen-engine-registry.mjs",
-    "typecheck:plugin": "tsc -p tsconfig.plugin.json",
-    "test": "npm run build && npm run typecheck:plugin && node --test \"dist/test/**/*.test.js\"",
-    "prepack": "npm run build"
-  },
-  "dependencies": {
-    "zod": "^4.0.0"
-  },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.19.3"
-  },
-  "peerDependenciesMeta": {
-    "@opencode-ai/plugin": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@opencode-ai/plugin": "^1.19.3",
-    "@types/node": "^22.0.0",
-    "typescript": "^5.9.0"
-  }
+  "license": "UNLICENSED"
 }
