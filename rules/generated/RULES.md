@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 90a7ed6f766a89b32ff869cfe3062a8be6b6b8de0a66cbccc0c867be5639fb24
+registry-sha256: 024c201dc7ca8e5d9aa638d5597c59b49b34ae54ef5eb24165bb0499dc28998b
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -10,6 +10,14 @@ A commit is attributed only when name and email match one registered identity by
 - check: `node --test test/identity.test.mjs` expects rc=0
 - exam: SR4-77
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w2/identity.log`
+
+## B-BASH-CAGE-01 (B)
+
+The project bash cage does not hard-code v1-only paths; self-protection mounts are added only when the target exists, so the cage boots on a tree without loop/.
+
+- check: `node --test test/sandbox.test.mjs` expects rc=0
+- exam exemption: Runtime machine-surface guard; exercised by node:test and by the absence of bwrap mount errors after the v2 tree switch.
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/sandbox-cage.log`
 
 ## B-MODULE-BOUNDARY-01 (B)
 

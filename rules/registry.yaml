@@ -19,6 +19,14 @@
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/module-boundary.log"
     },
     {
+      "id": "B-BASH-CAGE-01",
+      "class": "B",
+      "statement": "The project bash cage does not hard-code v1-only paths; self-protection mounts are added only when the target exists, so the cage boots on a tree without loop/.",
+      "check": { "cmd": "node --test test/sandbox.test.mjs", "expect_rc": 0 },
+      "no_exam_reason": "Runtime machine-surface guard; exercised by node:test and by the absence of bwrap mount errors after the v2 tree switch.",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/sandbox-cage.log"
+    },
+    {
       "id": "P-GENERATE-01",
       "class": "P",
       "statement": "Rule text is generated from the registry deterministically; generated files carry the registry digest and are never hand-edited.",

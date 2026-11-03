@@ -1,3 +1,15 @@
 .omo/
 node_modules/
 *.log
+.border/
+.bench/
+.state/
+dist/
+build/
+coverage/
+__pycache__/
+*.local.jsonc
+.DS_Store
+*.swp
+/.codegraph
+.codegraph/

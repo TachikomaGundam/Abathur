@@ -13,7 +13,7 @@ import { join, relative } from "node:path";
 const PRODUCTS = [["si", "byl"].join(""), String.fromCharCode(0x897f, 0x6bd4, 0x62c9)];
 const TOKEN = new RegExp(PRODUCTS.join("|"), "i");
 const EXTS = new Set([".mjs", ".js", ".cjs", ".ts", ".yaml", ".yml", ".json", ".md"]);
-const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".omo", "__pycache__"]);
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".omo", "__pycache__", ".border", ".bench", ".state", "coverage"]);
 const SKIP_FILES = new Set(["package-lock.json"]);
 
 function walk(root) {
