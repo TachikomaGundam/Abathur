@@ -7,6 +7,8 @@ name a v1 path, a v2 path, a reason, and an independent `sibyl_audit` receipt
 (APPROVE + INDEPENDENT + the entry text sha256). Entries are written as
 backticked paths on one line so the copy gate can parse them.
 
-Format when an entry exists:
-
-- `v1/path/a.py` -> `v2/path/a.py` — reason — APPROVE INDEPENDENT sibyl-<ts>-<hex> text_sha256:<64hex>
+Format when an entry exists (one line per entry): a backticked v1 path, an arrow,
+a backticked v2 path, the reason, an independent audit receipt with the words
+APPROVE and INDEPENDENT plus the run id, and a text hash field. No example paths
+are written here, because the gate parses every backticked path in this file as
+an entry.

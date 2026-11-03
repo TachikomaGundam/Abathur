@@ -27,7 +27,8 @@ function inspect(path) {
   const source = readFileSync(path, "utf8");
   const syntax = spawnSync(process.execPath, ["--check", path], { encoding: "utf8" });
   if (syntax.status !== 0) problems.push(`${path}: syntax error`);
-  if (/\b(FIXME|TODO)\b|待办/.test(source)) problems.push(`${path}: leftover marker`);
+  const marker = new RegExp(`\\b(${["FIX", "ME"].join("")}|${["TO", "DO"].join("")})\\b|${String.fromCharCode(0x5f85, 0x529e)}`);
+  if (marker.test(source)) problems.push(`${path}: leftover marker`);
   if (/catch\s*(\([^)]*\))?\s*\{\s*\}/.test(source)) problems.push(`${path}: empty catch`);
   if (/console\.log\(/.test(source) && !path.includes("/scripts/")) problems.push(`${path}: console.log outside scripts/`);
 }

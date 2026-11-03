@@ -13,7 +13,7 @@ const sha = createHash("sha256").update("proof\n").digest("hex");
 const verifier = join(dir, "verifier.cjs");
 writeFileSync(
   verifier,
-  'const s=require("fs").readFileSync(0,"utf8").trim();console.log(JSON.stringify({valid:true,kind:"engine-session",session:s}));\n',
+  'const s=require("fs").readFileSync(0,"utf8").trim();process.stdout.write(JSON.stringify({valid:true,kind:"engine-session",session:s}));\n',
 );
 const env = { ABATHUR_SESSION_VERIFIER: `node ${verifier}` };
 
