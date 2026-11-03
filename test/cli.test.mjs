@@ -37,7 +37,7 @@ test("an unknown exam item is blocked by name", () => {
 test("a bare subcommand prints usage with rc=2", () => {
   const result = run(["exam"]);
   assert.equal(result.status, 2);
-  assert.match(result.stdout, /usage: abathur-v2/);
+  assert.match(result.stdout, /usage: abathur/);
 });
 
 test("a nested gate run refuses instead of recursing", () => {

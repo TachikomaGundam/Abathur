@@ -17,7 +17,7 @@ import { loadIdentities, checkCommitIdentity } from "../kernel/identity/index.mj
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
 function usage(code = 2) {
-  const text = `usage: abathur-v2 <command> [options]
+  const text = `usage: abathur <command> [options]
 
 commands:
   rules validate
