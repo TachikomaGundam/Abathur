@@ -6,6 +6,7 @@ C-07 anti-injection grammar. Writes verdict.json in its own judge-work dir.
 """
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -162,7 +163,13 @@ def main():
                 return False
             if hashlib.sha256(prior.read_bytes()).hexdigest() != artifact:
                 return False
-            store_path = Path.home() / ".sibyl" / "runs.json"
+            # Review-state store is adapter-injected, never a hard-coded product
+            # path (L-COUPLING-AUDIT). Unset => fail closed: the ticket stays
+            # invalid, exactly as when the store is unreadable.
+            store_env = os.environ.get("ABATHUR_REVIEW_STATE", "")
+            if not store_env:
+                return False
+            store_path = Path(store_env)
             try:
                 store = json.loads(store_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):

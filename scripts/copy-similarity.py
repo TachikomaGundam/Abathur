@@ -15,7 +15,11 @@
      被单个 v2 文件覆盖 ≥ 0.80（且 v1 token 数 ≥ 15）且无 override → 失败；该判据抓
      「无关代码前置 + 原函数整体搬运」与「只改标识符名的搬运」。
   4. CARRY-OVERRIDES 配额：条目 ≤ 3 且 ≤ v2 文件数的 10%；每条须含独立审回执
-     （`APPROVE` + `INDEPENDENT` + `run=<id>`/`session=<id>`）与条目文本 sha256。
+     （`APPROVE` + `INDEPENDENT` + `run=<id>`/`session=<id>`）、条目文本 sha256，
+     可复算的回执工件（`receipt_path: <绝对路径>` + `receipt_sha256: <64hex>`），
+     以及外部锚验证：`ABATHUR_RECEIPT_VERIFIER` 指向的操作者验证器必须对
+     `verify <receipt_path> sha256=<hex>` 返回 rc=0 且 stdout 含 `VERIFIED`。
+     验证器未配置 → 回执不成立（fail-closed；自签文件不足以放行）。
 
 归一化政策（与交接件 §2 步骤 2 第 2 条对齐，并记录两处尺伤修正）：
   - 代码文件（.py/.js/.mjs/.cjs/.ts/.tsx/.jsx/.sh/.go/.rs）：剥离 `#`、`//`、`/* */`
@@ -31,9 +35,9 @@
     四枚必拦夹具 + 一枚对照夹具是本工具的行为权威判据（`--selftest`）。
 
 CARRY-OVERRIDES 条目格式（写在 v2 的 docs/CARRY-OVERRIDES.md）：
-  - `<v1 相对路径>` | reason: <为何不是重写> | receipt: APPROVE INDEPENDENT run=<id> | text_sha256: <hex>
-  行内必须同时出现 APPROVE、INDEPENDENT、一个独立审运行号（run= 或 session=）以及条目文本哈希。
-  评审实现不写死：本机可以用任意独立审适配器，只要回执带这三个字段。
+  - `<v1 相对路径>` | reason: <为何不是重写> | receipt: APPROVE INDEPENDENT run=<id> | text_sha256: <hex> | receipt_path: <绝对路径> | receipt_sha256: <64hex>
+  行内必须同时出现 APPROVE、INDEPENDENT、一个独立审运行号（run= 或 session=）、条目文本哈希，
+  以及一个可复算的回执工件（绝对路径 + 其 sha256）。评审实现不写死：任意独立审适配器均可。
 
 用法：
   python3 scripts/copy-similarity.py [--v1 DIR] [--v2 DIR] [--overrides FILE]
@@ -46,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -61,6 +66,7 @@ BINARY_EXTS = {
 }
 TOKEN_RE = re.compile(r"[A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff]*|\d+(?:\.\d+)?|\S")
 WORD_RE = re.compile(r"[a-z0-9_]+|[^\sA-Za-z0-9_]")
+VERIFIER_ENV = "ABATHUR_RECEIPT_VERIFIER"
 
 
 def strip_code_noise(text: str) -> str:
@@ -226,10 +232,32 @@ def parse_overrides(path: Path, v2_count: int) -> tuple[dict[str, dict], list[st
             and re.search(r"(?:run|session|review)[=:]\s*[A-Za-z0-9_.:-]{4,}", line)
         )
         text_sha = re.search(r"text_sha256:\s*([0-9a-f]{16,64})", line)
+        receipt_path = re.search(r"receipt_path:\s*`?([^`\s]+)`?", line)
+        receipt_sha = re.search(r"receipt_sha256:\s*([0-9a-f]{64})", line)
+        receipt_ok = False
+        external_ok = False
+        if has_receipt and receipt_path and receipt_sha:
+            rp = Path(receipt_path.group(1))
+            if rp.is_absolute() and rp.is_file():
+                receipt_ok = hashlib.sha256(rp.read_bytes()).hexdigest() == receipt_sha.group(1)
+            if receipt_ok:
+                verifier = os.environ.get(VERIFIER_ENV)
+                if verifier:
+                    try:
+                        check = subprocess.run(
+                            [verifier, "verify", str(rp), f"sha256={receipt_sha.group(1)}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                        external_ok = check.returncode == 0 and "VERIFIED" in check.stdout
+                    except (OSError, subprocess.SubprocessError):
+                        external_ok = False
         for cand in candidates:
             entries[cand] = {
                 "line": line,
-                "receipt_ok": bool(has_receipt),
+                "receipt_ok": receipt_ok,
+                "external_ok": external_ok,
                 "text_sha_ok": bool(text_sha),
             }
     if len(entries) > 3:
@@ -238,7 +266,15 @@ def parse_overrides(path: Path, v2_count: int) -> tuple[dict[str, dict], list[st
         errors.append(f"CARRY-OVERRIDES 比例超上限：{len(entries)} > 10% × {v2_count}")
     for key, meta in entries.items():
         if not meta["receipt_ok"]:
-            errors.append(f"CARRY-OVERRIDES 条目缺独立审回执（APPROVE+INDEPENDENT+运行号）：{key}")
+            errors.append(
+                "CARRY-OVERRIDES 条目缺可复算独立审回执"
+                f"（APPROVE+INDEPENDENT+run+receipt_path+receipt_sha256）：{key}"
+            )
+        elif not meta["external_ok"]:
+            errors.append(
+                "CARRY-OVERRIDES 条目缺外部锚"
+                f"（{VERIFIER_ENV} 未配置或未返回 VERIFIED；自签回执不放行）：{key}"
+            )
         if not meta["text_sha_ok"]:
             errors.append(f"CARRY-OVERRIDES 条目缺 text_sha256：{key}")
     return entries, errors
@@ -343,6 +379,83 @@ def selftest(fixtures: Path) -> int:
         if code != want:
             failures += 1
         print(f"SELFTEST {name}: rc={code} want={want} {status}")
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "v1").mkdir()
+        (root / "v2").mkdir()
+        (root / "v1" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+        (root / "v2" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+        for i in range(12):
+            (root / "v2" / f"z{i}.py").write_text(
+                f"def z{i}():\n    return {i + 2}\n", encoding="utf-8"
+            )
+        (root / "CARRY-OVERRIDES.md").write_text(
+            "`a.py` | reason: forged | receipt: APPROVE INDEPENDENT run=abcd | "
+            "text_sha256: 0123456789abcdef | receipt_path: /nonexistent | "
+            "receipt_sha256: " + "0" * 64 + "\n",
+            encoding="utf-8",
+        )
+        print("--- fixture forged-override ---")
+        code = evaluate(
+            root / "v1", root / "v2", root / "CARRY-OVERRIDES.md", 0.80, allow_plain=True
+        )
+        status = "ok" if code == 1 else "MISMATCH"
+        if code != 1:
+            failures += 1
+        print(f"SELFTEST forged-override: rc={code} want=1 {status}")
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "v1").mkdir()
+        (root / "v2").mkdir()
+        (root / "v1" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+        (root / "v2" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+        for i in range(12):
+            (root / "v2" / f"z{i}.py").write_text(
+                f"def z{i}():\n    return {i + 2}\n", encoding="utf-8"
+            )
+        receipt = root / "receipt.txt"
+        receipt.write_text("APPROVE INDEPENDENT run=ses_test\n", encoding="utf-8")
+        receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
+        (root / "CARRY-OVERRIDES.md").write_text(
+            "`a.py` | reason: tested | receipt: APPROVE INDEPENDENT run=ses_test | "
+            "text_sha256: 0123456789abcdef | receipt_path: " + str(receipt)
+            + " | receipt_sha256: " + receipt_sha + "\n",
+            encoding="utf-8",
+        )
+        os.environ.pop(VERIFIER_ENV, None)
+        print("--- fixture self-signed-override ---")
+        code = evaluate(
+            root / "v1", root / "v2", root / "CARRY-OVERRIDES.md", 0.80, allow_plain=True
+        )
+        status = "ok" if code == 1 else "MISMATCH"
+        if code != 1:
+            failures += 1
+        print(f"SELFTEST self-signed-override: rc={code} want=1 {status}")
+
+        verifier = root / "verifier.sh"
+        verifier.write_text("#!/bin/sh\necho VERIFIED session=ses_test\n", encoding="utf-8")
+        verifier.chmod(0o755)
+        previous = os.environ.get(VERIFIER_ENV)
+        os.environ[VERIFIER_ENV] = str(verifier)
+        try:
+            print("--- fixture verified-override ---")
+            code = evaluate(
+                root / "v1", root / "v2", root / "CARRY-OVERRIDES.md", 0.80, allow_plain=True
+            )
+        finally:
+            if previous is None:
+                os.environ.pop(VERIFIER_ENV, None)
+            else:
+                os.environ[VERIFIER_ENV] = previous
+        status = "ok" if code == 0 else "MISMATCH"
+        if code != 0:
+            failures += 1
+        print(f"SELFTEST verified-override: rc={code} want=0 {status}")
+
     print(f"SELFTEST {'OK' if failures == 0 else 'FAIL'} failures={failures}")
     return 0 if failures == 0 else 1
 
