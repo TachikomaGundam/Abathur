@@ -1,14 +1,26 @@
 import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 
 /**
  * Fixed roots are the only authority for destructive targets. Nothing here
  * accepts a caller-supplied root: the CLI supplies the operation, not the
  * boundary.
  */
-export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+export function findRepoRoot(start = process.cwd()) {
+  let cursor = resolve(start);
+  for (;;) {
+    if (existsSync(join(cursor, ".git"))) return cursor;
+    const parent = dirname(cursor);
+    if (parent === cursor) return null;
+    cursor = parent;
+  }
+}
+
+const DETECTED_ROOT = findRepoRoot();
+/** E1 is the repository around the working directory, never the package dir. */
+export const REPO_ROOT = DETECTED_ROOT ?? process.cwd();
+export const IN_REPO = DETECTED_ROOT !== null;
 
 const HOME = process.env.HOME ?? "/tmp";
 

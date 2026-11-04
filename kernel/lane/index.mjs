@@ -2,13 +2,10 @@
  * Lane registry and write attribution. When attribution cannot be established the
  * event stays DISPUTED; no seat is named by guesswork.
  *
- * The Abathur lane owns exactly one repository. Resolve it from this module so
- * the registry does not keep a second tree name after the single-repo move.
+ * The Abathur lane owns exactly one repository: the directory the CLI was
+ * started in. A second tree name must not come back.
  */
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const REPO_ROOT = process.cwd();
 
 export const DEFAULT_LANES = [
   { lane: "abathur", repo: REPO_ROOT, seat: "abathur" },

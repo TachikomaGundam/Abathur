@@ -1,9 +1,7 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { checkInside, inside, tempRoot as TEMP_ROOT } from "./containment.mjs";
+import { checkInside, inside, IN_REPO, tempRoot as TEMP_ROOT } from "./containment.mjs";
 
-/** E1 means "this repository". The module location is the only authority. */
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+/** E1 means "this repository" — the directory the CLI was started in. */
+export const REPO_ROOT = process.cwd();
 
 export const SURFACES = {
   E0: { name: "one-shot discarded", writes: [TEMP_ROOT()], forbids: ["/home/", "/etc/"] },
@@ -37,6 +35,13 @@ import { readRunRecord } from "./record.mjs";
  */
 export function resolveRun(env = process.env) {
   if (!env.ABATHUR_RUN_RECORD) {
+    if (!IN_REPO) {
+      return {
+        ok: false,
+        code: "E1-NO-REPO",
+        detail: "not inside a git repository; E1 is not established (refusing to treat the home directory as a worktree)",
+      };
+    }
     return { ok: true, record: { surface: "E1", root: CONTAINMENT_ROOT, origin: "direct" } };
   }
   return readRunRecord(env.ABATHUR_RUN_RECORD, env);
@@ -57,6 +62,9 @@ export function assertSurface(request, policy = SURFACES) {
   }
   if (surface === "E2" || surface === "E3") {
     return { rc: 1, code: "HUMAN-GATE", detail: `${surface} writes require the owner` };
+  }
+  if (surface === "E1" && !IN_REPO) {
+    return { rc: 1, code: "E1-NO-REPO", detail: "not inside a git repository; E1 is not established" };
   }
   const path = typeof request.path === "string" ? request.path : "";
   if (!path.startsWith("/")) return { rc: 1, code: "BAD-PATH", detail: "absolute path required" };
