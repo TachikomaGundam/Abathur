@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 42715f09f4d57bc160c5722e5969a16899ea36fb91dd2bae0266e5b6fd6edab9
+registry-sha256: 57af3c562febfbf36b65818f87bc3d9dd20f46913e29520904f6002c838cc32b
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -29,9 +29,9 @@ Kernel modules communicate only through their index.mjs interfaces; no deep impo
 
 ## B-SURFACE-01 (B)
 
-Destructive writes are confined to fixed roots: the repository, the state temp root, and the state evidence root. Requests outside are denied and leave a hash-chained denial receipt; callers cannot widen the boundary.
+A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt.
 
-- check: `node --test test/surface.test.mjs test/containment.test.mjs test/hygiene.test.mjs` expects rc=0
+- check: `node --test test/surface.test.mjs test/containment.test.mjs test/surface-record.test.mjs test/hygiene.test.mjs` expects rc=0
 - exam: SR4-77
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/quality-gate.log`
 

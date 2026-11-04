@@ -12,6 +12,7 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { createRunRecord, pruneRuns } from "../../kernel/surface/record.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap", "/usr/sbin/bwrap"];
@@ -50,7 +51,7 @@ function roBindIfExists(argv, target) {
   } catch { /* unreadable target: do not pin it */ }
 }
 
-export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStartedAt }) {
+export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStartedAt, runRecordPath, runId }) {
   const ws = workspace;
   const argv = [
     "--die-with-parent", "--new-session",
@@ -66,6 +67,7 @@ export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStarte
   roBindIfExists(argv, path.join(ws, ".opencode"));
   roBindIfExists(argv, path.join(ws, "scripts"));
   roBindIfExists(argv, path.join(ws, "kernel"));
+  if (runRecordPath) argv.push("--ro-bind", runRecordPath, "/abathur-run.json");
   if (net === "host") argv.push("--ro-bind", "/run/systemd/resolve", "/run/systemd/resolve");
   argv.push(
     "--symlink", "usr/bin", "/bin",
@@ -81,16 +83,19 @@ export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStarte
     "--setenv", "TZ", process.env.TZ || "Asia/Shanghai",
     "--setenv", "CAGE_BORN_AT", bornAt,
     "--setenv", "LAUNCHER_STARTED_AT", launcherStartedAt,
-    "--",
-    "/bin/sh", "-c", cmd,
   );
+  if (runRecordPath) {
+    argv.push("--setenv", "ABATHUR_RUN_RECORD", "/abathur-run.json");
+    argv.push("--setenv", "ABATHUR_RUN_ID", runId);
+  }
+  argv.push("--", "/bin/sh", "-c", cmd);
   return argv;
 }
 
 function sq(s) { return "'" + String(s).replaceAll("'", "'\\''") + "'"; }
 
-export function wrapCommand({ bwrap, workspace, cmd, net, bornAt, launcherStartedAt }) {
-  return [bwrap, ...buildArgv({ workspace, cmd, net, bornAt, launcherStartedAt })]
+export function wrapCommand({ bwrap, workspace, cmd, net, bornAt, launcherStartedAt, runRecordPath, runId }) {
+  return [bwrap, ...buildArgv({ workspace, cmd, net, bornAt, launcherStartedAt, runRecordPath, runId })]
     .map(a => (/^[-\w@%+=:,./]+$/.test(a) ? a : sq(a)))
     .join(" ");
 }
@@ -162,8 +167,24 @@ export const SandboxBash = async ({ directory }) => {
       }
       const bornAt = new Date().toISOString();
       cageSeq += 1;
-      log(`CAGE seq=${cageSeq} born=${bornAt} launcher=${launcherStartedAt}`);
-      args.command = wrapCommand({ bwrap, workspace: directory, cmd: args.command, net, bornAt, launcherStartedAt });
+      let runRecord = null;
+      try {
+        pruneRuns();
+        runRecord = createRunRecord({ surface: "E1", root: repoRoot, origin: "launcher" });
+      } catch (error) {
+        log(`RUN-RECORD-FAILED ${error?.message || error}`);
+      }
+      log(`CAGE seq=${cageSeq} born=${bornAt} launcher=${launcherStartedAt} run=${runRecord?.record?.id ?? "none"}`);
+      args.command = wrapCommand({
+        bwrap,
+        workspace: directory,
+        cmd: args.command,
+        net,
+        bornAt,
+        launcherStartedAt,
+        runRecordPath: runRecord?.path,
+        runId: runRecord?.record?.id,
+      });
     },
   };
 };

@@ -30,6 +30,21 @@ export {
   deny,
   isSymlink,
 } from "./containment.mjs";
+export { createRunRecord, readRunRecord, pruneRuns, runsDir } from "./record.mjs";
+
+import { REPO_ROOT as CONTAINMENT_ROOT } from "./containment.mjs";
+import { readRunRecord } from "./record.mjs";
+
+/**
+ * Resolve the effective surface. A launcher-issued record wins; no record
+ * means the human/direct path, which is E1 rooted at the repository.
+ */
+export function resolveRun(env = process.env) {
+  if (!env.ABATHUR_RUN_RECORD) {
+    return { ok: true, record: { surface: "E1", root: CONTAINMENT_ROOT, origin: "direct" } };
+  }
+  return readRunRecord(env.ABATHUR_RUN_RECORD, env);
+}
 
 /**
  * @param {{op:string, path?:string, surface?:string}} request

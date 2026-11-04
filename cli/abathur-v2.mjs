@@ -13,7 +13,7 @@ import { reclaim, retention, watermark } from "../kernel/hygiene/index.mjs";
 import { DEFAULT_LANES, attributeWrite, foreignWrite } from "../kernel/lane/index.mjs";
 import { gate } from "../kernel/gate/index.mjs";
 import { loadIdentities, checkCommitIdentity } from "../kernel/identity/index.mjs";
-import { checkInside, deny, stateDir } from "../kernel/surface/index.mjs";
+import { checkInside, deny, resolveRun, pruneRuns, stateDir } from "../kernel/surface/index.mjs";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
@@ -23,6 +23,8 @@ function usage(code = 2) {
 commands:
   rules validate
   rules generate [--out <path>]
+  surface show
+  surface check <path>
   gate run
   exam draw --seed <seed> [--count <n>] [--canary]
   exam run <item-id> --mode bell|live
@@ -77,9 +79,15 @@ function cmdRules(rest, flags) {
   if (rest[0] === "generate") {
     const result = generateRules(undefined);
     const out = flags.out ? resolve(flags.out) : resolve(ROOT, "rules/generated/RULES.md");
-    const bounds = checkInside(out, [ROOT, stateDir()]);
+    const run = resolveRun();
+    if (!run.ok) {
+      process.stdout.write(`${JSON.stringify({ rc: 2, code: run.code, detail: run.detail })}\n`);
+      return 2;
+    }
+    const roots = [run.record.root, stateDir()];
+    const bounds = checkInside(out, roots);
     if (!bounds.ok) {
-      const refusal = deny("rules.generate", bounds.target ?? out, [ROOT, stateDir()]);
+      const refusal = deny("rules.generate", bounds.target ?? out, roots);
       process.stdout.write(`${JSON.stringify(refusal)}\n`);
       return refusal.rc;
     }
@@ -226,6 +234,24 @@ function cmdLane(rest, flags) {
   return usage();
 }
 
+function cmdSurface(rest) {
+  const run = resolveRun();
+  if (rest[0] === "show") {
+    process.stdout.write(`${JSON.stringify(run)}\n`);
+    return run.ok ? 0 : 2;
+  }
+  if (rest[0] === "check" && rest[1]) {
+    if (!run.ok) {
+      process.stdout.write(`${JSON.stringify({ rc: 2, code: run.code, detail: run.detail })}\n`);
+      return 2;
+    }
+    const bounds = checkInside(rest[1], [run.record.root, stateDir()]);
+    process.stdout.write(`${JSON.stringify({ ...bounds, surface: run.record.surface, root: run.record.root })}\n`);
+    return bounds.ok ? 0 : 2;
+  }
+  return usage();
+}
+
 function cmdPlan(rest) {
   if (rest[0] !== "check" || !rest[1]) return usage();
   const result = spawnSync("python3", ["/home/lab/workspace/harness/Abathur/loop/plan_check.py", rest[1]], {
@@ -249,8 +275,10 @@ function main(argv) {
   const [command, ...tail] = argv;
   const { flags, rest } = parseFlags(tail);
   if (!command || command === "--help" || command === "-h") return usage(0);
+  try { pruneRuns(); } catch { /* best effort; a failed sweep must not block commands */ }
   if (command === "rules") return cmdRules(rest, flags);
   if (command === "gate") return cmdGate(rest);
+  if (command === "surface") return cmdSurface(rest);
   if (command === "exam") return cmdExam(rest, flags);
   if (command === "evidence") return cmdEvidence(rest, flags);
   if (command === "hygiene") return cmdHygiene(rest, flags);
