@@ -1,0 +1,1 @@
+# Brief gamma (demo fixture).

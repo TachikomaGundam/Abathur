@@ -1,0 +1,12 @@
+{
+  "_purpose": "Single authority for line->root bindings (L-LINE-BINDING seat registry 2026-10-22). A cell's allowed_roots may NOT overlap any root of a line other than `self`.",
+  "self": "abathur",
+  "lines": {
+    "abathur": ["/home/lab/workspace/harness/Abathur"],
+    "otm_videogen": ["/home/lab/workspace/harness/VideoGen"],
+    "aihr": ["/home/lab/workspace/AIHR", "/home/lab/workspace/harness/hr"],
+    "pcb": ["/home/lab/workspace/harness/PCB-Agent"],
+    "historian": ["/home/lab/workspace/harness/historian"],
+    "simplecut": ["/home/lab/workspace/harness/SimpleCut"]
+  }
+}
