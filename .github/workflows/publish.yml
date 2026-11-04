@@ -42,5 +42,23 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Guard tarball contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node - <<'NODE'
+          const [p] = JSON.parse(require("fs").readFileSync("pack.json", "utf8"));
+          const bad = p.files.filter(({ path }) =>
+            /(^|\/)tools\//.test(path) ||
+            path.includes("__pycache__") ||
+            path.endsWith(".pyc")
+          );
+          if (bad.length) {
+            console.error("TARBALL-GUARD: forbidden entries: " + bad.map((b) => b.path).join(", "));
+            process.exit(1);
+          }
+          console.log(`TARBALL-GUARD OK: ${p.entryCount} files, ${p.unpackedSize} bytes`);
+          NODE
+          rm -f pack.json
+
       - name: Publish with provenance
         run: npm publish --provenance --access public

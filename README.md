@@ -28,6 +28,13 @@ cli/               command surface
 scripts/           audit helpers (receipts, quality, baseline)
 ```
 
+## Wave engine (internal dispatch tool)
+
+`tools/wave_engine/` is a source-checkout-only maintainer tool. It is **not**
+included in the npm tarball and is not installed by `npm install -g`. It
+requires Python 3 and a Git checkout of this repository. See
+`tools/wave_engine/README.md` for its commands and manifest rules.
+
 ## Environment injection
 
 External instruments are injected, never hardcoded:
