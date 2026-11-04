@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { reclaim, retention, watermark } from "../kernel/hygiene/index.mjs";
 import { ensureDir, tempRoot } from "../kernel/surface/containment.mjs";
@@ -27,13 +28,14 @@ test("a verified manifest reclaims its files", () => {
 });
 
 test("a target outside the state temp root is refused", () => {
-  const outside = "/home/lab/not-abathur-temp.txt";
+  const outside = join(tmpdir(), `abathur-outside-${process.pid}.txt`);
   writeFileSync(outside, "keep");
   const sha = createHash("sha256").update("keep").digest("hex");
   const result = reclaim(tempRoot(), { files: [{ path: outside, sha256: sha }] });
   assert.equal(result.rc, 2);
   assert.equal(result.code, "OUTSIDE-ROOT");
   assert.equal(existsSync(outside), true);
+  rmSync(outside, { force: true });
 });
 
 test("an evidence file is refused even with a matching hash", () => {
