@@ -1,5 +1,16 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { checkInside, stateDir, tempRoot } from "../kernel/surface/containment.mjs";
+
+/** Long-run state and logs live under the state directory or its temp root. */
+export function assertRunPath(path, label) {
+  if (typeof path !== "string" || !path.startsWith("/")) {
+    throw new Error(`${label} must be an absolute path`);
+  }
+  if (!checkInside(path, [stateDir(), tempRoot()]).ok) {
+    throw new Error(`${label} is outside the run roots: ${path}`);
+  }
+}
 
 /**
  * Start a long run and return in well under a second. Progress is written to
@@ -7,6 +18,8 @@ import { appendFileSync, writeFileSync } from "node:fs";
  * @param {{name:string, command:string[], statePath:string, logPath:string}} options
  */
 export function startLongRun(options) {
+  assertRunPath(options.statePath, "statePath");
+  assertRunPath(options.logPath, "logPath");
   const state = { name: options.name, status: "running", startedAt: new Date().toISOString(), pid: null };
   writeFileSync(options.statePath, `${JSON.stringify(state, null, 2)}\n`);
   const child = spawn(options.command[0], options.command.slice(1), {

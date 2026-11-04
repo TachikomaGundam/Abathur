@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { assertRunPath } from "./spawn.mjs";
 
 export const SEAT_ENV = "ABATHUR_SEAT_CMD";
 export const JUDGE_ENV = "ABATHUR_JUDGE_CMD";
@@ -53,5 +54,6 @@ export function runExam(options) {
 
 /** Write a long-run state file before detaching (never hold the foreground). */
 export function recordLongRun(statePath, state) {
+  assertRunPath(statePath, "statePath");
   writeFileSync(statePath, `${JSON.stringify({ ...state, ts: new Date().toISOString() }, null, 2)}\n`);
 }

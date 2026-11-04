@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: c90ea33b56dc106219d37b93b46800cea0983a382551fdf0e4c57a62dc5cdfc2
+registry-sha256: 5a4d9470c0d4533e0eec67b14ac576eae68fbcecffabb6073c495fd8a2a46376
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -31,7 +31,7 @@ Kernel modules communicate only through their index.mjs interfaces; no deep impo
 
 A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt.
 
-- check: `node --test test/surface.test.mjs test/containment.test.mjs test/surface-record.test.mjs test/hygiene.test.mjs` expects rc=0
+- check: `node --test test/surface.test.mjs test/containment.test.mjs test/surface-record.test.mjs test/surface-cwd.test.mjs test/exam-spawn.test.mjs test/hygiene.test.mjs` expects rc=0
 - exam: SR4-77
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/quality-gate.log`
 
