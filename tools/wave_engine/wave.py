@@ -319,15 +319,29 @@ def require_state(cell, allowed, action):
             % (cell["cell_id"], action, cell["state"], allowed))
 
 
-def cmd_claim(args):
-    cell = load_cell(args.base, args.wave_id, args.cell_id)
-    require_state(cell, ["launched"], "claim")
-    cwd = cell.get("cwd")
-    if not cwd:
+def require_cwd(cell):
+    """Re-check at claim/done time: the cwd validated at plan may be swapped.
+
+    Resolve only the cwd; allowed_roots were canonicalized at plan time and
+    are compared as stored. Re-resolving a swapped root would bless the swap.
+    """
+    raw = cell.get("cwd")
+    if not raw:
         die("cell %s: launchpack has no cwd (legacy wave); replan with cwd" % cell["cell_id"])
+    cwd = os.path.realpath(raw)
     if not os.path.isdir(cwd):
         die("cell %s: cwd vanished or is not a directory: %s"
             % (cell["cell_id"], cwd))
+    if not under_any(cwd, cell.get("allowed_roots", [])):
+        die("cell %s: cwd %r is outside allowed_roots %s"
+            % (cell["cell_id"], cwd, cell.get("allowed_roots", [])))
+    return cwd
+
+
+def cmd_claim(args):
+    cell = load_cell(args.base, args.wave_id, args.cell_id)
+    require_state(cell, ["launched"], "claim")
+    require_cwd(cell)
     ts, iso = now_pair()
     cell["state"] = "claimed"
     cell["claimed_at"] = iso
@@ -383,9 +397,7 @@ def cmd_done(args):
     require_state(cell, ["claimed"], "done")
     if not args.receipt:
         die("cell %s: done requires --receipt PATH" % cell["cell_id"])
-    cwd = cell.get("cwd")
-    if not cwd:
-        die("cell %s: launchpack has no cwd (legacy wave); replan with cwd" % cell["cell_id"])
+    cwd = require_cwd(cell)
     if args.expect_root:
         bad = expect_root_violations(cell["allowed_roots"], cwd, args.expect_root)
         if bad:

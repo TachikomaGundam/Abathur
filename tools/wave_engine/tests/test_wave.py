@@ -198,6 +198,23 @@ def test_symlinked_cwd_escape_rejected(tmp_path):
     assert not (tmp_path / "w1").exists()
 
 
+def test_cwd_swap_after_plan_rejected(tmp_path):
+    root = tmp_path / "root"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    man = make_manifest(tmp_path, [
+        cell_manifest("swap", roots=[str(root)], cwd=str(root)),
+    ])
+    assert run(tmp_path, "plan", man).returncode == 0
+    assert run(tmp_path, "launch", "w1", "--cells", "swap").returncode == 0
+    root.rmdir()
+    os.symlink(outside, root)
+    r = run(tmp_path, "claim", "w1", "swap")
+    assert r.returncode != 0
+    assert "outside allowed_roots" in r.stderr
+
+
 def test_dispatch_line_carries_cwd(tmp_path):
     man = make_manifest(tmp_path, [cell_manifest("alpha")])
     assert run(tmp_path, "plan", man).returncode == 0
