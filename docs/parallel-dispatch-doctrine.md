@@ -34,3 +34,27 @@
 - 独立复算先于呈报（监工亲手量 v4：席位自报与独立读逐帧吻合=可信度建立；不符即伤单）。
 - 仪器伤族（F15 系）：全局 SAD 分不清遮挡/漂移、色彩法在色板退化场景失效、全幅搜索被活动主体污染——仪器报警→语义读闭合→具名入账三段式。
 - 静物插镜确定性化（Ken Burns/局部消光）：云 rep 专留角色动作镜。
+
+## 六、方法论边界（2026-11-04 独立评审裁 A）
+
+本条是并行调度方法论的单一权威。`tools/wave_engine/wave.py` 是参考实现，
+不是阿巴瑟运行时的一部分。
+
+- **可复用策略**：manifest 校验、依赖拓扑、`cwd`/`allowed_roots` 包含、
+  跨线拒绝、cell 状态机、回执路径污染探测、饱和度仪表。
+- **执行面**：发射席位、等待/轮询、宿主状态目录；这些绑定当前宿主，
+  不做成 Node 内核。`orchestrate.py` 是 VideoGen 线专属只读适配器。
+- **包边界**：`tools/wave_engine/` 只随源码检出提供（source-checkout-only），
+  不进 npm tarball（gap 3）。`package.json.files` 不加 `tools`；`publish.yml` 的
+  tarball guard 对 `tools/`、`__pycache__`、`.pyc` fail-closed。
+- **当前边界**：`kernel/dispatch` 不存在是刻意决定，不是遗漏。任何把它
+  变成运行时功能的提案，必须先立新 Charter，并满足：单写者、`realpath`
+  重检、原子 claim、席位只能改自己的 cell、对抗性回执夹具、版本化状态
+  与 quiesce、`line_roots` 用户配置、Python/Node 双跑等价语料入闸。
+- **跨机**：`line_roots.json` 当前是本机绝对路径；跨机使用必须由用户
+  提供自己的 line map，不得把本机路径当默认值。
+
+机器检查：源码检出跑
+`python3 -m pytest tools/wave_engine/tests -q`；包边界由
+`node --test test/dispatch-boundary.test.mjs` 和 `publish.yml` 共同守护。
+

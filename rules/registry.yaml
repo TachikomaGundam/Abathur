@@ -169,6 +169,14 @@
       "check": { "cmd": "node --test test/plan-check.test.mjs", "expect_rc": 0 },
       "exam_item": "SR4-76",
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/plan-check.log"
+    },
+    {
+      "id": "P-DISPATCH-BOUNDARY-01",
+      "class": "P",
+      "statement": "Wave dispatch methodology is source-checkout-only until a new charter explicitly authorizes a runtime module: npm files exclude tools/, kernel/dispatch does not exist, and the publish workflow rejects tools/, __pycache__, and .pyc.",
+      "check": { "cmd": "node --test test/dispatch-boundary.test.mjs", "expect_rc": 0 },
+      "no_exam_reason": "Packaging and scope boundary; no seat exam item is claimed for this guard.",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/review-dispatch-abstraction-result.md"
     }
   ]
 }

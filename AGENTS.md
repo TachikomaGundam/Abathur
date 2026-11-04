@@ -31,7 +31,7 @@
 - CLI：`cli/abathur-v2.mjs`；包 `@tachikomagundam/abathur`，Node `>=22.22.1`，零运行时依赖。
 - 内核：`kernel/{planning,identity,evidence,judge,surface,lane,hygiene,recurrence,gate}`。
 - 考场：`exam/{bank,draw,runner,spawn,judges}`。
-- 规则：`rules/`，21 条；`node cli/abathur-v2.mjs rules validate`。
+- 规则：`rules/`，22 条；`node cli/abathur-v2.mjs rules validate`。
 - 派单引擎：`tools/wave_engine/`（manifest 校验、N 路扇出、状态机、回执污染探测、饱和度仪表）；条令 `docs/parallel-dispatch-doctrine.md`。
 - 发布制件：`scripts/release-candidate.mjs`；按 commit 在临时目录制件，记录 sha256 与文件数。
 - 证据：`.omo/evidence/`；追加式台账 `INTENT-LEDGER.md`。

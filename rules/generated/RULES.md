@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 88bd5eb1560433535cafa89730b286ebec900215d7127299ba51a4076c3671df
+registry-sha256: 0bdf6c1b56cbf5e1b03590c14a47867576f9dacccf569783d2929e85bb64c7bc
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -130,6 +130,14 @@ Bell mode must kill a planted fake answer; live mode must pass a legitimate answ
 - check: `node --test test/runner.test.mjs` expects rc=0
 - exam: SR4-76
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w3/sr4-76-bell-live.log`
+
+## P-DISPATCH-BOUNDARY-01 (P)
+
+Wave dispatch methodology is source-checkout-only until a new charter explicitly authorizes a runtime module: npm files exclude tools/, kernel/dispatch does not exist, and the publish workflow rejects tools/, __pycache__, and .pyc.
+
+- check: `node --test test/dispatch-boundary.test.mjs` expects rc=0
+- exam exemption: Packaging and scope boundary; no seat exam item is claimed for this guard.
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/review-dispatch-abstraction-result.md`
 
 ## P-EXAM-REGISTRY-01 (P)
 
