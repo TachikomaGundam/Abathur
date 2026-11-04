@@ -253,3 +253,137 @@ def test_expect_root_gate(tmp_path):
             "--expect-root", FIXTURES)
     assert r.returncode == 0, r.stderr
     assert read_cell(tmp_path, "w1", "alpha")["state"] == "done"
+
+
+def write_line_map(tmp_path, roots, forbidden, name="line_roots.json"):
+    p = tmp_path / name
+    p.write_text(json.dumps({
+        "self": "abathur",
+        "lines": {"abathur": {"roots": [str(r) for r in roots],
+                              "forbidden_surfaces": list(forbidden)}},
+    }))
+    return str(p)
+
+
+def test_legacy_line_schema_rejected(tmp_path):
+    legacy = tmp_path / "legacy.json"
+    legacy.write_text(json.dumps({"self": "abathur", "lines": {"abathur": [FIXTURES]}}))
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    r = run(tmp_path, "plan", man, "--line-roots", str(legacy))
+    assert r.returncode != 0
+    assert "legacy array schema" in r.stderr
+    assert not (tmp_path / "w1").exists()
+
+
+def test_forbidden_surface_rejects_narrow_root(tmp_path):
+    root = tmp_path / "line"
+    protected = root / "protected"
+    protected.mkdir(parents=True)
+    lm = write_line_map(tmp_path, [root], ["protected"])
+    man = make_manifest(tmp_path, [
+        cell_manifest("inside", roots=[str(protected)], cwd=str(protected)),
+    ])
+    r = run(tmp_path, "plan", man, "--line-roots", lm)
+    assert r.returncode != 0
+    assert "protected surface" in r.stderr
+    assert not (tmp_path / "w1").exists()
+
+
+def test_forbidden_surface_receipt_pollution(tmp_path):
+    lm = write_line_map(tmp_path, [FIXTURES], ["protected"])
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    r = run(tmp_path, "plan", man, "--line-roots", lm)
+    assert r.returncode == 0, r.stderr
+    assert "WARNING: protected-surface overlap" in r.stdout
+    pack = read_cell(tmp_path, "w1", "alpha")
+    assert pack["line_roots_sha256"]
+    assert pack["forbidden_surfaces"][0]["path"] == os.path.join(FIXTURES, "protected")
+    run(tmp_path, "launch", "w1", "--cells", "alpha")
+    run(tmp_path, "claim", "w1", "alpha")
+    receipt = write_receipt(tmp_path, "dirty.txt",
+                            "wrote %s/protected/ledger.md" % FIXTURES)
+    r = run(tmp_path, "done", "w1", "alpha", "--receipt", receipt)
+    assert r.returncode == 0, r.stderr
+    assert "DONE-POLLUTED" in r.stdout
+    assert "protected/ledger.md" in r.stdout
+
+
+def test_line_roots_drift_blocks_done(tmp_path):
+    lm = write_line_map(tmp_path, [FIXTURES], [])
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    assert run(tmp_path, "plan", man, "--line-roots", lm).returncode == 0
+    run(tmp_path, "launch", "w1", "--cells", "alpha")
+    run(tmp_path, "claim", "w1", "alpha")
+    write_line_map(tmp_path, [FIXTURES], ["protected"], name="line_roots.json")
+    receipt = write_receipt(tmp_path, "ok.txt", "wrote %s/out.md" % FIXTURES)
+    r = run(tmp_path, "done", "w1", "alpha", "--receipt", receipt)
+    assert r.returncode != 0
+    assert "LINE-ROOTS-DRIFT" in r.stderr
+
+
+def test_read_roots_are_read_only_channel(tmp_path):
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    cell = cell_manifest("alpha")
+    cell["read_roots"] = [str(read_dir)]
+    man = make_manifest(tmp_path, [cell])
+    r = run(tmp_path, "plan", man)
+    assert r.returncode == 0, r.stderr
+    pack = read_cell(tmp_path, "w1", "alpha")
+    assert pack["read_roots"] == [os.path.realpath(str(read_dir))]
+    r = run(tmp_path, "launch", "w1", "--cells", "alpha")
+    assert "read_roots=" in r.stdout and "READ-ONLY REVIEW REQUIRED" in r.stdout
+    run(tmp_path, "claim", "w1", "alpha")
+    receipt = write_receipt(tmp_path, "read.txt", "read %s/spec.md" % read_dir)
+    r = run(tmp_path, "done", "w1", "alpha", "--receipt", receipt)
+    assert r.returncode == 0, r.stderr
+    assert "receipt clean" in r.stdout and "1 read-only mention" in r.stdout
+    assert read_cell(tmp_path, "w1", "alpha")["read_mentions"]
+
+
+def test_read_root_overlap_rejected(tmp_path):
+    cell = cell_manifest("alpha")
+    cell["read_roots"] = [FIXTURES]
+    man = make_manifest(tmp_path, [cell])
+    r = run(tmp_path, "plan", man)
+    assert r.returncode != 0
+    assert "read_root" in r.stderr and "overlaps allowed_roots" in r.stderr
+
+
+def test_role_newer_than_session_requires_restart(tmp_path):
+    roles = tmp_path / "roles"
+    roles.mkdir()
+    (roles / "new.md").write_text("new role")
+    cell = cell_manifest("alpha")
+    cell["role"] = "new"
+    man = make_manifest(tmp_path, [cell])
+    r = run(tmp_path, "plan", man, "--role-dir", str(roles),
+            "--session-start", "2000-01-01T00:00:00Z")
+    assert r.returncode != 0
+    assert "RESTART-REQUIRED" in r.stderr
+    assert "session_start=2000-01-01T00:00:00Z" in r.stderr
+
+
+def test_role_snapshot_accepts_old_role(tmp_path):
+    roles = tmp_path / "roles"
+    roles.mkdir()
+    role = roles / "old.md"
+    role.write_text("old role")
+    os.utime(role, (1000, 1000))
+    cell = cell_manifest("alpha")
+    cell["role"] = "old"
+    man = make_manifest(tmp_path, [cell])
+    r = run(tmp_path, "plan", man, "--role-dir", str(roles),
+            "--session-start", "2026-11-04T00:00:00Z")
+    assert r.returncode == 0, r.stderr
+    pack = read_cell(tmp_path, "w1", "alpha")
+    assert pack["role"] == "old" and pack["role_path"].endswith("old.md")
+
+
+def test_role_without_snapshot_flags_rejected(tmp_path):
+    cell = cell_manifest("alpha")
+    cell["role"] = "any"
+    man = make_manifest(tmp_path, [cell])
+    r = run(tmp_path, "plan", man)
+    assert r.returncode != 0
+    assert "--role-dir and --session-start" in r.stderr

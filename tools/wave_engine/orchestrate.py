@@ -51,7 +51,8 @@ def die_json(msg):
 
 def load_line_root(line_roots_path, key):
     cfg = wave_mod.load_line_roots(line_roots_path)
-    roots = cfg.get("lines", {}).get(key)
+    entry = cfg.get("lines", {}).get(key)
+    roots = entry.get("roots") if isinstance(entry, dict) else None
     if not roots:
         die_json("line_roots.json has no roots for key %r (single source, refusing to guess)" % key)
     return os.path.normpath(roots[0]), cfg
@@ -298,7 +299,7 @@ def cmd_selftest(args):
     check(not bad, "every parsed fire cell pins allowed_roots to the %s root" % LINE_KEY,
           "%d cells, root=%s" % (len(cells), line_root) if not bad else "offenders: %s" % bad)
 
-    aihr_root = line_cfg["lines"]["aihr"][0]
+    aihr_root = line_cfg["lines"]["aihr"]["roots"][0]
     evil = {"cell_id": "EVIL-CROSSLNE", "kind": "gen", "allowed_roots": [aihr_root],
             "cwd": HERE, "brief_path": args.line_roots}
     errors = wave_mod.validate_manifest({"cells": [evil]}, line_cfg)
@@ -307,7 +308,7 @@ def cmd_selftest(args):
           "errors=%d" % len(errors))
 
     good = {"cell_id": "OK-INLINE", "kind": "gen",
-            "allowed_roots": [line_cfg["lines"][line_cfg["self"]][0]],
+            "allowed_roots": [line_cfg["lines"][line_cfg["self"]]["roots"][0]],
             "cwd": HERE, "brief_path": args.line_roots}
     errors = wave_mod.validate_manifest({"cells": [good]}, line_cfg)
     check(not errors, "validator still accepts an in-line cell (reject-everything guard)",

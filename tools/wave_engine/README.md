@@ -6,16 +6,34 @@ sleep-holding seats that waited in-line (cells here are fire-and-report).
 
 State lives in `/home/lab/tmp/abathur-waves/<wave_id>/` (override: `--base` or
 env `ABATHUR_WAVES_DIR`). Cell state machine: `new -> launched -> claimed ->
-done/failed`; `done` requires an existing `--receipt` and every file path
-mentioned in the receipt text must fall under that cell's `allowed_roots` —
-violations are printed and flagged `DONE-POLLUTED`, never silent. Cross-line
-roots (see `line_roots.json`) are rejected at `plan`, fail-closed.
+done/failed`; `done` requires an existing `--receipt`. Receipt paths outside
+`allowed_roots` or inside a declared protected surface are printed and flagged
+`DONE-POLLUTED`, never silent. Cross-line roots and protected surfaces (see
+`line_roots.json`) are rejected at `plan`, fail-closed.
 
 Every cell must declare `cwd`: the directory its commands run in. `cwd` must
 exist and must sit inside `allowed_roots`. Relative paths in the receipt are
 resolved against `cwd`, not against the supervisor's directory. `plan` and
 `done` accept `--expect-root <dir>`: all `cwd`/`allowed_roots` must be under
 that root, otherwise the command fails before writing or marking done.
+
+`line_roots.json` is the single source for line roots **and** protected
+surfaces. Each line is an object `{roots, forbidden_surfaces}`; a missing
+`forbidden_surfaces` key fails closed. `plan` records the file's sha256 in each
+launchpack; `done` refuses with `LINE-ROOTS-DRIFT` if the file changed after
+plan. A broad `allowed_root` that merely contains a protected surface is warned
+and remains receipt-checked plus human-reviewed; it is not mount enforcement.
+
+A cell may declare `read_roots`: directories it may read but must not write.
+They must exist and must not overlap `allowed_roots`. The dispatch line marks
+`READ-ONLY REVIEW REQUIRED`. This is a declaration, not a filesystem sandbox;
+same-uid bash can still write there. Real denial belongs to the mount layer.
+
+A cell may declare `role`. Roles are frozen at session start; no hot reload.
+`plan --role-dir <dir> --session-start <ISO-8601>` resolves `<dir>/<role>.md`.
+A role file newer than session start fails with `RESTART-REQUIRED`; a missing
+role fails with `UNKNOWN-ROLE`. If any cell declares a role, both flags are
+mandatory. The host role loader remains owned by opencode.
 
 ## Supervisor usage (5 commands)
 
@@ -50,6 +68,7 @@ Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_e
       "kind": "gen",
       "brief_path": "/home/lab/workspace/harness/Abathur/handoffs/example.md",
       "allowed_roots": ["/home/lab/workspace/harness/Abathur"],
+      "read_roots": ["/home/lab/workspace/harness/VideoGen"],
       "cwd": "/home/lab/workspace/harness/Abathur",
       "deps": []
     }
@@ -58,7 +77,9 @@ Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_e
 ```
 
 `allowed_roots`, `cwd`, `brief_path`, `cell_id`, and `kind` are mandatory.
-Cross-line roots are rejected; a cell may not write into another line's repo.
+`read_roots` and `role` are optional. Cross-line roots are rejected; a cell may
+not write into another line's repo. Protected surfaces are declared once in
+`line_roots.json`, never copied into individual tickets.
 
 ## Orchestrate (cross-line read models, READ-ONLY vs VideoGen)
 

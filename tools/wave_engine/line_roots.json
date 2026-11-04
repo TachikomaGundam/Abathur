@@ -1,12 +1,30 @@
 {
-  "_purpose": "Single authority for line->root bindings (L-LINE-BINDING seat registry 2026-10-22). A cell's allowed_roots may NOT overlap any root of a line other than `self`.",
+  "_purpose": "Single authority for line->root bindings and protected surfaces (L-LINE-BINDING seat registry 2026-10-22). A cell's allowed_roots may NOT overlap any root of a line other than `self`. Every line object MUST carry a forbidden_surfaces list; a missing key fails closed.",
   "self": "abathur",
   "lines": {
-    "abathur": ["/home/lab/workspace/harness/Abathur"],
-    "otm_videogen": ["/home/lab/workspace/harness/VideoGen"],
-    "aihr": ["/home/lab/workspace/AIHR", "/home/lab/workspace/harness/hr"],
-    "pcb": ["/home/lab/workspace/harness/PCB-Agent"],
-    "historian": ["/home/lab/workspace/harness/historian"],
-    "simplecut": ["/home/lab/workspace/harness/SimpleCut"]
+    "abathur": {
+      "roots": ["/home/lab/workspace/harness/Abathur"],
+      "forbidden_surfaces": [".omo/evidence/INTENT-LEDGER.md", "rules/generated/RULES.md"]
+    },
+    "otm_videogen": {
+      "roots": ["/home/lab/workspace/harness/VideoGen"],
+      "forbidden_surfaces": ["MODEL-REGISTRY.md", "RULINGS.md", "SHOT-MANIFEST.json", "MANIFEST.json"]
+    },
+    "aihr": {
+      "roots": ["/home/lab/workspace/AIHR", "/home/lab/workspace/harness/hr"],
+      "forbidden_surfaces": []
+    },
+    "pcb": {
+      "roots": ["/home/lab/workspace/harness/PCB-Agent"],
+      "forbidden_surfaces": []
+    },
+    "historian": {
+      "roots": ["/home/lab/workspace/harness/historian"],
+      "forbidden_surfaces": []
+    },
+    "simplecut": {
+      "roots": ["/home/lab/workspace/harness/SimpleCut"],
+      "forbidden_surfaces": []
+    }
   }
 }

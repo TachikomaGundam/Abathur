@@ -76,12 +76,78 @@ def save_cell(base, wave_id, cell, obj):
 
 
 def load_line_roots(path):
+    """Load the single authority for line roots and protected surfaces.
+
+    Object-per-line schema is required. The old array schema is rejected by
+    name: silently guessing where a forbidden list lives would let a missing
+    key pass as "nothing forbidden".
+    """
     if not os.path.isfile(path):
         die("line_roots.json not found: %s" % path)
     data = read_json(path)
     if "lines" not in data or "self" not in data:
         die("line_roots.json malformed (need self + lines): %s" % path)
+    if data["self"] not in data["lines"]:
+        die("line_roots.json: self line %r is not in lines" % data["self"])
+    for line, cfg in data["lines"].items():
+        if isinstance(cfg, list):
+            die("line_roots.json: line %r uses the legacy array schema; migrate to "
+                "{roots: [...], forbidden_surfaces: [...]}" % line)
+        if not isinstance(cfg, dict):
+            die("line_roots.json: line %r must be an object" % line)
+        if not cfg.get("roots") or not isinstance(cfg["roots"], list):
+            die("line_roots.json: line %r needs a non-empty roots list" % line)
+        if "forbidden_surfaces" not in cfg or not isinstance(cfg["forbidden_surfaces"], list):
+            die("line_roots.json: line %r is missing forbidden_surfaces (fail closed)" % line)
     return data
+
+
+def forbidden_entries(line_cfg):
+    """Yield (line, absolute forbidden path) for every declared surface.
+
+    Relative entries resolve against that line's first root. Entries that
+    vanish from the file cannot be detected here; plan pins the file sha256.
+    """
+    out = []
+    for line, cfg in line_cfg["lines"].items():
+        base = norm_abs(cfg["roots"][0])
+        for raw in cfg["forbidden_surfaces"]:
+            p = raw if os.path.isabs(raw) else os.path.join(base, raw)
+            out.append((line, norm_abs(p)))
+    return out
+
+
+def forbidden_violations(paths, line_cfg):
+    """Reject roots/cwd that are equal to or inside a protected surface."""
+    out = []
+    for raw in paths:
+        p = norm_abs(raw)
+        for line, surface in forbidden_entries(line_cfg):
+            if p == surface or p.startswith(surface + os.sep):
+                out.append((p, line, surface))
+    return out
+
+
+def broad_forbidden_overlaps(roots, line_cfg):
+    """Report broad roots that contain protected surfaces.
+
+    A repo-root allowed_root necessarily contains protected files. Plan cannot
+    prove those files will not be written; it records the overlap and relies
+    on receipt-path checks plus human review. It is not mount enforcement.
+    """
+    out = []
+    for raw in roots:
+        r = norm_abs(raw)
+        for line, surface in forbidden_entries(line_cfg):
+            if surface.startswith(r + os.sep) and not r.startswith(surface + os.sep):
+                out.append((r, line, surface))
+    return out
+
+
+def line_roots_sha256(path):
+    import hashlib
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
 
 
 def norm_abs(p):
@@ -116,10 +182,10 @@ def cross_line_violations(allowed_roots, line_cfg):
     self_line = line_cfg["self"]
     for raw in allowed_roots:
         r = norm_abs(raw)
-        for line, roots in line_cfg["lines"].items():
+        for line, cfg in line_cfg["lines"].items():
             if line == self_line:
                 continue
-            for root in roots:
+            for root in cfg["roots"]:
                 R = norm_abs(root)
                 if overlaps(r, R):
                     out.append((raw, line, root))
@@ -166,9 +232,24 @@ def validate_manifest(man, line_cfg):
         if not cell.get("allowed_roots"):
             errors.append("cell %s: allowed_roots must be non-empty" % cid)
         else:
+            roots = [norm_abs(r) for r in cell["allowed_roots"]]
             for raw, line, root in cross_line_violations(cell["allowed_roots"], line_cfg):
                 errors.append("cell %s: cross-line pollution: allowed_root %r overlaps other line '%s' root %r"
                               % (cid, raw, line, root))
+            for p, line, surface in forbidden_violations(cell["allowed_roots"], line_cfg):
+                errors.append("cell %s: protected surface: allowed_root %r is inside %s surface %r"
+                              % (cid, p, line, surface))
+            read_roots = cell.get("read_roots", [])
+            if not isinstance(read_roots, list):
+                errors.append("cell %s: read_roots must be a list" % cid)
+                read_roots = []
+            for raw in read_roots:
+                rp = norm_abs(raw)
+                if not os.path.isdir(rp):
+                    errors.append("cell %s: read_root is not a directory: %s" % (cid, rp))
+                if under_any(rp, roots) or any(overlaps(rp, r) for r in roots):
+                    errors.append("cell %s: read_root %r overlaps allowed_roots (read channel must be read-only)"
+                                  % (cid, raw))
         cwd = cell.get("cwd")
         if not cwd:
             errors.append("cell %s: cwd is required (the directory commands run in)" % cid)
@@ -193,6 +274,65 @@ def validate_manifest(man, line_cfg):
     return errors
 
 
+def parse_iso(ts):
+    s = ts.strip().replace("Z", "+00:00")
+    return datetime.fromisoformat(s).timestamp()
+
+
+def role_check(cell, role_dir, session_start, session_start_label):
+    """Return (error, metadata) for a cell-declared role.
+
+    Roles are frozen at session start. A role file created after that moment
+    is not dispatchable in this session; the caller must restart. This is a
+    plan-time check, not an opencode hot-reload hook.
+    """
+    role = cell.get("role")
+    if not role:
+        return None, None
+    if re.search(r"[/\\]|\.\.", role):
+        return "cell %s: unsafe role name %r" % (cell["cell_id"], role), None
+    path = os.path.join(role_dir, role + ".md")
+    if not os.path.isfile(path):
+        return ("UNKNOWN-ROLE cell %s role=%s path=%s"
+                % (cell["cell_id"], role, path)), None
+    mtime = os.path.getmtime(path)
+    meta = {
+        "role": role,
+        "role_path": norm_abs(path),
+        "role_mtime": datetime.fromtimestamp(mtime, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "session_start": session_start_label,
+    }
+    if mtime > session_start:
+        return ("RESTART-REQUIRED cell %s role=%s path=%s mtime=%s session_start=%s"
+                % (cell["cell_id"], role, path, meta["role_mtime"], session_start_label)), meta
+    return None, meta
+
+
+def validate_roles(man, role_dir, session_start_raw):
+    errors = []
+    metas = {}
+    roles = [c for c in man.get("cells", []) if c.get("role")]
+    if not roles:
+        return errors, metas
+    if not role_dir or not session_start_raw:
+        return (["cell %s: role declared; plan requires --role-dir and --session-start"
+                 % c["cell_id"] for c in roles]), metas
+    try:
+        session_start = parse_iso(session_start_raw)
+    except ValueError:
+        return ["invalid --session-start (need ISO-8601): %r" % session_start_raw], metas
+    if not os.path.isdir(norm_abs(role_dir)):
+        return ["--role-dir is not a directory: %s" % role_dir], metas
+    rd = norm_abs(role_dir)
+    for cell in roles:
+        err, meta = role_check(cell, rd, session_start, session_start_raw)
+        if err:
+            errors.append(err)
+        if meta:
+            metas[cell["cell_id"]] = meta
+    return errors, metas
+
+
 def cmd_plan(args):
     man = read_json(args.manifest)
     for key in ("wave_id", "cells"):
@@ -203,6 +343,12 @@ def cmd_plan(args):
         die("wave_id must be a safe directory name: %r" % wid)
     line_cfg = load_line_roots(args.line_roots)
     errors = validate_manifest(man, line_cfg)
+    role_errors, role_metas = validate_roles(man, args.role_dir, args.session_start)
+    errors.extend(role_errors)
+    broad_overlaps = []
+    for cell in man.get("cells", []):
+        for root, line, surface in broad_forbidden_overlaps(cell.get("allowed_roots", []), line_cfg):
+            broad_overlaps.append((cell.get("cell_id"), root, line, surface))
     if args.expect_root:
         for cell in man.get("cells", []):
             if not cell.get("cwd"):
@@ -215,6 +361,13 @@ def cmd_plan(args):
         for e in errors:
             print("INVALID: " + e, file=sys.stderr)
         die("manifest validation failed (%d error(s)); nothing written" % len(errors))
+    roots_sha = line_roots_sha256(args.line_roots)
+    forbidden_snapshot = [{"line": line, "path": p} for line, p in forbidden_entries(line_cfg)]
+    if broad_overlaps:
+        print("WARNING: protected-surface overlap on a broad allowed_root "
+              "(receipt checks + human review, not mount enforcement):")
+        for cid, root, line, surface in broad_overlaps:
+            print("  %s: %s contains %s surface %s" % (cid, root, line, surface))
     wdir = wave_dir(args.base, wid)
     existing = [c["cell_id"] for c in man["cells"] if os.path.isfile(cell_path(args.base, wid, c["cell_id"]))]
     if existing and not args.force:
@@ -227,18 +380,27 @@ def cmd_plan(args):
             "cell_id": cell["cell_id"],
             "brief_path": norm_abs(cell["brief_path"]),
             "allowed_roots": [norm_abs(r) for r in cell["allowed_roots"]],
+            "read_roots": [norm_abs(r) for r in cell.get("read_roots", [])],
             "cwd": norm_abs(cell["cwd"]),
             "kind": cell["kind"],
             "deps": list(cell.get("deps", [])),
             "state": "new",
             "created_at": iso,
             "created_epoch": ts,
+            "line_roots_sha256": roots_sha,
+            "line_roots_path": norm_abs(args.line_roots),
+            "forbidden_surfaces": forbidden_snapshot,
             "notes": [],
         }
+        if cell["cell_id"] in role_metas:
+            pack.update(role_metas[cell["cell_id"]])
         atomic_write(cell_path(args.base, wid, cell["cell_id"]), pack)
     atomic_write(os.path.join(wdir, "meta.json"), {
         "wave_id": wid, "manifest": os.path.abspath(args.manifest),
         "created_at": iso, "cells": [c["cell_id"] for c in man["cells"]],
+        "line_roots": norm_abs(args.line_roots),
+        "line_roots_sha256": roots_sha,
+        "forbidden_surfaces": forbidden_snapshot,
     })
     waves = topo_waves(man["cells"], args.max_width)
     print("planned wave %s: %d cells -> %s" % (wid, len(man["cells"]), wdir))
@@ -261,13 +423,22 @@ def deps_satisfied(base, wid, cell):
 def dispatch_line(base, wid, cell):
     cwd = shlex.quote(cell["cwd"])
     wave = shlex.quote(os.path.join(HERE, "wave.py"))
+    read_roots = cell.get("read_roots", [])
+    extras = ""
+    if read_roots:
+        extras += (' read_roots=%s; READ-ONLY REVIEW REQUIRED: never write under read_roots; '
+                   'this is a declaration, not mount enforcement; human review required;' % read_roots)
+    if cell.get("role"):
+        extras += (' role=%s; roles are frozen at session start: if this role file postdates '
+                   'session_start=%s stop with RESTART-REQUIRED;'
+                   % (cell["role"], cell.get("session_start")))
     return ('task(category="general", prompt="Wave %s cell %s: read launchpack %s; brief %s; '
-            'cwd=%s; allowed_roots=%s; every command starts with: cd %s && ... ; '
+            'cwd=%s; allowed_roots=%s;%s every command starts with: cd %s && ... ; '
             'FIRST run: cd %s && python3 %s claim %s %s; '
             'on finish run: cd %s && python3 %s done %s %s --receipt <path>; '
             'on failure run: cd %s && python3 %s fail %s %s --note <why>")'
             % (wid, cell["cell_id"], cell_path(base, wid, cell["cell_id"]), cell["brief_path"],
-               cell["cwd"], cell["allowed_roots"], cwd,
+               cell["cwd"], cell["allowed_roots"], extras, cwd,
                cwd, wave, wid, cell["cell_id"],
                cwd, wave, wid, cell["cell_id"],
                cwd, wave, wid, cell["cell_id"]))
@@ -398,6 +569,11 @@ def cmd_done(args):
     if not args.receipt:
         die("cell %s: done requires --receipt PATH" % cell["cell_id"])
     cwd = require_cwd(cell)
+    if cell.get("line_roots_sha256"):
+        current = line_roots_sha256(cell["line_roots_path"])
+        if current != cell["line_roots_sha256"]:
+            die("cell %s: LINE-ROOTS-DRIFT: %s changed since plan (%s != %s); replan"
+                % (cell["cell_id"], cell["line_roots_path"], current, cell["line_roots_sha256"]))
     if args.expect_root:
         bad = expect_root_violations(cell["allowed_roots"], cwd, args.expect_root)
         if bad:
@@ -408,12 +584,27 @@ def cmd_done(args):
         die("cell %s: receipt path does not exist: %s" % (cell["cell_id"], rp))
     with open(rp, "r", encoding="utf-8", errors="replace") as fh:
         text = fh.read()
-    violations = [p for p in extract_paths(text, cwd) if not under_any(p, cell["allowed_roots"])]
+    paths = extract_paths(text, cwd)
+    read_mentions = [p for p in paths if under_any(p, cell.get("read_roots", []))]
+    violations = [p for p in paths
+                  if not under_any(p, cell["allowed_roots"])
+                  and not under_any(p, cell.get("read_roots", []))]
+    forbidden_mentions = []
+    for entry in cell.get("forbidden_surfaces", []):
+        surface = entry.get("path")
+        for p in paths:
+            if p == surface or p.startswith(surface + os.sep):
+                if p not in forbidden_mentions:
+                    forbidden_mentions.append(p)
+    if forbidden_mentions:
+        violations = sorted(set(violations + forbidden_mentions))
     ts, iso = now_pair()
     cell["state"] = "done"
     cell["ended_at"] = iso
     cell["ended_epoch"] = ts
     cell["receipt"] = rp
+    cell["read_mentions"] = read_mentions
+    cell["forbidden_mentions"] = forbidden_mentions
     cell["pollution"] = bool(violations)
     cell["pollution_violations"] = violations
     if args.note:
@@ -426,13 +617,13 @@ def cmd_done(args):
         "ended_epoch": ts, "pollution": cell["pollution"],
     })
     if violations:
-        print("DONE-POLLUTED %s/%s at %s — receipt mentions paths OUTSIDE allowed_roots:"
-              % (args.wave_id, args.cell_id, iso))
+        print("DONE-POLLUTED %s/%s at %s — receipt mentions paths OUTSIDE allowed_roots "
+              "or inside protected surfaces:" % (args.wave_id, args.cell_id, iso))
         for v in violations:
             print("  VIOLATION: " + v)
     else:
-        print("done %s/%s at %s (receipt clean, all mentioned paths under allowed_roots)"
-              % (args.wave_id, args.cell_id, iso))
+        print("done %s/%s at %s (receipt clean; %d read-only mention(s))"
+              % (args.wave_id, args.cell_id, iso, len(read_mentions)))
 
 
 def cmd_fail(args):
@@ -590,6 +781,10 @@ def build_parser():
     p = sub.add_parser("plan", help="validate manifest, write launchpacks, print fanout plan")
     p.add_argument("manifest")
     p.add_argument("--line-roots", default=DEFAULT_LINE_ROOTS)
+    p.add_argument("--role-dir", default=None,
+                   help="directory of <role>.md files, snapshot at --session-start")
+    p.add_argument("--session-start", default=None,
+                   help="ISO-8601 session start; roles newer than this need a restart")
     p.add_argument("--max-width", type=int, default=TARGET_CONCURRENCY)
     p.add_argument("--expect-root", default=None,
                    help="fail-closed gate: every cwd/allowed_root must be under this root")
