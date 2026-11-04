@@ -27,6 +27,7 @@ export function createRunRecord({ surface = "E1", root, origin = "launcher", ttl
     expires_at: new Date(now + ttlMs).toISOString(),
   };
   ensureDir(runsDir());
+  pruneRuns(ttlMs);
   const path = join(runsDir(), `${id}.json`);
   writeFileSync(path, `${JSON.stringify(record)}\n`, { mode: 0o600 });
   return { path, record };
