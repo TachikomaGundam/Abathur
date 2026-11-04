@@ -8,8 +8,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REPO_ROOT = process.env.ABATHUR_REPO_ROOT
-  ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const DEFAULT_LANES = [
   { lane: "abathur", repo: REPO_ROOT, seat: "abathur" },

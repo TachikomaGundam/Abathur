@@ -1,17 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkInside, inside, tempRoot as TEMP_ROOT } from "./containment.mjs";
 
-/**
- * E1 means "this repository". Resolve it from this module so the policy keeps
- * working after the single-repo move (no hard-coded tree name). A caller that
- * runs the installed package can override with ABATHUR_REPO_ROOT.
- */
-export const REPO_ROOT = process.env.ABATHUR_REPO_ROOT
-  ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+/** E1 means "this repository". The module location is the only authority. */
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const SURFACES = {
-  E0: { name: "one-shot discarded", writes: ["/tmp/e0/"], forbids: ["/home/", "/etc/"] },
-  E1: { name: "seat worktree", writes: [REPO_ROOT.endsWith("/") ? REPO_ROOT : `${REPO_ROOT}/`], forbids: [] },
+  E0: { name: "one-shot discarded", writes: [TEMP_ROOT()], forbids: ["/home/", "/etc/"] },
+  E1: { name: "seat worktree", writes: [REPO_ROOT], forbids: [] },
   Q: { name: "release checkout", writes: ["/home/lab/workspace/release/"], forbids: [] },
   E2: { name: "production", writes: [], forbids: ["*"] },
   E3: { name: "remote write", writes: [], forbids: ["*"] },
@@ -67,9 +63,9 @@ export function assertSurface(request, policy = SURFACES) {
   const rule = policy[surface];
   if (rule.forbids.includes("*")) return { rc: 1, code: "SURFACE-DENIED", detail: `${surface} is write-forbidden` };
   for (const prefix of rule.forbids) {
-    if (path.startsWith(prefix)) return { rc: 1, code: "SURFACE-DENIED", detail: `${path} is forbidden on ${surface}` };
+    if (inside(prefix, path)) return { rc: 1, code: "SURFACE-DENIED", detail: `${path} is forbidden on ${surface}` };
   }
-  if (!rule.writes.some((prefix) => path.startsWith(prefix))) {
+  if (!checkInside(path, rule.writes).ok) {
     return { rc: 1, code: "SURFACE-DENIED", detail: `${path} is outside ${surface}` };
   }
   return { rc: 0, code: "SURFACE-OK", detail: path };

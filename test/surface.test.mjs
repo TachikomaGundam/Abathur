@@ -19,6 +19,11 @@ test("a write under the removed second tree is denied", () => {
   assert.equal(result.code, "SURFACE-DENIED");
 });
 
+test("dot-dot cannot pass as an E1 path", () => {
+  const result = assertSurface({ op: "write", surface: "E1", path: `${E1_ROOT}/../etc/passwd` });
+  assert.equal(result.code, "SURFACE-DENIED");
+});
+
 test("E2 and E3 writes are human gates", () => {
   assert.equal(assertSurface({ op: "write", surface: "E2", path: "/usr/lib/a" }).code, "HUMAN-GATE");
   assert.equal(assertSurface({ op: "write", surface: "E3", path: "/remote/a" }).code, "HUMAN-GATE");
