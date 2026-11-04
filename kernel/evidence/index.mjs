@@ -1,5 +1,6 @@
 import { appendFileSync, closeSync, existsSync, fsyncSync, openSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { checkInside, deny, evidenceRoots } from "../surface/index.mjs";
 
 export const GENESIS = "0".repeat(64);
 
@@ -35,6 +36,13 @@ export function lastEntry(path) {
  * @param {{writer?:string, ts?:string, now?:()=>string}} [options]
  */
 export function appendEntry(path, body, options = {}) {
+  const bounds = checkInside(path, evidenceRoots());
+  if (!bounds.ok) {
+    const refusal = deny("evidence.append", bounds.target ?? path, evidenceRoots());
+    const error = new Error(`EVIDENCE-OUTSIDE-ROOT: ${refusal.detail}`);
+    error.code = "EVIDENCE-OUTSIDE-ROOT";
+    throw error;
+  }
   const writer = options.writer ?? "unknown";
   const ts = options.ts ?? (options.now ? options.now() : new Date().toISOString());
   const prev = lastEntry(path)?.hash ?? GENESIS;

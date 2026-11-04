@@ -93,10 +93,10 @@
     {
       "id": "B-SURFACE-01",
       "class": "B",
-      "statement": "Surface writes are checked before execution; E1 cannot write E2, E0 cannot write E3, and human-gate operations never execute.",
-      "check": { "cmd": "node --test test/surface.test.mjs", "expect_rc": 0 },
+      "statement": "Destructive writes are confined to fixed roots: the repository, the state temp root, and the state evidence root. Requests outside are denied and leave a hash-chained denial receipt; callers cannot widen the boundary.",
+      "check": { "cmd": "node --test test/surface.test.mjs test/containment.test.mjs test/hygiene.test.mjs", "expect_rc": 0 },
       "exam_item": "SR4-77",
-      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/surface.log"
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/quality-gate.log"
     },
     {
       "id": "H-LANE-01",
@@ -109,10 +109,10 @@
     {
       "id": "G-HYGIENE-01",
       "class": "G",
-      "statement": "Reclaim deletes only when a manifest matches every file hash and no target is on the evidence denylist.",
+      "statement": "Reclaim deletes only when a manifest matches every file hash, no target is on the evidence denylist, and every target is inside the state temp root.",
       "check": { "cmd": "node --test test/hygiene.test.mjs", "expect_rc": 0 },
       "exam_item": "SR4-78",
-      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w5/hygiene.log"
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/npm-test.log"
     },
     {
       "id": "F-RECURRENCE-01",

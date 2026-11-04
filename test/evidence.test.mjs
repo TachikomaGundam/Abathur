@@ -1,13 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { appendEntry, verifyChain } from "../kernel/evidence/index.mjs";
 
+const BASE = mkdtempSync(join(tmpdir(), "ab2-evidence-"));
+process.env.ABATHUR_STATE_DIR = BASE;
+mkdirSync(join(BASE, "evidence"), { recursive: true });
+let counter = 0;
+
 function ledger() {
-  return join(mkdtempSync(join(tmpdir(), "ab2-evidence-")), "ledger.jsonl");
+  counter += 1;
+  return join(BASE, "evidence", `ledger-${counter}.jsonl`);
 }
+
+test("a ledger outside the evidence roots is refused", () => {
+  assert.throws(() => appendEntry("/tmp/outside-evidence.jsonl", { n: 1 }), /EVIDENCE-OUTSIDE-ROOT/);
+});
 
 test("an untouched chain verifies", () => {
   const path = ledger();

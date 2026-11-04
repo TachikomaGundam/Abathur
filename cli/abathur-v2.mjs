@@ -13,6 +13,7 @@ import { reclaim, retention, watermark } from "../kernel/hygiene/index.mjs";
 import { DEFAULT_LANES, attributeWrite, foreignWrite } from "../kernel/lane/index.mjs";
 import { gate } from "../kernel/gate/index.mjs";
 import { loadIdentities, checkCommitIdentity } from "../kernel/identity/index.mjs";
+import { checkInside, deny, stateDir } from "../kernel/surface/index.mjs";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
@@ -76,6 +77,12 @@ function cmdRules(rest, flags) {
   if (rest[0] === "generate") {
     const result = generateRules(undefined);
     const out = flags.out ? resolve(flags.out) : resolve(ROOT, "rules/generated/RULES.md");
+    const bounds = checkInside(out, [ROOT, stateDir()]);
+    if (!bounds.ok) {
+      const refusal = deny("rules.generate", bounds.target ?? out, [ROOT, stateDir()]);
+      process.stdout.write(`${JSON.stringify(refusal)}\n`);
+      return refusal.rc;
+    }
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, result.text);
     process.stdout.write(`GENERATED ${out} sha256=${result.sha256} registry=${result.registrySha256} rc=0\n`);

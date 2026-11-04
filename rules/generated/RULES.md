@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 024c201dc7ca8e5d9aa638d5597c59b49b34ae54ef5eb24165bb0499dc28998b
+registry-sha256: 42715f09f4d57bc160c5722e5969a16899ea36fb91dd2bae0266e5b6fd6edab9
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -29,11 +29,11 @@ Kernel modules communicate only through their index.mjs interfaces; no deep impo
 
 ## B-SURFACE-01 (B)
 
-Surface writes are checked before execution; E1 cannot write E2, E0 cannot write E3, and human-gate operations never execute.
+Destructive writes are confined to fixed roots: the repository, the state temp root, and the state evidence root. Requests outside are denied and leave a hash-chained denial receipt; callers cannot widen the boundary.
 
-- check: `node --test test/surface.test.mjs` expects rc=0
+- check: `node --test test/surface.test.mjs test/containment.test.mjs test/hygiene.test.mjs` expects rc=0
 - exam: SR4-77
-- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w4/surface.log`
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/quality-gate.log`
 
 ## C-ANCHOR-BRIDGE-01 (C)
 
@@ -93,11 +93,11 @@ The second recurrence of a defect class demands a structural fix; the third is a
 
 ## G-HYGIENE-01 (G)
 
-Reclaim deletes only when a manifest matches every file hash and no target is on the evidence denylist.
+Reclaim deletes only when a manifest matches every file hash, no target is on the evidence denylist, and every target is inside the state temp root.
 
 - check: `node --test test/hygiene.test.mjs` expects rc=0
 - exam: SR4-78
-- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w5/hygiene.log`
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/npm-test.log`
 
 ## H-LANE-01 (H)
 

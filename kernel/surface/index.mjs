@@ -19,6 +19,18 @@ export const SURFACES = {
 
 export const HUMAN_GATES = new Set(["promote", "tombstone", "publish"]);
 
+export {
+  stateDir,
+  tempRoot,
+  evidenceRoots,
+  ensureDir,
+  canonical,
+  inside,
+  checkInside,
+  deny,
+  isSymlink,
+} from "./containment.mjs";
+
 /**
  * @param {{op:string, path?:string, surface?:string}} request
  * @param {typeof SURFACES} [policy]
