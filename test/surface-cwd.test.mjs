@@ -9,7 +9,10 @@ import { fileURLToPath } from "node:url";
 const CLI = fileURLToPath(new URL("../cli/abathur-v2.mjs", import.meta.url));
 
 function run(cwd) {
-  return spawnSync(process.execPath, [CLI, "surface", "show"], { cwd, encoding: "utf8" });
+  const env = { ...process.env };
+  delete env.ABATHUR_RUN_RECORD;
+  delete env.ABATHUR_RUN_ID;
+  return spawnSync(process.execPath, [CLI, "surface", "show"], { cwd, encoding: "utf8", env });
 }
 
 test("the direct surface root follows the repository, not the package directory", () => {

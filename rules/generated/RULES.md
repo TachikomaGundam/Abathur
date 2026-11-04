@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 5a4d9470c0d4533e0eec67b14ac576eae68fbcecffabb6073c495fd8a2a46376
+registry-sha256: 88bd5eb1560433535cafa89730b286ebec900215d7127299ba51a4076c3671df
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -29,7 +29,7 @@ Kernel modules communicate only through their index.mjs interfaces; no deep impo
 
 ## B-SURFACE-01 (B)
 
-A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt.
+A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt. Outside a git repository E1 is not established and writes are refused.
 
 - check: `node --test test/surface.test.mjs test/containment.test.mjs test/surface-record.test.mjs test/surface-cwd.test.mjs test/exam-spawn.test.mjs test/hygiene.test.mjs` expects rc=0
 - exam: SR4-77

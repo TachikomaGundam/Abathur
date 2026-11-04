@@ -93,7 +93,7 @@
     {
       "id": "B-SURFACE-01",
       "class": "B",
-      "statement": "A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt.",
+      "statement": "A launcher-issued run record names the surface and root; destructive targets are checked against that root plus fixed state roots; outside targets are denied with a hash-chained receipt. Outside a git repository E1 is not established and writes are refused.",
       "check": { "cmd": "node --test test/surface.test.mjs test/containment.test.mjs test/surface-record.test.mjs test/surface-cwd.test.mjs test/exam-spawn.test.mjs test/hygiene.test.mjs", "expect_rc": 0 },
       "exam_item": "SR4-77",
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/quality-gate.log"

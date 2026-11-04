@@ -7,13 +7,13 @@
  * The forbidden token is assembled from parts so this scanner does not flag
  * itself.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const PRODUCTS = [["si", "byl"].join(""), String.fromCharCode(0x897f, 0x6bd4, 0x62c9)];
 const TOKEN = new RegExp(PRODUCTS.join("|"), "i");
 const EXTS = new Set([".mjs", ".js", ".cjs", ".ts", ".yaml", ".yml", ".json", ".md"]);
-const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".omo", "__pycache__", ".border", ".bench", ".state", "coverage"]);
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".omo", "__pycache__", ".border", ".bench", ".state", "coverage", ".codegraph"]);
 const SKIP_FILES = new Set(["package-lock.json"]);
 
 function walk(root) {
@@ -25,7 +25,8 @@ function walk(root) {
       const abs = join(dir, name);
       const rel = relative(root, abs).split("\\").join("/");
       if (SKIP_FILES.has(rel)) continue;
-      const st = statSync(abs);
+      const st = lstatSync(abs);
+      if (st.isSymbolicLink()) continue;
       if (st.isDirectory()) {
         if (!SKIP_DIRS.has(name)) stack.push(abs);
         continue;

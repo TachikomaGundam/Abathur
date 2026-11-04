@@ -3,12 +3,12 @@
  * Static quality scan: syntax-check every JS/MJS file, flag leftover markers,
  * empty catch blocks, and suspicious debug statements.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const SKIP = new Set([".git", "node_modules", ".omo", "rules/generated"]);
+const SKIP = new Set([".git", "node_modules", ".omo", ".codegraph", "dist", "build", ".border", ".bench", ".state", "coverage"]);
 const problems = [];
 let checked = 0;
 
@@ -16,9 +16,12 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     if (SKIP.has(name)) continue;
     const path = join(dir, name);
-    const stat = statSync(path);
-    if (stat.isDirectory()) walk(path);
-    else if (/\.(mjs|js)$/.test(name)) inspect(path);
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) continue;
+    if (stat.isDirectory()) {
+      if (relative(ROOT, path) === "rules/generated") continue;
+      walk(path);
+    } else if (/\.(mjs|js)$/.test(name)) inspect(path);
   }
 }
 
