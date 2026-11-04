@@ -59,3 +59,29 @@ Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_e
 
 `allowed_roots`, `cwd`, `brief_path`, `cell_id`, and `kind` are mandatory.
 Cross-line roots are rejected; a cell may not write into another line's repo.
+
+## Orchestrate (cross-line read models, READ-ONLY vs VideoGen)
+
+`orchestrate.py` derives wave read-models from the VideoGen line's roster
+`evolution/production/staging/assembly/FIREABLE-v1.md`. Stdlib only; it never
+writes to VideoGen. Line roots come from `line_roots.json` key `otm_videogen`
+(single source). Manifests are written to the same state dir as waves
+(`--base` / env `ABATHUR_WAVES_DIR`), as `<wave-id>.manifest.json`.
+
+1. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py plan-fires --video-gen-root /home/lab/workspace/harness/VideoGen --wave-id <id>`
+   — parses the FIREABLE + FIREABLE-CANDIDATE tables into cells
+   `{cell_id, kind:"gen", allowed_roots:[<otm_videogen root>], anchors:[...], wave:0}`;
+   JSON to stdout + writes `<base>/<id>.manifest.json`. Unparseable roster or a
+   row without a named anchor => `{"error": ...}` on stdout, exit 2 (never guesses).
+2. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py gates --video-gen-root /home/lab/workspace/harness/VideoGen`
+   — owner-gate census of the blocked table by reason class + machine line
+   `TOTAL_BLOCKED=<n> <CLASS>=<n> ... HEADER_BLOCKED=<n> CROSSCHECK=OK|MISMATCH`
+   (header claim vs parsed count; a mismatch is flagged, neither number trusted).
+3. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py verif-queue --video-gen-root /home/lab/workspace/harness/VideoGen`
+   — VERIF-PENDING cells with per-file FOUND/MISSING (artifact located by name
+   under the video line root) + `VERIF_CELLS=<n> FILES_TOTAL=<n> FOUND=<n> MISSING=<n>`.
+4. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py selftest`
+   — cross-line safety: every parsed fire cell pins `allowed_roots` to the
+   `otm_videogen` root; `wave.py`'s plan validator must REJECT a deliberate
+   cross-line cell (root = aihr) and still accept an in-line cell. Prints
+   `SELFTEST PASS/FAIL` with counts.
