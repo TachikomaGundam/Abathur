@@ -18,8 +18,9 @@
 仪表=wave_engine `gauge`；对上汇报四数必附。
 
 ## 三、席位隔离法（R112 入宪，机器拦截级）
-- 每格 brief 必带 `allowed_roots`（OTM 生产席=VideoGen 仓；阿巴瑟工程席=Abathur 仓；双仓门闸互不相识）。
-- 回执污染探测：done 时扫回执文本内路径 ∈ allowed_roots，违例标 DONE-POLLUTED 具名，不静默。
+- 每格 manifest 必带 `allowed_roots` 与 `cwd`（OTM 生产席=VideoGen 仓；阿巴瑟工程席=Abathur 仓；双仓门闸互不相识）。
+- `cwd` 必须是已存在目录且位于 `allowed_roots` 内；派单行必须自带 `cd <cwd> &&`，禁止让席位继承监工目录。
+- 回执污染探测：done 时扫回执文本内路径 ∈ allowed_roots，相对路径按 `cwd` 解析；违例标 DONE-POLLUTED 具名，不静默。
 - 票面路径纪律：**一律仓根全路径或绝对路径**；裸 `staging/...` 开头=处方伤（两案在案：R87/R108 anim-law 落点事故）。
 
 ## 四、席位行为定律（派单设计时必须假设）

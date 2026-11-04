@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 import time
 from datetime import datetime, timezone
@@ -84,9 +85,25 @@ def load_line_roots(path):
 
 
 def norm_abs(p):
+    """Resolve a manifest path against REPO_ROOT, never the caller's cwd.
+
+    realpath is deliberate: a symlinked cwd inside an allowed root would
+    otherwise pass the lexical prefix check while writing elsewhere.
+    """
     if not os.path.isabs(p):
         p = os.path.join(REPO_ROOT, p)
-    return os.path.normpath(p)
+    return os.path.realpath(os.path.normpath(p))
+
+
+def expect_root_violations(roots, cwd, expect_root):
+    """Return roots (and cwd) that fall outside an explicit gate root."""
+    out = []
+    exp = norm_abs(expect_root)
+    for raw in list(roots) + [cwd]:
+        p = norm_abs(raw)
+        if not (p == exp or p.startswith(exp + os.sep)):
+            out.append(p)
+    return out
 
 
 def overlaps(a, b):
@@ -152,6 +169,17 @@ def validate_manifest(man, line_cfg):
             for raw, line, root in cross_line_violations(cell["allowed_roots"], line_cfg):
                 errors.append("cell %s: cross-line pollution: allowed_root %r overlaps other line '%s' root %r"
                               % (cid, raw, line, root))
+        cwd = cell.get("cwd")
+        if not cwd:
+            errors.append("cell %s: cwd is required (the directory commands run in)" % cid)
+        else:
+            cwd_abs = norm_abs(cwd)
+            if not os.path.isdir(cwd_abs):
+                errors.append("cell %s: cwd is not a directory: %s" % (cid, cwd_abs))
+            roots = [norm_abs(r) for r in cell.get("allowed_roots", [])]
+            if roots and not under_any(cwd_abs, roots):
+                errors.append("cell %s: cwd %r is outside allowed_roots %s"
+                              % (cid, cwd_abs, roots))
         if not cell.get("brief_path"):
             errors.append("cell %s: missing brief_path" % cid)
         elif not os.path.isfile(norm_abs(cell["brief_path"])):
@@ -175,6 +203,14 @@ def cmd_plan(args):
         die("wave_id must be a safe directory name: %r" % wid)
     line_cfg = load_line_roots(args.line_roots)
     errors = validate_manifest(man, line_cfg)
+    if args.expect_root:
+        for cell in man.get("cells", []):
+            if not cell.get("cwd"):
+                continue
+            bad = expect_root_violations(cell.get("allowed_roots", []), cell["cwd"], args.expect_root)
+            for p in bad:
+                errors.append("cell %s: path outside --expect-root %r: %s"
+                              % (cell.get("cell_id"), norm_abs(args.expect_root), p))
     if errors:
         for e in errors:
             print("INVALID: " + e, file=sys.stderr)
@@ -191,6 +227,7 @@ def cmd_plan(args):
             "cell_id": cell["cell_id"],
             "brief_path": norm_abs(cell["brief_path"]),
             "allowed_roots": [norm_abs(r) for r in cell["allowed_roots"]],
+            "cwd": norm_abs(cell["cwd"]),
             "kind": cell["kind"],
             "deps": list(cell.get("deps", [])),
             "state": "new",
@@ -222,13 +259,18 @@ def deps_satisfied(base, wid, cell):
 
 
 def dispatch_line(base, wid, cell):
+    cwd = shlex.quote(cell["cwd"])
+    wave = shlex.quote(os.path.join(HERE, "wave.py"))
     return ('task(category="general", prompt="Wave %s cell %s: read launchpack %s; brief %s; '
-            'allowed_roots=%s; FIRST run: python3 %s claim %s %s; '
-            'on finish run: python3 %s done %s %s --receipt <path>"; on failure run: python3 %s fail %s %s --note <why>")'
+            'cwd=%s; allowed_roots=%s; every command starts with: cd %s && ... ; '
+            'FIRST run: cd %s && python3 %s claim %s %s; '
+            'on finish run: cd %s && python3 %s done %s %s --receipt <path>; '
+            'on failure run: cd %s && python3 %s fail %s %s --note <why>")'
             % (wid, cell["cell_id"], cell_path(base, wid, cell["cell_id"]), cell["brief_path"],
-               cell["allowed_roots"], os.path.join(HERE, "wave.py"), wid, cell["cell_id"],
-               os.path.join(HERE, "wave.py"), wid, cell["cell_id"],
-               os.path.join(HERE, "wave.py"), wid, cell["cell_id"]))
+               cell["cwd"], cell["allowed_roots"], cwd,
+               cwd, wave, wid, cell["cell_id"],
+               cwd, wave, wid, cell["cell_id"],
+               cwd, wave, wid, cell["cell_id"]))
 
 
 def cmd_launch(args):
@@ -280,6 +322,12 @@ def require_state(cell, allowed, action):
 def cmd_claim(args):
     cell = load_cell(args.base, args.wave_id, args.cell_id)
     require_state(cell, ["launched"], "claim")
+    cwd = cell.get("cwd")
+    if not cwd:
+        die("cell %s: launchpack has no cwd (legacy wave); replan with cwd" % cell["cell_id"])
+    if not os.path.isdir(cwd):
+        die("cell %s: cwd vanished or is not a directory: %s"
+            % (cell["cell_id"], cwd))
     ts, iso = now_pair()
     cell["state"] = "claimed"
     cell["claimed_at"] = iso
@@ -295,10 +343,11 @@ TOKEN_RE = re.compile(r"[^\s'\"`,;:()\[\]{}<>|*]+")
 SEG_RE = re.compile(r"^[\w.\-]+$")
 
 
-def extract_paths(text):
+def extract_paths(text, base):
     """Deterministic path extraction: whitespace-split; drop URLs; keep tokens that
     are absolute paths or slash-containing relative paths; resolve relatives
-    against REPO_ROOT; strip trailing :line suffixes."""
+    against the cell's cwd (never the supervisor's cwd or REPO_ROOT);
+    strip trailing :line suffixes."""
     text = URL_RE.sub(" ", text)
     found = []
     for tok in TOKEN_RE.findall(text):
@@ -312,7 +361,8 @@ def extract_paths(text):
         if not (tok.startswith("/") or tok.startswith("./") or tok.startswith("../")):
             if not SEG_RE.match(segs[0]):
                 continue
-        p = os.path.normpath(tok if os.path.isabs(tok) else os.path.join(REPO_ROOT, tok))
+        p = os.path.realpath(os.path.normpath(
+            tok if os.path.isabs(tok) else os.path.join(base, tok)))
         if p not in found:
             found.append(p)
     return found
@@ -333,12 +383,20 @@ def cmd_done(args):
     require_state(cell, ["claimed"], "done")
     if not args.receipt:
         die("cell %s: done requires --receipt PATH" % cell["cell_id"])
+    cwd = cell.get("cwd")
+    if not cwd:
+        die("cell %s: launchpack has no cwd (legacy wave); replan with cwd" % cell["cell_id"])
+    if args.expect_root:
+        bad = expect_root_violations(cell["allowed_roots"], cwd, args.expect_root)
+        if bad:
+            die("cell %s: allowed_roots/cwd outside --expect-root %r: %s"
+                % (cell["cell_id"], norm_abs(args.expect_root), ", ".join(bad)))
     rp = norm_abs(args.receipt)
     if not os.path.isfile(rp):
         die("cell %s: receipt path does not exist: %s" % (cell["cell_id"], rp))
     with open(rp, "r", encoding="utf-8", errors="replace") as fh:
         text = fh.read()
-    violations = [p for p in extract_paths(text) if not under_any(p, cell["allowed_roots"])]
+    violations = [p for p in extract_paths(text, cwd) if not under_any(p, cell["allowed_roots"])]
     ts, iso = now_pair()
     cell["state"] = "done"
     cell["ended_at"] = iso
@@ -521,6 +579,8 @@ def build_parser():
     p.add_argument("manifest")
     p.add_argument("--line-roots", default=DEFAULT_LINE_ROOTS)
     p.add_argument("--max-width", type=int, default=TARGET_CONCURRENCY)
+    p.add_argument("--expect-root", default=None,
+                   help="fail-closed gate: every cwd/allowed_root must be under this root")
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_plan)
 
@@ -535,6 +595,9 @@ def build_parser():
         p.add_argument("cell_id")
         p.add_argument("--receipt", default=None)
         p.add_argument("--note", default=None)
+        if name == "done":
+            p.add_argument("--expect-root", default=None,
+                           help="fail-closed gate: allowed_roots/cwd must be under this root")
         p.set_defaults(func=func)
 
     p = sub.add_parser("requeue", help="failed -> new (retry path; done stays terminal)")

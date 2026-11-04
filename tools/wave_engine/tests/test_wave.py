@@ -18,9 +18,10 @@ def run(base, *argv):
                           capture_output=True, text=True, env=env)
 
 
-def cell_manifest(cid, deps=None, roots=None, brief=None):
+def cell_manifest(cid, deps=None, roots=None, brief=None, cwd=None):
     m = {"cell_id": cid, "brief_path": brief or os.path.join(FIXTURES, "brief_alpha.md"),
          "allowed_roots": roots if roots is not None else [FIXTURES],
+         "cwd": cwd or FIXTURES,
          "kind": "gen"}
     if deps:
         m["deps"] = deps
@@ -165,3 +166,73 @@ def test_done_requires_existing_receipt(tmp_path):
     r = run(tmp_path, "done", "w1", "alpha", "--receipt", str(tmp_path / "nope.txt"))
     assert r.returncode != 0 and "does not exist" in r.stderr
     assert read_cell(tmp_path, "w1", "alpha")["state"] == "claimed"
+
+
+def test_cwd_required_and_bounded(tmp_path):
+    missing = cell_manifest("nocwd")
+    missing.pop("cwd")
+    outside = cell_manifest("outside", cwd=str(tmp_path))
+    notdir = cell_manifest("notdir", cwd=os.path.join(FIXTURES, "nope"))
+    man = make_manifest(tmp_path, [missing, outside, notdir])
+    r = run(tmp_path, "plan", man)
+    assert r.returncode != 0
+    assert "cwd is required" in r.stderr
+    assert "outside allowed_roots" in r.stderr
+    assert "cwd is not a directory" in r.stderr
+    assert not (tmp_path / "w1").exists()
+
+
+def test_symlinked_cwd_escape_rejected(tmp_path):
+    root = tmp_path / "root"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    link = root / "escape"
+    os.symlink(outside, link)
+    man = make_manifest(tmp_path, [
+        cell_manifest("escape", roots=[str(root)], cwd=str(link)),
+    ])
+    r = run(tmp_path, "plan", man)
+    assert r.returncode != 0
+    assert "outside allowed_roots" in r.stderr
+    assert not (tmp_path / "w1").exists()
+
+
+def test_dispatch_line_carries_cwd(tmp_path):
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    assert run(tmp_path, "plan", man).returncode == 0
+    r = run(tmp_path, "launch", "w1", "--cells", "all")
+    assert r.returncode == 0, r.stderr
+    assert "cd %s &&" % FIXTURES in r.stdout
+    assert "cwd=%s" % FIXTURES in r.stdout
+    assert read_cell(tmp_path, "w1", "alpha")["cwd"] == FIXTURES
+
+
+def test_relative_receipt_resolves_against_cell_cwd(tmp_path):
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    assert run(tmp_path, "plan", man).returncode == 0
+    run(tmp_path, "launch", "w1", "--cells", "alpha")
+    run(tmp_path, "claim", "w1", "alpha")
+    receipt = write_receipt(tmp_path, "relative.txt", "wrote artifacts/out.md under my cwd")
+    r = run(tmp_path, "done", "w1", "alpha", "--receipt", receipt)
+    assert r.returncode == 0, r.stderr
+    assert "receipt clean" in r.stdout
+    assert read_cell(tmp_path, "w1", "alpha")["pollution"] is False
+
+
+def test_expect_root_gate(tmp_path):
+    man = make_manifest(tmp_path, [cell_manifest("alpha")])
+    r = run(tmp_path, "plan", man, "--expect-root", str(tmp_path))
+    assert r.returncode != 0
+    assert "outside --expect-root" in r.stderr
+    assert not (tmp_path / "w1").exists()
+
+    r = run(tmp_path, "plan", man, "--expect-root", FIXTURES)
+    assert r.returncode == 0, r.stderr
+    run(tmp_path, "launch", "w1", "--cells", "alpha")
+    run(tmp_path, "claim", "w1", "alpha")
+    receipt = write_receipt(tmp_path, "ra.txt", "artifact: %s/out.md" % FIXTURES)
+    r = run(tmp_path, "done", "w1", "alpha", "--receipt", receipt,
+            "--expect-root", FIXTURES)
+    assert r.returncode == 0, r.stderr
+    assert read_cell(tmp_path, "w1", "alpha")["state"] == "done"
