@@ -45,6 +45,7 @@ const repo = process.cwd();
 const full = run("git", ["rev-parse", "--verify", `${requested}^{commit}`]).trim();
 const status = run("git", ["status", "--porcelain"]).trim();
 
+mkdirSync(tempRoot(), { recursive: true });
 const work = mkdtempSync(join(tempRoot(), "release-candidate-"));
 try {
   const tarPath = join(work, "src.tar");
