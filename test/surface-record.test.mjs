@@ -31,10 +31,82 @@ test("a mismatched run id is refused", () => {
 
 test("an expired record is refused", () => {
   const root = base();
-  const { path } = createRunRecord({ surface: "E1", root, ttlMs: -1 });
-  const read = readRunRecord(path, {});
+  const { path, record } = createRunRecord({ surface: "E1", root, ttlMs: -1 });
+  const read = readRunRecord(path, { ABATHUR_RUN_ID: record.id });
   assert.equal(read.ok, false);
   assert.equal(read.code, "RUN-RECORD-EXPIRED");
+});
+
+test("a record outside the state runs directory is refused", () => {
+  const fake = join(base(), "fake.json");
+  const id = "run-fake-1";
+  writeFileSync(
+    fake,
+    JSON.stringify({
+      id,
+      surface: "E1",
+      root: REPO_ROOT,
+      origin: "launcher",
+      issued_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      pid: process.pid,
+      leases: [],
+    }),
+  );
+  const read = readRunRecord(fake, { ABATHUR_RUN_ID: id });
+  assert.equal(read.ok, false);
+  assert.equal(read.code, "RUN-RECORD-UNTRUSTED");
+});
+
+test("a record inside the runs directory with a non-launcher origin is refused", () => {
+  const id = `run-${Date.now()}-origin`;
+  const path = join(runsDir(), `${id}.json`);
+  writeFileSync(
+    path,
+    JSON.stringify({
+      id,
+      surface: "E1",
+      root: REPO_ROOT,
+      origin: "test",
+      issued_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      pid: process.pid,
+      leases: [],
+    }),
+  );
+  const read = readRunRecord(path, { ABATHUR_RUN_ID: id });
+  assert.equal(read.ok, false);
+  assert.equal(read.code, "RUN-RECORD-UNTRUSTED");
+  rmSync(path, { force: true });
+});
+
+test("a record whose filename does not match its id is refused", () => {
+  const id = `run-${Date.now()}-basename`;
+  const path = join(runsDir(), `other-${id}.json`);
+  writeFileSync(
+    path,
+    JSON.stringify({
+      id,
+      surface: "E1",
+      root: REPO_ROOT,
+      origin: "launcher",
+      issued_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      pid: process.pid,
+      leases: [],
+    }),
+  );
+  const read = readRunRecord(path, { ABATHUR_RUN_ID: id });
+  assert.equal(read.ok, false);
+  assert.equal(read.code, "RUN-RECORD-UNTRUSTED");
+  rmSync(path, { force: true });
+});
+
+test("a record without a run id is refused", () => {
+  const { path } = createRunRecord({ surface: "E1", root: base() });
+  const read = readRunRecord(path, {});
+  assert.equal(read.ok, false);
+  assert.equal(read.code, "RUN-RECORD-MISMATCH");
 });
 
 test("a malformed record is refused", () => {

@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from "node:crypto";
 import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { ensureDir, inside, stateDir, tempRoot } from "./containment.mjs";
 
 export const RUN_TTL_MS = 60 * 60 * 1000;
@@ -60,8 +60,23 @@ export function readRunRecord(recordPath, env = process.env) {
     }
   }
   if (!isAbsolute(record.root)) return { ok: false, code: "RUN-RECORD-MALFORMED", detail: "root must be absolute" };
-  if (env.ABATHUR_RUN_ID && env.ABATHUR_RUN_ID !== record.id) {
+  const resolvedPath = resolve(recordPath);
+  const bindPath = resolvedPath === "/abathur-run.json";
+  const inRuns = inside(runsDir(), resolvedPath) && basename(resolvedPath) === `${record.id}.json`;
+  if (!bindPath && !inRuns) {
+    return { ok: false, code: "RUN-RECORD-UNTRUSTED", detail: "record path is outside the state runs directory" };
+  }
+  if (record.origin !== "launcher") {
+    return { ok: false, code: "RUN-RECORD-UNTRUSTED", detail: "record origin must be launcher" };
+  }
+  if (!env.ABATHUR_RUN_ID) {
+    return { ok: false, code: "RUN-RECORD-MISMATCH", detail: "run id is required" };
+  }
+  if (env.ABATHUR_RUN_ID !== record.id) {
     return { ok: false, code: "RUN-RECORD-MISMATCH", detail: "run id does not match the record" };
+  }
+  if (typeof record.pid === "number" && !defaultIsAlive(record.pid)) {
+    return { ok: false, code: "RUN-RECORD-EXPIRED", detail: "issuing process is gone" };
   }
   if (Date.parse(record.expires_at) <= Date.now()) {
     return { ok: false, code: "RUN-RECORD-EXPIRED", detail: record.expires_at };
