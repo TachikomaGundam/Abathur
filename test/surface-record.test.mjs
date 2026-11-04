@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { createRunRecord, readRunRecord } from "../kernel/surface/record.mjs";
+import { createRunRecord, readRunRecord, reconcileRuns, runsDir } from "../kernel/surface/record.mjs";
+import { tempRoot } from "../kernel/surface/containment.mjs";
 import { REPO_ROOT } from "../kernel/surface/index.mjs";
 import { buildArgv } from "../.opencode/plugins/sandbox-bash.js";
 
@@ -80,4 +81,50 @@ test("surface check refuses a target outside the recorded root", () => {
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout, /OUTSIDE-ROOT/);
+});
+
+test("reconciler closes a dead expired run and removes its temp lease", () => {
+  const lease = join(tempRoot(), `run-test-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  mkdirSync(lease, { recursive: true });
+  writeFileSync(join(lease, "payload"), "x");
+  const { path } = createRunRecord({ root: base(), ttlMs: -1, pid: 2_000_000_000, leases: [lease] });
+  const report = reconcileRuns({ now: Date.now() });
+  assert.ok(report.closed >= 1);
+  assert.equal(existsSync(lease), false);
+  assert.equal(existsSync(path), false);
+});
+
+test("reconciler keeps a live run even after its ttl", () => {
+  const { path } = createRunRecord({ root: base(), ttlMs: -1, pid: process.pid });
+  const report = reconcileRuns({ now: Date.now() });
+  assert.ok(report.kept >= 1);
+  assert.equal(existsSync(path), true);
+  rmSync(path, { force: true });
+});
+
+test("reconciler refuses a lease outside the temp root and reports orphans", () => {
+  const outside = join(base(), "not-owned");
+  mkdirSync(outside, { recursive: true });
+  const id = `run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  writeFileSync(
+    join(runsDir(), `${id}.json`),
+    `${JSON.stringify({
+      id,
+      surface: "E1",
+      root: "/tmp",
+      origin: "test",
+      pid: 2_000_000_000,
+      leases: [outside],
+      issued_at: new Date(0).toISOString(),
+      expires_at: new Date(0).toISOString(),
+    })}\n`,
+  );
+  const orphan = join(tempRoot(), `run-orphan-${Date.now()}`);
+  mkdirSync(orphan, { recursive: true });
+  const report = reconcileRuns({ now: Date.now() });
+  assert.ok(report.refused_leases >= 1);
+  assert.equal(existsSync(outside), true);
+  assert.ok(report.orphans.includes(orphan));
+  assert.equal(existsSync(orphan), true);
+  rmSync(orphan, { recursive: true, force: true });
 });

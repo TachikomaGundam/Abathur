@@ -13,7 +13,7 @@ import { reclaim, retention, watermark } from "../kernel/hygiene/index.mjs";
 import { DEFAULT_LANES, attributeWrite, foreignWrite } from "../kernel/lane/index.mjs";
 import { gate } from "../kernel/gate/index.mjs";
 import { loadIdentities, checkCommitIdentity } from "../kernel/identity/index.mjs";
-import { checkInside, deny, resolveRun, pruneRuns, stateDir } from "../kernel/surface/index.mjs";
+import { checkInside, deny, resolveRun, reconcileRuns, stateDir } from "../kernel/surface/index.mjs";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
@@ -275,7 +275,7 @@ function main(argv) {
   const [command, ...tail] = argv;
   const { flags, rest } = parseFlags(tail);
   if (!command || command === "--help" || command === "-h") return usage(0);
-  try { pruneRuns(); } catch { /* best effort; a failed sweep must not block commands */ }
+  try { reconcileRuns(); } catch { /* best effort; a failed sweep must not block commands */ }
   if (command === "rules") return cmdRules(rest, flags);
   if (command === "gate") return cmdGate(rest);
   if (command === "surface") return cmdSurface(rest);

@@ -155,6 +155,14 @@
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/coupling.log"
     },
     {
+      "id": "G-RUN-RECONCILE-01",
+      "class": "G",
+      "statement": "A run whose record expired and whose process is gone is closed with a receipt; only leases inside the state temp root are removed, and directories without a record are reported, never deleted.",
+      "check": { "cmd": "node --test test/surface-record.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-78",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/reconcile.log"
+    },
+    {
       "id": "P-PLAN-CHECK-01",
       "class": "P",
       "statement": "A plan is structurally validated before review: eight headings in order, one top-level todo line per task with ten fields, class coverage A-H/P, and a non-empty Must NOT have section.",

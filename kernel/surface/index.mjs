@@ -26,7 +26,7 @@ export {
   deny,
   isSymlink,
 } from "./containment.mjs";
-export { createRunRecord, readRunRecord, pruneRuns, runsDir } from "./record.mjs";
+export { createRunRecord, readRunRecord, pruneRuns, reconcileRuns, runsDir } from "./record.mjs";
 
 import { REPO_ROOT as CONTAINMENT_ROOT } from "./containment.mjs";
 import { readRunRecord } from "./record.mjs";

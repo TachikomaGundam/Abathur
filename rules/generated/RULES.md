@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: a8307b942c29710df71c497e62c6ed41fc5ac69000f6edd1b0e584ef19c362d9
+registry-sha256: c90ea33b56dc106219d37b93b46800cea0983a382551fdf0e4c57a62dc5cdfc2
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -98,6 +98,14 @@ Reclaim deletes only when a manifest matches every file hash, no target is on th
 - check: `node --test test/hygiene.test.mjs` expects rc=0
 - exam: SR4-78
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/npm-test.log`
+
+## G-RUN-RECONCILE-01 (G)
+
+A run whose record expired and whose process is gone is closed with a receipt; only leases inside the state temp root are removed, and directories without a record are reported, never deleted.
+
+- check: `node --test test/surface-record.test.mjs` expects rc=0
+- exam: SR4-78
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/reconcile.log`
 
 ## H-LANE-01 (H)
 

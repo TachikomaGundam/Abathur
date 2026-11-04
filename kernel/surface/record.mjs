@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { randomBytes, createHash } from "node:crypto";
+import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { ensureDir, stateDir } from "./containment.mjs";
+import { ensureDir, inside, stateDir, tempRoot } from "./containment.mjs";
 
 export const RUN_TTL_MS = 60 * 60 * 1000;
 
@@ -12,10 +12,15 @@ export function runsDir() {
 /**
  * Issue a run record. The launcher owns this call; a direct CLI invocation
  * does not create one and falls back to the repository surface.
- * @param {{surface?:string, root:string, origin?:string, ttlMs?:number}} options
+ * @param {{surface?:string, root:string, origin?:string, ttlMs?:number, pid?:number, leases?:string[]}} options
  */
-export function createRunRecord({ surface = "E1", root, origin = "launcher", ttlMs = RUN_TTL_MS }) {
+export function createRunRecord({ surface = "E1", root, origin = "launcher", ttlMs = RUN_TTL_MS, pid = process.pid, leases = [] }) {
   if (!isAbsolute(root)) throw new Error("run root must be absolute");
+  for (const lease of leases) {
+    if (!isAbsolute(lease) || !inside(tempRoot(), lease)) {
+      throw new Error("run leases must be inside the state temp root");
+    }
+  }
   const id = `run-${Date.now()}-${randomBytes(8).toString("hex")}`;
   const now = Date.now();
   const record = {
@@ -23,11 +28,13 @@ export function createRunRecord({ surface = "E1", root, origin = "launcher", ttl
     surface,
     root: resolve(root),
     origin,
+    pid,
+    leases: leases.map((lease) => resolve(lease)),
     issued_at: new Date(now).toISOString(),
     expires_at: new Date(now + ttlMs).toISOString(),
   };
   ensureDir(runsDir());
-  pruneRuns(ttlMs);
+  reconcileRuns({ now });
   const path = join(runsDir(), `${id}.json`);
   writeFileSync(path, `${JSON.stringify(record)}\n`, { mode: 0o600 });
   return { path, record };
@@ -62,22 +69,83 @@ export function readRunRecord(recordPath, env = process.env) {
   return { ok: true, record };
 }
 
-/** Remove records older than the ttl. Best effort; called on launcher/CLI start. */
-export function pruneRuns(maxAgeMs = RUN_TTL_MS) {
+function defaultIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+/**
+ * Close runs that can no longer be alive: the record expired and its process is
+ * gone. Only leases inside the state temp root may be removed. Runs without a
+ * record are reported, never deleted.
+ */
+export function reconcileRuns({ now = Date.now(), isAlive = defaultIsAlive } = {}) {
   const dir = runsDir();
-  if (!existsSync(dir)) return 0;
-  let removed = 0;
+  const report = { closed: 0, kept: 0, malformed: 0, removed_leases: 0, refused_leases: 0, orphans: [] };
+  if (!existsSync(dir)) return report;
+  const known = new Set();
   for (const name of readdirSync(dir)) {
     if (!name.endsWith(".json")) continue;
     const path = join(dir, name);
+    let record;
     try {
-      if (Date.now() - statSync(path).mtimeMs > maxAgeMs) {
-        rmSync(path, { force: true });
-        removed += 1;
-      }
+      record = JSON.parse(readFileSync(path, "utf8"));
     } catch {
-      // A record that cannot be statted is left for the reconciler.
+      report.malformed += 1;
+      continue;
+    }
+    if (typeof record.id === "string") known.add(record.id);
+    const expired = Date.parse(record.expires_at) <= now;
+    const alive = typeof record.pid === "number" ? isAlive(record.pid) : true;
+    if (!expired || alive) {
+      report.kept += 1;
+      continue;
+    }
+    const removed = [];
+    const refused = [];
+    for (const lease of Array.isArray(record.leases) ? record.leases : []) {
+      if (typeof lease !== "string" || !inside(tempRoot(), lease)) {
+        refused.push(lease);
+        report.refused_leases += 1;
+        continue;
+      }
+      if (existsSync(lease)) {
+        rmSync(lease, { recursive: true, force: true });
+        removed.push(lease);
+        report.removed_leases += 1;
+      }
+    }
+    const recordSha = createHash("sha256").update(JSON.stringify(record)).digest("hex");
+    appendFileSync(
+      join(dir, "closed.jsonl"),
+      `${JSON.stringify({
+        id: record.id,
+        closed_at: new Date(now).toISOString(),
+        reason: "expired-and-dead",
+        pid: record.pid ?? null,
+        removed,
+        refused,
+        record_sha256: recordSha,
+      })}\n`,
+    );
+    rmSync(path, { force: true });
+    report.closed += 1;
+  }
+  const root = tempRoot();
+  if (existsSync(root)) {
+    for (const name of readdirSync(root)) {
+      if (name.startsWith("run-") && !known.has(name)) report.orphans.push(join(root, name));
     }
   }
-  return removed;
+  return report;
+}
+
+/** Backwards-compatible name: the sweep is now the reconciler. */
+export function pruneRuns() {
+  return reconcileRuns().closed;
 }
