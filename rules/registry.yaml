@@ -153,6 +153,14 @@
       "check": { "cmd": "node scripts/scan-coupling.mjs && node --test test/coupling.test.mjs test/review.test.mjs", "expect_rc": 0 },
       "no_exam_reason": "Mechanical scan covers every v2 code/rule/doc file; no separate exam item is claimed for this guard.",
       "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w6/coupling.log"
+    },
+    {
+      "id": "P-PLAN-CHECK-01",
+      "class": "P",
+      "statement": "A plan is structurally validated before review: eight headings in order, one top-level todo line per task with ten fields, class coverage A-H/P, and a non-empty Must NOT have section.",
+      "check": { "cmd": "node --test test/plan-check.test.mjs", "expect_rc": 0 },
+      "exam_item": "SR4-76",
+      "evidence": "/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/plan-check.log"
     }
   ]
 }

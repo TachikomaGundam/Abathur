@@ -254,7 +254,7 @@ function cmdSurface(rest) {
 
 function cmdPlan(rest) {
   if (rest[0] !== "check" || !rest[1]) return usage();
-  const result = spawnSync("python3", ["/home/lab/workspace/harness/Abathur/loop/plan_check.py", rest[1]], {
+  const result = spawnSync(process.execPath, [resolve(ROOT, "scripts", "plan-check.mjs"), rest[1]], {
     encoding: "utf8",
     timeout: 60_000,
   });

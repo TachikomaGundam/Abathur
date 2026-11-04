@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 57af3c562febfbf36b65818f87bc3d9dd20f46913e29520904f6002c838cc32b
+registry-sha256: a8307b942c29710df71c497e62c6ed41fc5ac69000f6edd1b0e584ef19c362d9
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -138,6 +138,14 @@ Rule text is generated from the registry deterministically; generated files carr
 - check: `node --test test/generate.test.mjs` expects rc=0
 - exam exemption: Infrastructure check; the planning exam item SR4-76 already covers plan-vs-registry discipline.
 - evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-v2-w1/generate.log`
+
+## P-PLAN-CHECK-01 (P)
+
+A plan is structurally validated before review: eight headings in order, one top-level todo line per task with ten fields, class coverage A-H/P, and a non-empty Must NOT have section.
+
+- check: `node --test test/plan-check.test.mjs` expects rc=0
+- exam: SR4-76
+- evidence: `/home/lab/workspace/harness/Abathur/.omo/evidence/surface-gate-20261103/plan-check.log`
 
 ## P-REGISTRY-01 (P)
 
