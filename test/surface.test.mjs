@@ -24,6 +24,10 @@ test("dot-dot cannot pass as an E1 path", () => {
   assert.equal(result.code, "SURFACE-DENIED");
 });
 
+test("the retired Q release checkout is not a declared surface", () => {
+  assert.equal(SURFACES.Q, undefined);
+});
+
 test("E2 and E3 writes are human gates", () => {
   assert.equal(assertSurface({ op: "write", surface: "E2", path: "/usr/lib/a" }).code, "HUMAN-GATE");
   assert.equal(assertSurface({ op: "write", surface: "E3", path: "/remote/a" }).code, "HUMAN-GATE");

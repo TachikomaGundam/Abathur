@@ -6,7 +6,6 @@ export const REPO_ROOT = process.cwd();
 export const SURFACES = {
   E0: { name: "one-shot discarded", writes: [TEMP_ROOT()], forbids: ["/home/", "/etc/"] },
   E1: { name: "seat worktree", writes: [REPO_ROOT], forbids: [] },
-  Q: { name: "release checkout", writes: ["/home/lab/workspace/release/"], forbids: [] },
   E2: { name: "production", writes: [], forbids: ["*"] },
   E3: { name: "remote write", writes: [], forbids: ["*"] },
 };
