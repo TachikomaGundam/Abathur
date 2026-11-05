@@ -477,7 +477,7 @@ AsylumWarden/
 ## 13. 发布、许可与名称
 
 - 当前原型 `private: true`、`UNLICENSED`；**发布前必须改**。
-- npm 名称已由 npm 的 `0.0.0-stage` staged-publishing 占位版保留；**不要 unpublish 占位版**。本地 `private: true`；功能版本从 `0.1.0` 开始，不发布 `0.0.0`。
+- 新仓 `asylumwarden@0.0.0` 是**占名包**：已发布，`private: false`；功能版本从 `0.1.0` 开始。
 - license：**MIT**（2026-11-05 机主已定）。不再二选一。
 - npm 包名：`asylumwarden`（无 scope，全小写；npm 新包不允许大写）。
 - 显示名/仓库名：`AsylumWarden`（大小写固定）。

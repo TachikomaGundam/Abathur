@@ -35,6 +35,10 @@ included in the npm tarball and is not installed by `npm install -g`. It
 requires Python 3 and a Git checkout of this repository. See
 `tools/wave_engine/README.md` for its commands and manifest rules.
 
+For an optional Node/opencode companion with the same dispatch discipline
+(registry, leases, receipts, hash-chained ledger), see the independent
+AsylumWarden repository: <https://github.com/TachikomaGundam/AsylumWarden>.
+
 ## Environment injection
 
 External instruments are injected, never hardcoded:
@@ -43,8 +47,23 @@ External instruments are injected, never hardcoded:
 |---|---|---|
 | `ABATHUR_ANCHOR_CMD` | evidence anchor | `ANCHOR UNDISPATCHABLE` rc=2 |
 | `ABATHUR_SESSION_VERIFIER` | judge defect ledger | `SESSION VERIFIER UNDISPATCHABLE` rc=2 |
+| `ABATHUR_REVIEW_CMD` | planning review adapter | `REVIEW UNDISPATCHABLE` rc=2 |
 | `ABATHUR_SEAT_CMD` / `ABATHUR_JUDGE_CMD` | exam runner | `EXAM CHANNEL UNDISPATCHABLE` rc=2 |
 | `ABATHUR_COPY_GATE_CMD` | copy gate | `COPY GATE UNDISPATCHABLE` rc=2 |
+
+## Optional companion tools
+
+These capabilities are deliberately not hardcoded. Use the companion that fits
+the host; Abathur keeps the contract and fails closed when none is present.
+
+| Need | Companion | Notes |
+|---|---|---|
+| Cross-line dispatch, claims, receipts | AsylumWarden plugin: <https://github.com/TachikomaGundam/AsylumWarden> | Independent source checkout; not a dependency and not in Abathur's npm tarball. |
+| Real sandbox enforcement | Bubblewrap (`bwrap`) used by `.opencode/plugins/sandbox-bash.js` | Without a trusted `bwrap` the plugin refuses bash unless `ABATHUR_SANDBOX_ALLOW_UNSANDBOXED=1`; `ABATHUR_SANDBOX=0` disables the plugin. |
+| Out-of-band evidence anchor | Any append-only ledger command via `ABATHUR_ANCHOR_CMD` | This checkout's anchor-chain protocol is described in `AGENTS.md` §三. |
+| Institutional memory | `historian_read` / `historian_search` MCP tools | Query before acting on organizational facts; see `AGENTS.md` §三. |
+| Release publishing | GitHub Actions OIDC trusted publishing with npm provenance | Workflow: `.github/workflows/publish.yml`. |
+| Review / judging | `ABATHUR_REVIEW_CMD` or `ABATHUR_SEAT_CMD` / `ABATHUR_JUDGE_CMD` | Inject the operator's command; no review product is named in code or rules. |
 
 ## State directory
 
