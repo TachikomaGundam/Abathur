@@ -1,9 +1,9 @@
 # HANDOFF — AsylumWarden 独立项目
 
 日期：2026-11-05
-状态：架构交接，**不写代码**；第三次西比拉审议 **APPROVE（2A/1R）**，5 条 must-fix 已在本版收敛，待下一次审议确认
+状态：架构交接，**不写代码**；第三次独立审查 **APPROVE（2A/1R）**，5 条 must-fix 已在本版收敛，待下一次审议确认
 来源：Abathur 席
-审查：第一次 `sibyl-20261105T055441Z-e7ef`（**REJECT 1A/2R**，实质建议 **C**）；第二次 `sibyl-20261105T060400Z-1996`（**REJECT 1A/2R**，10 条 must-fix）；第三次 `sibyl-20261105T060826Z-2e07`（**APPROVE 2A/1R**，5 条 must-fix，已落入 §8.1/§8.4/§10.1）
+审查：三次独立审查（运行编号见 §17 证据文件）；实质建议 **C 形态**
 独立度：三次均 **NOT-INDEPENDENT**（送审稿由本席起草）
 实质建议：**C 形态**——核心库/CLI + 薄适配器；纯插件、纯库、内化复制、常驻服务均不选。
 
@@ -12,7 +12,7 @@
 1. **License：MIT。** 发布前把 `UNLICENSED/private` 改为 MIT/公开。
 2. **GitHub 源仓：`TachikomaGundam/AsylumWarden`。** 大小写固定；不使用 `github.com/asylumwarden`（休眠账号占用）。
 3. **试点：PCB 系列 Agent 的 workspace。** 先做只读/影子试点，具体约束见 §10.1；不得替换 PCB 自己的 `pcb_dispatch` 控制面。
-4. **本文件需再过一次西比拉审议。** 审议通过前不建仓、不写代码、不发布。
+4. **本文件需再过一次独立审查。** 审议通过前不建仓、不写代码、不发布。
 
 ### 0.1 第二次审议 must-fix 收敛（2026-11-05）
 
@@ -282,7 +282,7 @@ core     ✗▶ opencode / Codex / Claude / Python
 
 ---
 
-## 9. 安全模型（按西比拉 must-fix 收敛）
+## 9. 安全模型（按独立审查 must-fix 收敛）
 
 必须写进 `SECURITY.md` 的硬话：
 
@@ -545,8 +545,8 @@ AsylumWarden/
 
 ## 17. 回执索引
 
-- 西比拉审查文档：`/home/lab/workspace/harness/Abathur/.omo/evidence/sibyl-asylumwarden-distribution.md`
-- 西比拉运行记录：`sibyl-20261105T055441Z-e7ef`
+- 独立审查文档：`/home/lab/workspace/harness/Abathur/.omo/evidence/review-asylumwarden-distribution.md`
+- 独立审查运行记录：`/home/lab/workspace/harness/Abathur/.omo/evidence/asylumwarden-review-runs.md`
 - 原型目录：`/home/lab/workspace/harness/Abathur/plugins/AsylumWarden/`
 - 原型 README：`/home/lab/workspace/harness/Abathur/plugins/AsylumWarden/README.md`
 - Abathur 派单条令：`/home/lab/workspace/harness/Abathur/docs/parallel-dispatch-doctrine.md`

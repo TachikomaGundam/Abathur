@@ -8,7 +8,10 @@
     },
     "otm_videogen": {
       "roots": ["/home/lab/workspace/harness/VideoGen"],
-      "forbidden_surfaces": ["MODEL-REGISTRY.md", "RULINGS.md", "SHOT-MANIFEST.json", "MANIFEST.json"]
+      "forbidden_surfaces": [
+        "evolution/production/script-source/MODEL-REGISTRY.md",
+        "evolution/production/script-source/RULINGS.md"
+      ]
     },
     "aihr": {
       "roots": ["/home/lab/workspace/AIHR", "/home/lab/workspace/harness/hr"],
