@@ -9,6 +9,7 @@ import ctypes
 import hashlib
 import json
 import os
+import resource
 import signal
 import stat
 import sys
@@ -190,6 +191,8 @@ def main():
         try:
             clear_caps()
             prctl(PR_SET_DUMPABLE, 0)
+            limit = 8 * 1024 * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
             os.close(ARTIFACT_FD)
             os.execvpe(argv[0], argv, env)
         except BaseException as error:
