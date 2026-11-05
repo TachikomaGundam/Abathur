@@ -45,6 +45,7 @@ cd /home/lab/workspace/harness/Abathur && node scripts/scan-quality.mjs
 cd /home/lab/workspace/harness/Abathur && node scripts/scan-coupling.mjs
 cd /home/lab/workspace/harness/Abathur && node cli/abathur-v2.mjs rules validate
 cd /home/lab/workspace/harness/Abathur && node cli/abathur-v2.mjs gate run
+cd /home/lab/workspace/harness/Abathur && node kernel/exec/spawn-gate.mjs
 cd /home/lab/workspace/harness/Abathur && node scripts/plan-check.mjs .omo/plans/refactor-abathur-v2.md
 cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_engine/tests -q
 ```
