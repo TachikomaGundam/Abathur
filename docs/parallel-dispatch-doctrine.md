@@ -22,7 +22,7 @@
 - `cwd` 必须是已存在目录且位于 `allowed_roots` 内；派单行必须自带 `cd <cwd> &&`，禁止让席位继承监工目录。
 - 回执污染探测：done 时扫回执文本内路径 ∈ allowed_roots，相对路径按 `cwd` 解析；违例标 DONE-POLLUTED 具名，不静默。
 - 票面路径纪律：**一律仓根全路径或绝对路径**；裸 `staging/...` 开头=处方伤（两案在案：R87/R108 anim-law 落点事故）。
-- 禁触面单源：`line_roots.json` 每线 `forbidden_surfaces`；缺键 fail-closed。plan 拒绝把可写根落在禁触面内部，并记录该文件 sha256；done 发现文件漂移即 `LINE-ROOTS-DRIFT`。宽根只包含禁触面时给出具名警告，由回执探测加人工复核兜底——**不是挂载级强制**。
+- 禁触面单源：本机 `line_roots.local.json` 每线 `forbidden_surfaces`（gitignored；模板 `line_roots.example.json` 不含真实路径）；缺键 fail-closed。plan 拒绝把可写根落在禁触面内部，并记录该文件 sha256；done 发现文件漂移即 `LINE-ROOTS-DRIFT`。宽根只包含禁触面时给出具名警告，由回执探测加人工复核兜底——**不是挂载级强制**。禁触面是本机策略，不是引擎常量。
 - 只读跨线通道：cell 可声明 `read_roots`；plan 拒绝它与 `allowed_roots` 重叠，派单行标 `READ-ONLY REVIEW REQUIRED`。这是声明与人工复核，不是沙箱；同 uid 的 bash 仍可越界写，真正拒止属机主键的挂载层。
 - 角色白名单会话启动时固化：新建角色文件=下个会话才可派发（金丝雀实测 R110）。`role` 声明必须配 `--role-dir` 与 `--session-start`；角色文件 mtime 晚于会话启动即 `RESTART-REQUIRED`，缺失即 `UNKNOWN-ROLE`。不热加载。
 
@@ -54,7 +54,7 @@
   变成运行时功能的提案，必须先立新 Charter，并满足：单写者、`realpath`
   重检、原子 claim、席位只能改自己的 cell、对抗性回执夹具、版本化状态
   与 quiesce、`line_roots` 用户配置、Python/Node 双跑等价语料入闸。
-- **跨机**：`line_roots.json` 当前是本机绝对路径；跨机使用必须由用户
+- **跨机**：`line_roots.local.json` 当前存本机绝对路径，且被 gitignore；跨机使用必须由用户
   提供自己的 line map，不得把本机路径当默认值。
 
 机器检查：源码检出跑

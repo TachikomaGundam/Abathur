@@ -18,7 +18,17 @@ test("dispatch policy stays source-checkout-only until a new charter", () => {
     "kernel/dispatch must not exist without a new dispatch charter",
   );
   assert.equal(existsSync(resolve(ROOT, "tools", "wave_engine", "wave.py")), true);
-  assert.equal(existsSync(resolve(ROOT, "tools", "wave_engine", "line_roots.json")), true);
+  assert.equal(
+    existsSync(resolve(ROOT, "tools", "wave_engine", "line_roots.example.json")),
+    true,
+  );
+  const example = readFileSync(
+    resolve(ROOT, "tools", "wave_engine", "line_roots.example.json"),
+    "utf8",
+  );
+  assert.equal(example.includes("/home/lab"), false);
+  assert.equal(example.includes("INTENT-LEDGER"), false);
+  assert.equal(example.includes("MODEL-REGISTRY"), false);
 });
 
 test("publish workflow guards the tarball against tools and bytecode", () => {

@@ -17,7 +17,7 @@
 ## 二、车道绑定（L-LINE-BINDING 本仓落点）
 
 - 本仓座席 = 阿巴瑟席。他线座席进入本仓 = 客席：只读 + 最小语义修正，不得动本仓门条款、不得向本仓直提非本线代码。
-- 跨线读可以显式进行；跨线写默认禁止。`tools/wave_engine/line_roots.json` 是产线根的单源；`wave.py plan` 对任何与其他产线根重叠的 `allowed_roots` fail-closed。
+- 跨线读可以显式进行；跨线写默认禁止。`tools/wave_engine/line_roots.local.json` 是本地产线根与禁触面的单源（gitignored；模板 `line_roots.example.json` 只含占位路径）；`wave.py plan` 对任何与其他产线根重叠的 `allowed_roots` fail-closed。禁触面属于本机策略，不得写进引擎代码或模板默认值。
 - 不得把别线的台账任务搬进本仓执行；跨线委托必须带落点、命令、验收三要件。
 
 ## 三、开工三步

@@ -7,7 +7,7 @@ verification queue (verif-queue), and a cross-line safety self-test (selftest).
 
 Stdlib only. No network. The only writes are the manifest under the wave
 state dir (same base as wave.py: env ABATHUR_WAVES_DIR / --base). Line roots
-come exclusively from line_roots.json (single source; no hardcodes).
+come exclusively from the local line_roots config (single source; no hardcodes).
 No output ever claims a number it did not parse from the roster.
 """
 import argparse
@@ -54,7 +54,7 @@ def load_line_root(line_roots_path, key):
     entry = cfg.get("lines", {}).get(key)
     roots = entry.get("roots") if isinstance(entry, dict) else None
     if not roots:
-        die_json("line_roots.json has no roots for key %r (single source, refusing to guess)" % key)
+        die_json("line_roots config has no roots for key %r (single source, refusing to guess)" % key)
     return os.path.normpath(roots[0]), cfg
 
 
@@ -282,7 +282,7 @@ def cmd_verif_queue(args):
 
 def cmd_selftest(args):
     line_root, line_cfg = load_line_root(args.line_roots, LINE_KEY)
-    path = roster_path(line_root)  # VideoGen root resolved via line_roots.json, never hardcoded
+    path = roster_path(line_root)  # VideoGen root resolved via local line_roots config, never hardcoded
     cells, n_fireable = parse_fire_cells(parse_sections(read_roster_lines(path)), line_root)
     checks, passes = 0, 0
 
@@ -342,7 +342,7 @@ def build_parser():
     p.add_argument("--video-gen-root", required=True)
     p.set_defaults(func=cmd_verif_queue)
 
-    p = sub.add_parser("selftest", help="cross-line safety self-test (uses line_roots.json only)")
+    p = sub.add_parser("selftest", help="cross-line safety self-test (uses local line_roots config only)")
     p.set_defaults(func=cmd_selftest)
     return ap
 

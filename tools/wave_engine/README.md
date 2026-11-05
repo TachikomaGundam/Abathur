@@ -4,12 +4,12 @@ Replaces two bottlenecks: the team engine's `maxParallel=4` cap (this engine has
 no width cap; default wave width = 64, the machine's real concurrency) and
 sleep-holding seats that waited in-line (cells here are fire-and-report).
 
-State lives in `/home/lab/tmp/abathur-waves/<wave_id>/` (override: `--base` or
+State lives in `$HOME/.local/state/abathur/waves/<wave_id>/` (override: `--base` or
 env `ABATHUR_WAVES_DIR`). Cell state machine: `new -> launched -> claimed ->
 done/failed`; `done` requires an existing `--receipt`. Receipt paths outside
 `allowed_roots` or inside a declared protected surface are printed and flagged
-`DONE-POLLUTED`, never silent. Cross-line roots and protected surfaces (see
-`line_roots.json`) are rejected at `plan`, fail-closed.
+`DONE-POLLUTED`, never silent. Cross-line roots and protected surfaces (from
+`line_roots.local.json`) are rejected at `plan`, fail-closed.
 
 Every cell must declare `cwd`: the directory its commands run in. `cwd` must
 exist and must sit inside `allowed_roots`. Relative paths in the receipt are
@@ -17,12 +17,17 @@ resolved against `cwd`, not against the supervisor's directory. `plan` and
 `done` accept `--expect-root <dir>`: all `cwd`/`allowed_roots` must be under
 that root, otherwise the command fails before writing or marking done.
 
-`line_roots.json` is the single source for line roots **and** protected
-surfaces. Each line is an object `{roots, forbidden_surfaces}`; a missing
-`forbidden_surfaces` key fails closed. `plan` records the file's sha256 in each
-launchpack; `done` refuses with `LINE-ROOTS-DRIFT` if the file changed after
-plan. A broad `allowed_root` that merely contains a protected surface is warned
-and remains receipt-checked plus human-reviewed; it is not mount enforcement.
+`line_roots.local.json` is the single source for **your** line roots and
+protected surfaces. It is gitignored and machine-specific. Copy
+`line_roots.example.json` to `line_roots.local.json` and edit it; the example
+contains placeholder paths only, no host paths and no real surface names.
+Set `ABATHUR_LINE_ROOTS` to use another path. Each line is an object
+`{roots, forbidden_surfaces}`; a missing `forbidden_surfaces` key fails closed.
+`plan` records the file's sha256 in each launchpack; `done` refuses with
+`LINE-ROOTS-DRIFT` if the file changed after plan. A broad `allowed_root` that
+merely contains a protected surface is warned and remains receipt-checked plus
+human-reviewed; it is not mount enforcement. The policy lives in your local
+config, never in the engine code.
 
 A cell may declare `read_roots`: directories it may read but must not write.
 They must exist and must not overlap `allowed_roots`. The dispatch line marks
@@ -79,15 +84,15 @@ Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_e
 `allowed_roots`, `cwd`, `brief_path`, `cell_id`, and `kind` are mandatory.
 `read_roots` and `role` are optional. Cross-line roots are rejected; a cell may
 not write into another line's repo. Protected surfaces are declared once in
-`line_roots.json`, never copied into individual tickets.
+your local `line_roots.local.json`, never copied into individual tickets.
 
 ## Orchestrate (cross-line read models, READ-ONLY vs VideoGen)
 
 `orchestrate.py` derives wave read-models from the VideoGen line's roster
 `evolution/production/staging/assembly/FIREABLE-v1.md`. Stdlib only; it never
-writes to VideoGen. Line roots come from `line_roots.json` key `otm_videogen`
-(single source). Manifests are written to the same state dir as waves
-(`--base` / env `ABATHUR_WAVES_DIR`), as `<wave-id>.manifest.json`.
+writes to VideoGen. Line roots come from your `line_roots.local.json` key
+`otm_videogen` (single source). Manifests are written to the same state dir as
+waves (`--base` / env `ABATHUR_WAVES_DIR`), as `<wave-id>.manifest.json`.
 
 1. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py plan-fires --video-gen-root /home/lab/workspace/harness/VideoGen --wave-id <id>`
    — parses the FIREABLE + FIREABLE-CANDIDATE tables into cells

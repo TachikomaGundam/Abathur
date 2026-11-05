@@ -18,11 +18,17 @@ import sys
 import time
 from datetime import datetime, timezone
 
-DEFAULT_BASE = os.environ.get("ABATHUR_WAVES_DIR", "/home/lab/tmp/abathur-waves")
+DEFAULT_BASE = os.environ.get(
+    "ABATHUR_WAVES_DIR",
+    os.path.join(os.path.expanduser("~"), ".local", "state", "abathur", "waves"),
+)
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-DEFAULT_LINE_ROOTS = os.path.join(HERE, "line_roots.json")
-DEFAULT_CLOUDQ = "/home/lab/workspace/harness/VideoGen/evolution/ledger/CLOUDQ.tsv"
+DEFAULT_LINE_ROOTS = (
+    os.environ.get("ABATHUR_LINE_ROOTS")
+    or os.path.join(HERE, "line_roots.local.json")
+)
+DEFAULT_CLOUDQ = os.environ.get("ABATHUR_CLOUDQ", "")
 TARGET_CONCURRENCY = 64
 KINDS = ("gen", "verify", "doc", "build")
 INFLIGHT_WORDS = {"queued", "pending", "running", "launched", "dispatched",
@@ -83,7 +89,8 @@ def load_line_roots(path):
     key pass as "nothing forbidden".
     """
     if not os.path.isfile(path):
-        die("line_roots.json not found: %s" % path)
+        die("line_roots config not found: %s (copy line_roots.example.json to "
+            "line_roots.local.json and edit; set ABATHUR_LINE_ROOTS to use another path)" % path)
     data = read_json(path)
     if "lines" not in data or "self" not in data:
         die("line_roots.json malformed (need self + lines): %s" % path)

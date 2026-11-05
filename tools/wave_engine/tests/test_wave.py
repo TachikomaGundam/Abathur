@@ -7,6 +7,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WAVE = os.path.join(HERE, "..", "wave.py")
+sys.path.insert(0, os.path.dirname(WAVE))
+import wave  # noqa: E402
+
 FIXTURES = os.path.join(HERE, "fixtures")
 VIDEOGEN = "/home/lab/workspace/harness/VideoGen"
 PCB = "/home/lab/workspace/harness/PCB-Agent"
@@ -387,3 +390,17 @@ def test_role_without_snapshot_flags_rejected(tmp_path):
     r = run(tmp_path, "plan", man)
     assert r.returncode != 0
     assert "--role-dir and --session-start" in r.stderr
+
+
+def test_default_config_is_local_and_template_has_no_host_paths():
+    assert wave.DEFAULT_LINE_ROOTS.endswith("line_roots.local.json")
+    example_path = os.path.join(HERE, "..", "line_roots.example.json")
+    text = open(example_path, encoding="utf-8").read()
+    assert "/home/lab" not in text
+    assert "INTENT-LEDGER" not in text
+    assert "MODEL-REGISTRY" not in text
+    data = json.loads(text)
+    assert data["lines"]
+    for line in data["lines"].values():
+        assert "forbidden_surfaces" in line
+        assert line["forbidden_surfaces"] == []

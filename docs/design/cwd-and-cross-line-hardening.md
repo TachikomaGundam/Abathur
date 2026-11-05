@@ -10,7 +10,7 @@
 ## 不变量
 
 - 每个 cell 必须有 `cwd`；`cwd` 必须是已存在目录，且位于该 cell 的 `allowed_roots` 之内。
-- `allowed_roots` 必须非空；任何 root 不得与 `line_roots.json` 中其他产线的根重叠。
+- `allowed_roots` 必须非空；任何 root 不得与本机 `line_roots.local.json` 中其他产线的根重叠。
 - `plan` 可带 `--expect-root`：所有 `cwd` 与 `allowed_roots` 必须落在该根内，否则拒绝，且不写任何 launchpack。
 - `done` 可带 `--expect-root`：回执中出现的路径必须落在 `allowed_roots` 内；相对路径按该 cell 的 `cwd` 解析，不按仓库根猜测。
 - 派单行必须自带 `cd <cwd> &&`；`wave.py` 命令一律绝对路径。

@@ -9,6 +9,7 @@ build/
 coverage/
 __pycache__/
 *.local.jsonc
+tools/wave_engine/line_roots.local.json
 .DS_Store
 *.swp
 /.codegraph
