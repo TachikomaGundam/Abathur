@@ -1,23 +1,30 @@
 # Execution-plane runner R1 — decision page
 
-Status: **v10 APPROVED (3A/0R, run sibyl-20261105T125728Z-28ee) for body sha256 `4dd566edf50d092a2f977196bb07fe0932db3bd4f7c4b83a28bb71c35363d4f8`. This status/history metadata was added after approval; the reviewed security body is unchanged. Implementation still requires the plan tasks and the per-test gate.**
+Status: **v10 APPROVED (3A/0R, run 评审运行) for body sha256 `4dd566edf50d092a2f977196bb07fe0932db3bd4f7c4b83a28bb71c35363d4f8`. This status/history metadata was added after approval; the reviewed security body is unchanged. Implementation still requires the plan tasks and the per-test gate.**
 This page defines only R1: a per-invocation bwrap runner for target tools.
 It does not change the Abathur controller, the human's opencode session, or
 `~/.config`.
 
 Review history:
-- v2 (sha256 f326ec5d…): REJECT 1A/2R, run sibyl-20261105T100850Z-0587.
-- v3 (sha256 dc723624…): REJECT 1A/2R, run sibyl-20261105T101351Z-4b9d.
-- v4 (sha256 f52150e2…): REJECT 0A/3R, run sibyl-20261105T101735Z-aa03.
-- v5 (sha256 79a46598…): REJECT 0A/3R, run sibyl-20261105T122609Z-264f.
-- v6 (sha256 15ababa0…): REJECT 0A/3R, run sibyl-20261105T123651Z-e937.
-- v7 (sha256 a30d6a4d…): REJECT 1A/2R, run sibyl-20261105T124439Z-2b45.
-- v8 (sha256 c7f99036…): APPROVE 3A/0R, run sibyl-20261105T125017Z-15a4.
-- v9 (sha256 8d6e82db…): APPROVE 2A/1R, run sibyl-20261105T125416Z-4f1f; one
+- v2 (sha256 f326ec5d…): REJECT 1A/2R, run 评审运行.
+- v3 (sha256 dc723624…): REJECT 1A/2R, run 评审运行.
+- v4 (sha256 f52150e2…): REJECT 0A/3R, run 评审运行.
+- v5 (sha256 79a46598…): REJECT 0A/3R, run 评审运行.
+- v6 (sha256 15ababa0…): REJECT 0A/3R, run 评审运行.
+- v7 (sha256 a30d6a4d…): REJECT 1A/2R, run 评审运行.
+- v8 (sha256 c7f99036…): APPROVE 3A/0R, run 评审运行.
+- v9 (sha256 8d6e82db…): APPROVE 2A/1R, run 评审运行; one
   must-fix: the setuid-absence assertion contradicted the ro-bound stock `/usr`.
-- v10 (sha256 4dd566ed…): APPROVE 3A/0R, run sibyl-20261105T125728Z-28ee;
+- v10 (sha256 4dd566ed…): APPROVE 3A/0R, run 评审运行;
   approval is for the exact v10 body. Deferrable residuals are recorded in
-  `.omo/evidence/sibyl-r1-approval.md`; they do not change the approved body.
+  `.omo/evidence/r1-approval.md`; they do not change the approved body.
+
+Implementation status: prototype exists in `kernel/exec/`; bwrap 0.11.1 uses
+`--sync-fd` instead of the absent `--preserve-fds`, and `--size` takes bytes.
+Host tests pass, but target-spawn wiring and the spawn gate are still open. See
+`docs/design/execution-runner-r1-implementation.md` for the exact deviations and
+residuals. This note is post-approval metadata; the security claims above are
+unchanged.
 
 ## 1. The problem R1 solves
 

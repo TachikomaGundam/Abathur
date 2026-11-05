@@ -1,6 +1,6 @@
 # Strong isolation options — decision page (v3)
 
-Status: revised after Sibyl REJECT `sibyl-20261105T075051Z-2d70`. The
+Status: revised after 外部评审 REJECT `评审运行`. The
 recommendation is conditional: no option may be called “closed” until its
 named negative tests pass. Owner decision still required.
 
