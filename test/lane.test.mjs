@@ -34,6 +34,6 @@ test("a write outside every lane is disputed, never blamed on a seat", () => {
 
 test("foreign writes are reported by path", () => {
   assert.equal(foreignWrite(DEFAULT_LANES, `${REPO_ROOT}/a`).foreign, false);
-  assert.equal(foreignWrite(DEFAULT_LANES, "/home/lab/workspace/harness/PCB-Agent/a").foreign, true);
-  assert.equal(foreignWrite(DEFAULT_LANES, "/home/lab/workspace/harness/Abathur-v2/a").foreign, true);
+  assert.equal(foreignWrite(DEFAULT_LANES, "/tmp/pcb-agent/a").foreign, true);
+  assert.equal(foreignWrite(DEFAULT_LANES, "/tmp/abathur-v2/a").foreign, true);
 });

@@ -27,7 +27,6 @@ export const CONSTANTS = Object.freeze({
   TRUSTED_PATHS: Object.freeze([
     "kernel/exec/bwrap.mjs",
     "scripts/scan-quality.mjs",
-    "scripts/gen-mapping.mjs",
     "scripts/compare-baseline.mjs",
     ".opencode/plugins/sandbox-bash.js",
     "scripts/release-prepare.mjs",

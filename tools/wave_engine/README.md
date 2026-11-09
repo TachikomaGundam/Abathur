@@ -45,22 +45,22 @@ mandatory. The host role loader remains owned by opencode.
 All commands run from the repo root. Do not rely on an inherited current
 directory.
 
-1. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/wave.py plan <manifest.json>`
+1. `cd <repo> && python3 tools/wave_engine/wave.py plan <manifest.json>`
    — validates ids/deps/kinds/roots/cwd, writes launchpacks, prints topological waves.
-2. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/wave.py launch <wave_id> --cells all`
+2. `cd <repo> && python3 tools/wave_engine/wave.py launch <wave_id> --cells all`
    — marks ready cells launched and prints numbered `task(...)` dispatch lines;
    fire ALL of them in ONE message — that is the concurrency.
 3. Each cell seat starts with `cd <its cwd> &&` and runs:
-   `python3 /home/lab/workspace/harness/Abathur/tools/wave_engine/wave.py claim <wave> <cell>`,
+   `python3 <repo>/tools/wave_engine/wave.py claim <wave> <cell>`,
    then `... done <wave> <cell> --receipt <path>` (or `fail ... --note ...`).
-4. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/wave.py status <wave_id>` — per-cell dashboard.
-5. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/wave.py gauge` — all-wave saturation: sessions in
+4. `cd <repo> && python3 tools/wave_engine/wave.py status <wave_id>` — per-cell dashboard.
+5. `cd <repo> && python3 tools/wave_engine/wave.py gauge` — all-wave saturation: sessions in
    flight vs target 64, cells/hour, rework rate, cold-start/work timings,
    read-only cloud in-flight from VideoGen `CLOUDQ.tsv` when present.
 
-Retry: `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/wave.py requeue <wave> <cell>`
+Retry: `cd <repo> && python3 tools/wave_engine/wave.py requeue <wave> <cell>`
 (failed -> new; done stays terminal).
-Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_engine/tests -q`.
+Tests: `cd <repo> && python3 -m pytest tools/wave_engine/tests -q`.
 
 ## Manifest shape
 
@@ -71,10 +71,10 @@ Tests: `cd /home/lab/workspace/harness/Abathur && python3 -m pytest tools/wave_e
     {
       "cell_id": "alpha",
       "kind": "gen",
-      "brief_path": "/home/lab/workspace/harness/Abathur/handoffs/example.md",
-      "allowed_roots": ["/home/lab/workspace/harness/Abathur"],
-      "read_roots": ["/home/lab/workspace/harness/VideoGen"],
-      "cwd": "/home/lab/workspace/harness/Abathur",
+      "brief_path": "<repo>/briefs/example.md",
+      "allowed_roots": ["<repo>"],
+      "read_roots": ["<video-gen-root>"],
+      "cwd": "<repo>",
       "deps": []
     }
   ]
@@ -94,19 +94,19 @@ writes to VideoGen. Line roots come from your `line_roots.local.json` key
 `otm_videogen` (single source). Manifests are written to the same state dir as
 waves (`--base` / env `ABATHUR_WAVES_DIR`), as `<wave-id>.manifest.json`.
 
-1. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py plan-fires --video-gen-root /home/lab/workspace/harness/VideoGen --wave-id <id>`
+1. `cd <repo> && python3 tools/wave_engine/orchestrate.py plan-fires --video-gen-root <video-gen-root> --wave-id <id>`
    — parses the FIREABLE + FIREABLE-CANDIDATE tables into cells
    `{cell_id, kind:"gen", allowed_roots:[<otm_videogen root>], anchors:[...], wave:0}`;
    JSON to stdout + writes `<base>/<id>.manifest.json`. Unparseable roster or a
    row without a named anchor => `{"error": ...}` on stdout, exit 2 (never guesses).
-2. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py gates --video-gen-root /home/lab/workspace/harness/VideoGen`
+2. `cd <repo> && python3 tools/wave_engine/orchestrate.py gates --video-gen-root <video-gen-root>`
    — owner-gate census of the blocked table by reason class + machine line
    `TOTAL_BLOCKED=<n> <CLASS>=<n> ... HEADER_BLOCKED=<n> CROSSCHECK=OK|MISMATCH`
    (header claim vs parsed count; a mismatch is flagged, neither number trusted).
-3. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py verif-queue --video-gen-root /home/lab/workspace/harness/VideoGen`
+3. `cd <repo> && python3 tools/wave_engine/orchestrate.py verif-queue --video-gen-root <video-gen-root>`
    — VERIF-PENDING cells with per-file FOUND/MISSING (artifact located by name
    under the video line root) + `VERIF_CELLS=<n> FILES_TOTAL=<n> FOUND=<n> MISSING=<n>`.
-4. `cd /home/lab/workspace/harness/Abathur && python3 tools/wave_engine/orchestrate.py selftest`
+4. `cd <repo> && python3 tools/wave_engine/orchestrate.py selftest`
    — cross-line safety: every parsed fire cell pins `allowed_roots` to the
    `otm_videogen` root; `wave.py`'s plan validator must REJECT a deliberate
    cross-line cell (root = aihr) and still accept an in-line cell. Prints

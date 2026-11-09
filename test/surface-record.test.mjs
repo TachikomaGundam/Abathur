@@ -146,7 +146,7 @@ test("surface show reports the launcher record", () => {
 test("surface check refuses a target outside the recorded root", () => {
   const ws = base();
   const { path, record } = createRunRecord({ surface: "E1", root: ws });
-  const result = spawnSync(process.execPath, [join(REPO_ROOT, "cli", "abathur-v2.mjs"), "surface", "check", "/home/lab/not-allowed"], {
+  const result = spawnSync(process.execPath, [join(REPO_ROOT, "cli", "abathur-v2.mjs"), "surface", "check", join(tmpdir(), "abathur-not-allowed")], {
     cwd: REPO_ROOT,
     encoding: "utf8",
     env: { ...process.env, ABATHUR_RUN_RECORD: path, ABATHUR_RUN_ID: record.id },

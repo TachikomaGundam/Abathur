@@ -42,7 +42,7 @@
 
 - 测试决策：TDD / 测试后置 / 不适用（须具名理由）。
 - 判据形式：每条 = 命令 + 期望 rc + 输出关键行。
-- 回执落点：`.omo/evidence/<slug>/<step>.log`，记录绝对路径与 sha256。
+- 回执落点：`<state>/evidence/<slug>/<step>.log`，记录绝对路径与 sha256。
 
 ## Execution strategy
 
@@ -86,7 +86,7 @@
 
 ## Commit strategy
 
-写清提交粒度、消息格式、哪些产物不入库（`.omo/**` 等）、回执如何锚定。
+写清提交粒度、消息格式、哪些产物不入库（`<state>/**` 等）、回执如何锚定。
 
 ## Success criteria
 

@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.dirname(WAVE))
 import wave  # noqa: E402
 
 FIXTURES = os.path.join(HERE, "fixtures")
-VIDEOGEN = "/home/lab/workspace/harness/VideoGen"
-PCB = "/home/lab/workspace/harness/PCB-Agent"
+VIDEOGEN = os.path.join(os.path.expanduser("~"), "workspace", "harness", "VideoGen")
+PCB = "/tmp/abathur-pcb-agent-test"
 
 
 def run(base, *argv):
@@ -396,7 +396,7 @@ def test_default_config_is_local_and_template_has_no_host_paths():
     assert wave.DEFAULT_LINE_ROOTS.endswith("line_roots.local.json")
     example_path = os.path.join(HERE, "..", "line_roots.example.json")
     text = open(example_path, encoding="utf-8").read()
-    assert "/home/lab" not in text
+    assert "/home/" not in text
     assert "INTENT-LEDGER" not in text
     assert "MODEL-REGISTRY" not in text
     data = json.loads(text)

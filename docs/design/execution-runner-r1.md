@@ -17,7 +17,7 @@ Review history:
   must-fix: the setuid-absence assertion contradicted the ro-bound stock `/usr`.
 - v10 (sha256 4dd566ed…): APPROVE 3A/0R, run 评审运行;
   approval is for the exact v10 body. Deferrable residuals are recorded in
-  `.omo/evidence/r1-approval.md`; they do not change the approved body.
+  `<state>/evidence/r1-approval.md`; they do not change the approved body.
 
 Implementation status: prototype exists in `kernel/exec/`; bwrap 0.11.1 uses
 `--sync-fd` instead of the absent `--preserve-fds`, and `--size` takes bytes.
@@ -253,7 +253,7 @@ Important choices:
 
 | Claim | Mechanism | Test |
 |---|---|---|
-| Target cannot write the controller home | `/home` tmpfs, no bind | write `/home/lab/...` fails |
+| Target cannot write the controller home | `/home` tmpfs, no bind | write `<home>/...` fails |
 | Target cannot read controller config/auth/SSH | `/home` tmpfs, env cleared | read `~/.config`, `~/.ssh` fails |
 | Target cannot gain host privilege via sudo | no host identity; ns uid 0 has empty caps; generated `/etc` has no sudoers; stock `/usr` setuid binaries are inert under `NoNewPrivs` + empty caps | `sudo` is either absent by design (`ENOENT`/`EACCES`) or present and fails with no-valid-sudoers/`EPERM`; exact shape recorded, bare nonzero rejected; an existing setuid binary is exec'd as a positive control and must leave `CapEff: 0` and ns uid 0 |
 | Target cannot use Docker | no socket, no `/run`, no docker group | `docker ps` fails |
@@ -346,7 +346,7 @@ next invocation, and R1 would be bypassed.
 
 Run through the actual controller path, not a hand-written bwrap command.
 
-1. Write `/home/lab/...` fails.
+1. Write `<home>/...` fails.
 2. Write another line root fails.
 3. Read `~/.config`/`~/.ssh` fails.
 4. **Non-vacuous process visibility**: the controller places a unique canary in
@@ -367,7 +367,7 @@ Run through the actual controller path, not a hand-written bwrap command.
 6. `docker ps` fails.
 7. `curl` and `git fetch` fail with `net=none`.
 8. Write `.git/hooks/pre-push` fails.
-9. Write `.omo/evidence/INTENT-LEDGER.md` fails.
+9. Write `<state>/evidence/INTENT-LEDGER.md` fails.
 10. Nested `bwrap --unshare-user ...` fails.
 11. Write `/run/warden/ok` succeeds (positive control).
 12. Read the input copy succeeds (positive control).

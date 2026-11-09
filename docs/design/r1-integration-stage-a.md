@@ -17,18 +17,18 @@ first step is a mechanical, fail-closed inventory.
 
 ## Current inventory (probed 2026-11-05)
 
-The repository has **23** JS/MJS files containing the literal
+The repository has **22** JS/MJS files containing the literal
 `child_process`, including the hidden `.opencode/plugins/sandbox-bash.js`.
-The only excluded trees are `.git`, `node_modules`, `.omo`, and `.codegraph`.
+The only excluded trees are `.git`, `node_modules`, `<state>`, and `.codegraph`.
 All other paths, including dot-directories, are walked.
 
 | Class | Count | Files |
 |---|---:|---|
 | `runner` | 1 | `kernel/exec/runner.mjs` |
-| `trusted-controller` | 5 | `kernel/exec/bwrap.mjs`, `scripts/scan-quality.mjs`, `scripts/gen-mapping.mjs`, `scripts/compare-baseline.mjs`, `.opencode/plugins/sandbox-bash.js` |
+| `trusted-controller` | 4 | `kernel/exec/bwrap.mjs`, `scripts/scan-quality.mjs`, `scripts/compare-baseline.mjs`, `.opencode/plugins/sandbox-bash.js` |
 | `legacy-target` | 8 | `cli/abathur-v2.mjs`, `exam/runner.mjs`, `exam/spawn.mjs`, `kernel/evidence/anchor.mjs`, `kernel/judge/defects.mjs`, `kernel/planning/review.mjs`, `scripts/release-candidate.mjs`, `scripts/copy-gate.mjs` |
 | `test-harness` | 9 | `test/cli.test.mjs`, `test/containment.test.mjs`, `test/copygate.test.mjs`, `test/coupling.test.mjs`, `test/plan-check.test.mjs`, `test/receipts.test.mjs`, `test/release-candidate.test.mjs`, `test/surface-cwd.test.mjs`, `test/surface-record.test.mjs` |
-| **total** | **23** | |
+| **total** | **22** | |
 
 `legacy-target` is explicit debt, not a safety claim. The baseline is **8**;
 the gate fails if it grows. It may shrink as sites move to the runner.
@@ -53,7 +53,7 @@ Add:
     dot-directories; extensionless files are read as text only if they are
     small UTF-8 files (limit 1 MiB), so a Node CJS `require('./x')` target is
     not invisible;
-  - excludes only the closed list `.git`, `node_modules`, `.omo`,
+  - excludes only the closed list `.git`, `node_modules`, `<state>`,
     `.codegraph`;
   - detects the literal token `child_process` (the scanner constructs the
     needle from parts, so its own source is not a registry entry);
@@ -130,7 +130,7 @@ output in hand.
 
 - Extensions: `.js`, `.mjs`, `.cjs`. `.ts` is out of scope because this Node
   runtime does not load it.
-- Exclusions are a closed path list: `.git`, `node_modules`, `.omo`,
+- Exclusions are a closed path list: `.git`, `node_modules`, `<state>`,
   `.codegraph`.
 - Hidden directories are walked. A file under `.probe/` is found unless it is
   one of the four exclusions.
@@ -171,7 +171,7 @@ output in hand.
 - `legacy-target` is not “safe”; it is named debt with a next stage.
 - Python `tools/wave_engine` dispatch is out of scope for this Node gate; it
   has its own tests and state machine.
-- Excluded trees (`node_modules`, `.omo`, `.codegraph`, `.git`) receive zero
+- Excluded trees (`node_modules`, `<state>`, `.codegraph`, `.git`) receive zero
   scan coverage. “Blast radius visible” means first-party, non-excluded paths
   only.
 - The gate is a team-accident tripwire, not an adversarial control.

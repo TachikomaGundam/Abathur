@@ -26,7 +26,7 @@ test("dispatch policy stays source-checkout-only until a new charter", () => {
     resolve(ROOT, "tools", "wave_engine", "line_roots.example.json"),
     "utf8",
   );
-  assert.equal(example.includes("/home/lab"), false);
+  assert.equal(example.includes("/home/"), false);
   assert.equal(example.includes("INTENT-LEDGER"), false);
   assert.equal(example.includes("MODEL-REGISTRY"), false);
 });

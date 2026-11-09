@@ -42,8 +42,8 @@ Only Tier 0 is implemented. Tier 1 and Tier 2 are product directions, not curren
 ## First run
 
 ```sh
-cd /path/to/project && /home/lab/workspace/harness/Abathur/cli/abathur-v2.mjs ops init
-cd /path/to/project && /home/lab/workspace/harness/Abathur/cli/abathur-v2.mjs ops audit
+cd /path/to/project && abathur ops init
+cd /path/to/project && abathur ops audit
 ```
 
 `init` writes:
@@ -54,8 +54,8 @@ cd /path/to/project && /home/lab/workspace/harness/Abathur/cli/abathur-v2.mjs op
 After editing the contract, seal it:
 
 ```sh
-cd /path/to/project && /home/lab/workspace/harness/Abathur/cli/abathur-v2.mjs ops seal
-cd /path/to/project && /home/lab/workspace/harness/Abathur/cli/abathur-v2.mjs ops audit
+cd /path/to/project && abathur ops seal
+cd /path/to/project && abathur ops audit
 ```
 
 `audit` fails when the latest ledger binding does not match the current

@@ -98,7 +98,7 @@ test("target write to /home does not reach the host home", { skip: !integration 
   const dir = workspace();
   const marker = path.join(os.homedir(), `r1-escape-${process.pid}`);
   try { fs.rmSync(marker, { force: true }); } catch { /* absent */ }
-  const code = `import os\nos.makedirs('/home/lab', exist_ok=True)\nopen(${JSON.stringify(marker)}, 'w').write('escaped')\n`;
+  const code = `import os\nos.makedirs(${JSON.stringify(os.homedir())}, exist_ok=True)\nopen(${JSON.stringify(marker)}, 'w').write('escaped')\n`;
   const result = await runTarget(request(code, dir), options(dir));
   assert.equal(result.ok, true);
   assert.equal(fs.existsSync(marker), false);

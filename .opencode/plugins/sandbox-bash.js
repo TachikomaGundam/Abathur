@@ -9,12 +9,14 @@
 
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRunRecord, pruneRuns } from "../../kernel/surface/record.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const HOST_HOME = process.env.ABATHUR_HOST_HOME || os.homedir();
 const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap", "/usr/sbin/bwrap"];
 const LOG = "/tmp/opencode/abathur-sandbox.log";
 
@@ -57,7 +59,7 @@ export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStarte
     "--die-with-parent", "--new-session",
     "--unshare-user", "--unshare-pid",
     net === "none" ? "--unshare-net" : "--share-net",
-    "--tmpfs", "/home/lab",
+    "--tmpfs", HOST_HOME,
     "--bind", ws, ws,
     "--tmpfs", "/tmp",
     "--ro-bind", "/usr", "/usr",
@@ -77,7 +79,7 @@ export function buildArgv({ workspace, cmd, net = "none", bornAt, launcherStarte
     "--dev", "/dev",
     "--proc", "/proc",
     "--clearenv",
-    "--setenv", "HOME", "/home/lab",
+    "--setenv", "HOME", HOST_HOME,
     "--setenv", "PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "--setenv", "TERM", "xterm-256color",
     "--setenv", "TZ", process.env.TZ || "Asia/Shanghai",

@@ -16,11 +16,6 @@
       "reason": "Runs node --check on source files; parses, does not execute target code."
     },
     {
-      "path": "scripts/gen-mapping.mjs",
-      "class": "trusted-controller",
-      "reason": "Reads git metadata only."
-    },
-    {
       "path": "scripts/compare-baseline.mjs",
       "class": "trusted-controller",
       "reason": "Reads git metadata only."

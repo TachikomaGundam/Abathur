@@ -7,7 +7,7 @@ ready cells concurrently, tracks the state machine new->launched->claimed->
 done/failed, and detects receipt pollution (writes mentioned outside the
 cell's allowed_roots).
 
-Stdlib only. State lives under BASE (default /home/lab/tmp/abathur-waves).
+Stdlib only. State lives under BASE (default ~/.local/state/abathur/waves).
 """
 import argparse
 import json

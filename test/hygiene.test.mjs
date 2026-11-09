@@ -72,7 +72,7 @@ test("retention keeps the newest names", () => {
 });
 
 test("retention outside the state temp root is refused", () => {
-  const result = retention("/home/lab", 1);
+  const result = retention(join(tmpdir(), "abathur-outside-retention"), 1);
   assert.equal(result.rc, 2);
   assert.equal(result.code, "OUTSIDE-ROOT");
 });

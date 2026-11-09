@@ -11,11 +11,11 @@ test("E1 is the current repository, not a stale tree name", () => {
 
 test("an E1 write outside the repository is denied", () => {
   assert.equal(assertSurface({ op: "write", surface: "E1", path: "/etc/passwd" }).code, "SURFACE-DENIED");
-  assert.equal(assertSurface({ op: "write", surface: "E1", path: "/home/lab/workspace/other/x" }).code, "SURFACE-DENIED");
+  assert.equal(assertSurface({ op: "write", surface: "E1", path: "/tmp/workspace/other/x" }).code, "SURFACE-DENIED");
 });
 
 test("a write under the removed second tree is denied", () => {
-  const result = assertSurface({ op: "write", surface: "E1", path: "/home/lab/workspace/harness/Abathur-v2/x" });
+  const result = assertSurface({ op: "write", surface: "E1", path: "/tmp/abathur-v2/x" });
   assert.equal(result.code, "SURFACE-DENIED");
 });
 

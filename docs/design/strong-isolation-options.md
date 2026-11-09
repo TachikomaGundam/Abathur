@@ -15,17 +15,17 @@ The bash cage is not the whole seat. The seat can write through at least:
 4. human execution of files the seat wrote.
 
 Therefore **hardening only bash does not stop a malicious seat**. A seat can
-call `write` on `.git/hooks/pre-push` or `.omo/evidence/INTENT-LEDGER.md`
+call `write` on `.git/hooks/pre-push` or `<state>/evidence/INTENT-LEDGER.md`
 without ever entering the cage. This is the main correction in v3.
 
 ## 2. Machine facts
 
 Measured 2026-11-05. Receipts:
-`.omo/evidence/isolation-baseline-20261105.out`,
-`.omo/evidence/isolation-mechanisms-20261105.out`,
-`.omo/evidence/systemd-user-probe*.out`,
-`.omo/evidence/systemd-user-docker-probe.out`,
-`.omo/evidence/systemd-user-inaccessible-probe.out`.
+`<state>/evidence/isolation-baseline-20261105.out`,
+`<state>/evidence/isolation-mechanisms-20261105.out`,
+`<state>/evidence/systemd-user-probe*.out`,
+`<state>/evidence/systemd-user-docker-probe.out`,
+`<state>/evidence/systemd-user-inaccessible-probe.out`.
 
 | Fact | Value |
 |---|---|
@@ -52,7 +52,7 @@ network none
 The bash cage already blocks sudo, Docker, network, and capabilities. It is not
 “no wall”. Its limits are:
 
-- repo is RW, including `.git/hooks` and `.omo/evidence`;
+- repo is RW, including `.git/hooks` and `<state>/evidence`;
 - same uid;
 - no seccomp;
 - nested user namespaces allowed (`--disable-userns` absent);
@@ -106,8 +106,8 @@ Add to bwrap:
 - `--disable-userns` (requires `--unshare-user`);
 - `--cap-drop ALL` explicitly;
 - repo read-only; one writable seat workspace;
-- `.git` read-only; `.omo/evidence` read-only;
-- keep `/home/lab` tmpfs, `/tmp` tmpfs, `/usr`/`/etc`/`/opt` ro, network none;
+- `.git` read-only; `<state>/evidence` read-only;
+- keep `<home>` tmpfs, `/tmp` tmpfs, `/usr`/`/etc`/`/opt` ro, network none;
 - no `/run`, no `/run/user/1000`, no display sockets.
 
 Coverage: accidental cross-line writes through bash, sudo, Docker, network,
@@ -136,7 +136,7 @@ Run the **entire opencode seat** as `abathur-worker`, not just bash. The worker:
 - receives no `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR`, `SSH_AUTH_SOCK`,
   display socket, or token-bearing environment.
 
-The main repo, `.git`, and `.omo/evidence` are not writable by the worker.
+The main repo, `.git`, and `<state>/evidence` are not writable by the worker.
 Human merge is a separate step: `git fetch` from the worker clone into the main
 repo, then inspect, then merge. The human never runs worker scripts or hooks in
 the lab shell.
@@ -166,7 +166,7 @@ must fail.
 
 #### O2 merge and evidence policy
 
-- Fetch/merge must reject changes to `.omo/evidence/**`, `.git/hooks/**`,
+- Fetch/merge must reject changes to `<state>/evidence/**`, `.git/hooks/**`,
   `.gitmodules`, and any `.gitattributes` filter that can execute on checkout.
 - The ledger must be checked against the external human-signed anchor before
   merge; an internally consistent hash chain written by the worker is not
@@ -275,7 +275,7 @@ Run from the actual proposed boundary. A pass means the operation fails.
    XDG, SSH, and display env vars are unset.
 4. Write to another line root fails.
 5. Write to main `.git/hooks` fails.
-6. Write to `.omo/evidence/INTENT-LEDGER.md` fails.
+6. Write to `<state>/evidence/INTENT-LEDGER.md` fails.
 7. Hardlink test: from a writable mount on the same filesystem, hardlink
    `.git/hooks/pre-push` and the ledger, then write through the link; must fail.
 8. Nested `bwrap --unshare-user` fails (`--disable-userns`).
@@ -285,7 +285,7 @@ Run from the actual proposed boundary. A pass means the operation fails.
     forbidden path fails. This must be tested through the actual opencode tool,
     not through bash.
 12. Human merge: `git fetch` from the worker clone succeeds; a hostile clone
-    with `.gitmodules`/symlinks/filters is refused; `.omo/evidence/**` changes
+    with `.gitmodules`/symlinks/filters is refused; `<state>/evidence/**` changes
     are refused; ledger mismatch against the external anchor is refused.
 13. Evidence helper: symlink swap, `..`, absolute path, and non-allowlisted
     target are refused; append result is hash-chained.
@@ -332,9 +332,9 @@ Run from the actual proposed boundary. A pass means the operation fails.
 - Landlock: https://docs.kernel.org/userspace-api/landlock.html
 - Docker security: https://docs.docker.com/engine/security/
 - Rootless Podman: https://github.com/podman-container-tools/podman/blob/main/rootless.md
-- Local receipts: `.omo/evidence/isolation-baseline-20261105.out`,
-  `.omo/evidence/isolation-mechanisms-20261105.out`,
-  `.omo/evidence/systemd-user-probe.out`,
-  `.omo/evidence/systemd-user-probe2.out`,
-  `.omo/evidence/systemd-user-docker-probe.out`,
-  `.omo/evidence/systemd-user-inaccessible-probe.out`
+- Local receipts: `<state>/evidence/isolation-baseline-20261105.out`,
+  `<state>/evidence/isolation-mechanisms-20261105.out`,
+  `<state>/evidence/systemd-user-probe.out`,
+  `<state>/evidence/systemd-user-probe2.out`,
+  `<state>/evidence/systemd-user-docker-probe.out`,
+  `<state>/evidence/systemd-user-inaccessible-probe.out`

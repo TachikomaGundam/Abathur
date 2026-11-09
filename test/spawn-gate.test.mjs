@@ -35,13 +35,13 @@ function entry(path, cls, extra = {}) {
   return { path, class: cls, reason: "test", ...extra };
 }
 
-test("the live tree passes with exactly 26 registered files", () => {
+test("the live tree passes with exactly 25 registered files", () => {
   const result = runGate(ROOT);
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.discovered.length, 26);
+  assert.equal(result.discovered.length, 25);
   assert.deepEqual(result.counts, {
     runner: 1,
-    "trusted-controller": 7,
+    "trusted-controller": 6,
     "legacy-target": 8,
     "test-harness": 10,
   });
@@ -175,6 +175,6 @@ test("the live registry constants are the documented baseline", () => {
   assert.equal(CONSTANTS.RUNNER_PATH, "kernel/exec/runner.mjs");
   assert.equal(CONSTANTS.LEGACY_TARGET_BASELINE, 8);
   assert.equal(CONSTANTS.TEST_HARNESS_BASELINE, 10);
-  assert.equal(CONSTANTS.TRUSTED_PATHS.length, 7);
+  assert.equal(CONSTANTS.TRUSTED_PATHS.length, 6);
   assert.equal(CONSTANTS.TEST_HARNESS_PATHS.length, 10);
 });
