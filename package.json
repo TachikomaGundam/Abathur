@@ -25,6 +25,7 @@
     "exam",
     "rules",
     "scripts",
+    "!scripts/compare-baseline.mjs",
     "config",
     "README.md"
   ],

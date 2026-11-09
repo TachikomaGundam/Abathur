@@ -6,10 +6,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const BASELINE = process.env.ABATHUR_BASELINE ?? "/home/lab/workspace/harness/Abathur/.omo/evidence/refactor-baseline-20261103.txt";
-const PRODUCTION = "/home/lab/.npm-global/lib/node_modules/@tachikomagundam";
-const MAIN = "/home/lab/workspace/harness/Abathur";
-const V2 = "/home/lab/workspace/harness/Abathur-v2";
+const BASELINE = process.env.ABATHUR_BASELINE ?? ".omo/evidence/refactor-baseline-20261103.txt";
+const PRODUCTION = process.env.ABATHUR_PRODUCTION ?? "node_modules/@tachikomagundam";
+const MAIN = process.env.ABATHUR_MAIN ?? process.cwd();
+const V2 = process.env.ABATHUR_V2 ?? "../Abathur-v2";
 
 if (!existsSync(BASELINE)) {
   process.stdout.write(`BASELINE MISSING ${BASELINE}\n`);

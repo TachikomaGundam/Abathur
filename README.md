@@ -102,7 +102,7 @@ The directory is created on first use. No setup step is required. Deletions are 
 
 Run records are receipts, not a wall. Inside the cage the record is mounted read-only at `/abathur-run.json`: the child can read it, cannot modify it, and cannot see sibling records. Outside the cage a process running as the same user can read and rewrite the state directory. `record.root` is enforced at the two CLI entry points that consume a record (`rules generate --out`, `surface check`); `assertSurface` is a policy helper and is not called by every write. `ABATHUR_STATE_DIR` can relocate the runs directory, so a same-user process can plant a record there.
 
-The enforcement for untrusted children is the kernel mount table in `.opencode/plugins/sandbox-bash.js` (tmpfs `/home/lab`, tmpfs `/tmp`, clean environment, repository-only writable bind). Chain heads in `closed.jsonl` and `denials.jsonl` are tamper-evident against accident, not against the same user; push them to a remote or copy them out of tree if you need an anchor the same user cannot rewrite.
+The enforcement for untrusted children is the kernel mount table in `.opencode/plugins/sandbox-bash.js` (host home as tmpfs, tmpfs `/tmp`, clean environment, repository-only writable bind). Chain heads in `closed.jsonl` and `denials.jsonl` are tamper-evident against accident, not against the same user; push them to a remote or copy them out of tree if you need an anchor the same user cannot rewrite.
 
 Reopen trigger: if a rule or contract starts treating same-user malicious processes as a protected threat, the separate-uid or VM options must be reviewed again. Until then the zero-setup default stands.
 
