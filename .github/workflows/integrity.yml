@@ -1,0 +1,58 @@
+name: Integrity
+
+# Product-tree checks. This workflow is deliberately independent of release
+# tags: a broken or leaking tree must fail before a release can be prepared.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  integrity:
+    name: Product tree integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: npm test
+
+      - name: Quality and coupling
+        run: |
+          set -euo pipefail
+          node scripts/scan-quality.mjs
+          node scripts/scan-coupling.mjs
+
+      - name: Rules and spawn boundary
+        run: |
+          set -euo pipefail
+          node cli/abathur-v2.mjs rules validate
+          node kernel/exec/spawn-gate.mjs
+
+      - name: Work-file boundary
+        run: node scripts/scan-workfiles.mjs
+
+      - name: Package boundary
+        run: |
+          set -euo pipefail
+          npm pack --dry-run --json > pack.json
+          node - <<'NODE'
+          const [p] = JSON.parse(require("fs").readFileSync("pack.json", "utf8"));
+          const bad = p.files.filter(({ path }) =>
+            /(^|\/)(handoffs?|dockets?|work|workfiles|notes|sessions|tmp|\.omo)(\/|$)/.test(path)
+          );
+          if (bad.length) {
+            console.error("PACKAGE-BOUNDARY: forbidden entries: " + bad.map((b) => b.path).join(", "));
+            process.exit(1);
+          }
+          console.log(`PACKAGE-BOUNDARY OK: ${p.entryCount} files`);
+          NODE
+          rm -f pack.json
