@@ -2,10 +2,11 @@
  * Lane registry and write attribution. When attribution cannot be established the
  * event stays DISPUTED; no seat is named by guesswork.
  *
- * The Abathur lane owns exactly one repository: the directory the CLI was
- * started in. A second tree name must not come back.
+ * The Abathur lane owns exactly one repository: the repository that contains
+ * the directory the CLI was started in. A second tree name must not come back.
  */
-export const REPO_ROOT = process.cwd();
+import { REPO_ROOT } from "../surface/index.mjs";
+export { REPO_ROOT };
 
 export const DEFAULT_LANES = [
   { lane: "abathur", repo: REPO_ROOT, seat: "abathur" },

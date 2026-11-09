@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,11 +8,16 @@ import { fileURLToPath } from "node:url";
 
 const CLI = fileURLToPath(new URL("../cli/abathur-v2.mjs", import.meta.url));
 
-function run(cwd) {
+function runCli(args, cwd) {
   const env = { ...process.env };
   delete env.ABATHUR_RUN_RECORD;
   delete env.ABATHUR_RUN_ID;
-  return spawnSync(process.execPath, [CLI, "surface", "show"], { cwd, encoding: "utf8", env });
+  delete env.ABATHUR_GATE_NESTED;
+  return spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8", env, timeout: 10_000 });
+}
+
+function run(cwd) {
+  return runCli(["surface", "show"], cwd);
 }
 
 test("the direct surface root follows the repository, not the package directory", () => {
@@ -39,6 +44,29 @@ test("outside a repository E1 is not established", () => {
     assert.equal(result.status, 2, result.stdout);
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.code, "E1-NO-REPO");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("gate run refuses to use the installed package directory as a repository", () => {
+  const dir = mkdtempSync(join(tmpdir(), "abathur-gate-outside-"));
+  try {
+    const result = runCli(["gate", "run"], dir);
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /GATE E1-NO-REPO/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("rules generate refuses to write outside a repository", () => {
+  const dir = mkdtempSync(join(tmpdir(), "abathur-rules-outside-"));
+  const out = join(dir, "RULES.md");
+  try {
+    const result = runCli(["rules", "generate", "--out", out], dir);
+    assert.equal(result.status, 2);
+    assert.equal(existsSync(out), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

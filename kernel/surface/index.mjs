@@ -1,7 +1,7 @@
-import { checkInside, inside, IN_REPO, tempRoot as TEMP_ROOT } from "./containment.mjs";
+import { checkInside, inside, IN_REPO, REPO_ROOT as CONTAINMENT_ROOT, tempRoot as TEMP_ROOT } from "./containment.mjs";
 
-/** E1 means "this repository" — the directory the CLI was started in. */
-export const REPO_ROOT = process.cwd();
+/** E1 means "this repository" — the detected repository containing the cwd. */
+export const REPO_ROOT = CONTAINMENT_ROOT;
 
 export const SURFACES = {
   E0: { name: "one-shot discarded", writes: [TEMP_ROOT()], forbids: ["/home/", "/etc/"] },
@@ -25,7 +25,6 @@ export {
 } from "./containment.mjs";
 export { createRunRecord, readRunRecord, pruneRuns, reconcileRuns, runsDir } from "./record.mjs";
 
-import { REPO_ROOT as CONTAINMENT_ROOT } from "./containment.mjs";
 import { readRunRecord } from "./record.mjs";
 
 /**

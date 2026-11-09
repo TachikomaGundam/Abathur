@@ -14,10 +14,12 @@ import { DEFAULT_LANES, attributeWrite, foreignWrite } from "../kernel/lane/inde
 import { gate } from "../kernel/gate/index.mjs";
 import { loadIdentities, checkCommitIdentity } from "../kernel/identity/index.mjs";
 import { checkInside, deny, resolveRun, reconcileRuns, stateDir } from "../kernel/surface/index.mjs";
+import { IN_REPO, findRepoRoot } from "../kernel/surface/containment.mjs";
 import { OpsError, initOps, sealContract } from "../kernel/ops/index.mjs";
 import { buildReport, formatHuman } from "../kernel/ops/report.mjs";
 
-const ROOT = resolve(new URL("..", import.meta.url).pathname);
+const PACKAGE_ROOT = resolve(new URL("..", import.meta.url).pathname);
+const REPO_ROOT = findRepoRoot(process.cwd()) ?? process.cwd();
 
 function usage(code = 2) {
   const text = `usage: abathur <command> [options]
@@ -83,7 +85,7 @@ function cmdRules(rest, flags) {
   }
   if (rest[0] === "generate") {
     const result = generateRules(undefined);
-    const out = flags.out ? resolve(flags.out) : resolve(ROOT, "rules/generated/RULES.md");
+    const out = flags.out ? resolve(flags.out) : resolve(REPO_ROOT, "rules/generated/RULES.md");
     const run = resolveRun();
     if (!run.ok) {
       process.stdout.write(`${JSON.stringify({ rc: 2, code: run.code, detail: run.detail })}\n`);
@@ -110,6 +112,10 @@ function cmdGate(rest) {
     process.stdout.write("GATE NESTED: refusing to run a gate inside a gate check rc=2\n");
     return 2;
   }
+  if (!IN_REPO) {
+    process.stdout.write("GATE E1-NO-REPO: not inside a git repository rc=2\n");
+    return 2;
+  }
   const registry = loadRegistry();
   const problems = validateRegistry(registry, examIds());
   if (problems.length) {
@@ -119,7 +125,7 @@ function cmdGate(rest) {
   let failed = 0;
   for (const clause of registry.clauses) {
     const result = spawnSync("/bin/sh", ["-c", clause.check.cmd], {
-      cwd: ROOT,
+      cwd: REPO_ROOT,
       encoding: "utf8",
       timeout: 120_000,
       env: { ...process.env, ABATHUR_GATE_NESTED: "1" },
@@ -130,9 +136,9 @@ function cmdGate(rest) {
       process.stdout.write(`CHECK FAILED ${clause.id} rc=${rc} expected=${clause.check.expect_rc}\n`);
     }
   }
-  const opsContract = join(ROOT, "ops", "execution-contract.json");
+  const opsContract = join(REPO_ROOT, "ops", "execution-contract.json");
   if (existsSync(opsContract)) {
-    const report = buildReport(ROOT);
+    const report = buildReport(REPO_ROOT);
     if (report.state !== "LOCAL-PASS") {
       failed += 1;
       process.stdout.write(`CHECK FAILED OPS-INTEGRITY state=${report.state}\n`);
@@ -267,7 +273,7 @@ function cmdSurface(rest) {
 
 function cmdPlan(rest) {
   if (rest[0] !== "check" || !rest[1]) return usage();
-  const result = spawnSync(process.execPath, [resolve(ROOT, "scripts", "plan-check.mjs"), rest[1]], {
+  const result = spawnSync(process.execPath, [resolve(PACKAGE_ROOT, "scripts", "plan-check.mjs"), rest[1]], {
     encoding: "utf8",
     timeout: 60_000,
   });
@@ -332,7 +338,7 @@ function main(argv) {
   if (command === "ops") return cmdOps(rest, flags);
   if (command === "identity") return cmdIdentity(rest, flags);
   if (["promote", "tombstone", "publish"].includes(command)) {
-    const result = gate(command, flags.id ?? ROOT);
+    const result = gate(command, flags.id ?? REPO_ROOT);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return result.rc;
   }
