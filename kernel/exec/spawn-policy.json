@@ -1,0 +1,142 @@
+{
+  "entries": [
+    {
+      "path": "kernel/exec/runner.mjs",
+      "class": "runner",
+      "reason": "The R1 bwrap runner is the one sanctioned target-spawn path."
+    },
+    {
+      "path": "kernel/exec/bwrap.mjs",
+      "class": "trusted-controller",
+      "reason": "Probes the bwrap binary version, digest, and feature list."
+    },
+    {
+      "path": "scripts/scan-quality.mjs",
+      "class": "trusted-controller",
+      "reason": "Runs node --check on source files; parses, does not execute target code."
+    },
+    {
+      "path": "scripts/gen-mapping.mjs",
+      "class": "trusted-controller",
+      "reason": "Reads git metadata only."
+    },
+    {
+      "path": "scripts/compare-baseline.mjs",
+      "class": "trusted-controller",
+      "reason": "Reads git metadata only."
+    },
+    {
+      "path": ".opencode/plugins/sandbox-bash.js",
+      "class": "trusted-controller",
+      "reason": "Launches the seat cage; does not accept target commands."
+    },
+    {
+      "path": "scripts/release-prepare.mjs",
+      "class": "trusted-controller",
+      "reason": "Runs release gates and git/npm commands from a human-invoked release preparation."
+    },
+    {
+      "path": "scripts/scan-workfiles.mjs",
+      "class": "trusted-controller",
+      "reason": "Lists tracked files to enforce the work-file boundary; does not execute them."
+    },
+    {
+      "path": "cli/abathur-v2.mjs",
+      "class": "legacy-target",
+      "reason": "Gate run executes rule check commands through /bin/sh -c.",
+      "nextStage": "R1-integration-B-cli-gate"
+    },
+    {
+      "path": "exam/runner.mjs",
+      "class": "legacy-target",
+      "reason": "Executes injected seat and judge shell commands.",
+      "nextStage": "R1-integration-B-exam"
+    },
+    {
+      "path": "exam/spawn.mjs",
+      "class": "legacy-target",
+      "reason": "Starts detached long-run commands with argv.",
+      "nextStage": "R1-integration-B-exam-spawn"
+    },
+    {
+      "path": "kernel/evidence/anchor.mjs",
+      "class": "legacy-target",
+      "reason": "Executes an injected anchor command through /bin/sh -c.",
+      "nextStage": "R1-integration-B-anchor"
+    },
+    {
+      "path": "kernel/judge/defects.mjs",
+      "class": "legacy-target",
+      "reason": "Executes an injected defect command through /bin/sh -c.",
+      "nextStage": "R1-integration-B-defects"
+    },
+    {
+      "path": "kernel/planning/review.mjs",
+      "class": "legacy-target",
+      "reason": "Executes an injected review command.",
+      "nextStage": "R1-integration-B-review"
+    },
+    {
+      "path": "scripts/release-candidate.mjs",
+      "class": "legacy-target",
+      "reason": "Runs git archive and npm pack; npm may run lifecycle scripts.",
+      "nextStage": "R1-integration-C-release"
+    },
+    {
+      "path": "scripts/copy-gate.mjs",
+      "class": "legacy-target",
+      "reason": "Executes an injected copy-gate command through /bin/sh -c.",
+      "nextStage": "R1-integration-B-copy-gate"
+    },
+    {
+      "path": "test/cli.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the CLI to test it."
+    },
+    {
+      "path": "test/containment.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the CLI to test containment."
+    },
+    {
+      "path": "test/copygate.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the copy gate to test it."
+    },
+    {
+      "path": "test/coupling.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the coupling scanner to test it."
+    },
+    {
+      "path": "test/plan-check.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the plan checker to test it."
+    },
+    {
+      "path": "test/ops.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the CLI to test ops init and audit."
+    },
+    {
+      "path": "test/receipts.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the receipt verifier to test it."
+    },
+    {
+      "path": "test/release-candidate.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the release candidate builder to test it."
+    },
+    {
+      "path": "test/surface-cwd.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the CLI to test surface cwd handling."
+    },
+    {
+      "path": "test/surface-record.test.mjs",
+      "class": "test-harness",
+      "reason": "Spawns the CLI to test run records."
+    }
+  ]
+}

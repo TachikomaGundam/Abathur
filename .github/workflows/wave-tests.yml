@@ -1,0 +1,40 @@
+name: Wave engine tests
+
+# Source-only checks: tools/ is never in the npm tarball.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  wave-tests:
+    name: Dispatch boundary + Python engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check package boundary
+        run: node --test test/dispatch-boundary.test.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest in a temporary venv
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/wave-venv"
+          "$RUNNER_TEMP/wave-venv/bin/pip" install --disable-pip-version-check pytest
+
+      - name: Run wave engine tests
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/wave-venv/bin/python" -m pytest tools/wave_engine/tests -q

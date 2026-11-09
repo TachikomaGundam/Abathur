@@ -1,0 +1,64 @@
+name: Publish
+
+# OIDC trusted publishing: no long-lived npm token on GitHub.
+# One-time setup: register this workflow as a trusted publisher for the package
+# (npmjs.com -> package -> Publishing access -> Trusted publisher -> GitHub Actions,
+#  or `npm trust github`). The repository must be public and package.json must
+# carry a matching `repository` field; both are required for provenance.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance via OIDC
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          # Deliberately no registry-url: it injects NODE_AUTH_TOKEN,
+          # which makes npm fall back to token auth and defeats OIDC.
+
+      - name: Enforce tag == package.json version
+        run: |
+          set -euo pipefail
+          TAG="$(git describe --tags --exact-match HEAD)"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "${TAG#v}" != "${VERSION}" ]; then
+            echo "::error::git tag '${TAG}' does not match package.json version '${VERSION}'"
+            exit 1
+          fi
+          echo "Publishing ${VERSION} (tag ${TAG})"
+
+      - name: Test
+        run: npm test
+
+      - name: Guard tarball contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node - <<'NODE'
+          const [p] = JSON.parse(require("fs").readFileSync("pack.json", "utf8"));
+          const bad = p.files.filter(({ path }) =>
+            /(^|\/)tools\//.test(path) ||
+            path.includes("__pycache__") ||
+            path.endsWith(".pyc")
+          );
+          if (bad.length) {
+            console.error("TARBALL-GUARD: forbidden entries: " + bad.map((b) => b.path).join(", "));
+            process.exit(1);
+          }
+          console.log(`TARBALL-GUARD OK: ${p.entryCount} files, ${p.unpackedSize} bytes`);
+          NODE
+          rm -f pack.json
+
+      - name: Publish with provenance
+        run: npm publish --provenance --access public

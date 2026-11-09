@@ -1,0 +1,26 @@
+[
+  {
+    "name": "abathur",
+    "email": "abathur@local",
+    "registeredAt": "2026-11-03T05:12:00Z",
+    "registeredBy": "owner-refactor-grant"
+  },
+  {
+    "name": "Abathur",
+    "email": "abathur@local",
+    "registeredAt": "2026-11-03T05:12:00Z",
+    "registeredBy": "owner-refactor-grant"
+  },
+  {
+    "name": "TachikomaGundam",
+    "email": "TachikomaGundam@users.noreply.github.com",
+    "registeredAt": "2026-11-03T05:12:00Z",
+    "registeredBy": "owner-refactor-grant"
+  },
+  {
+    "name": "agent",
+    "email": "agent@host.example",
+    "registeredAt": "2026-11-03T05:12:00Z",
+    "registeredBy": "owner-refactor-grant"
+  }
+]

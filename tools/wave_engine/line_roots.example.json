@@ -1,0 +1,15 @@
+{
+  "_purpose": "TEMPLATE ONLY. Copy to line_roots.local.json (gitignored) and replace the placeholder roots with your own absolute paths. A cell's allowed_roots may NOT overlap any root of a line other than `self`. Every line object MUST carry a forbidden_surfaces list; a missing key fails closed. Forbidden surfaces are your local policy, not part of this repository's code.",
+  "_copy_to": "line_roots.local.json",
+  "self": "abathur",
+  "lines": {
+    "abathur": {
+      "roots": ["/absolute/path/to/your/abathur/checkout"],
+      "forbidden_surfaces": []
+    },
+    "other-line": {
+      "roots": ["/absolute/path/to/your/other-line/checkout"],
+      "forbidden_surfaces": []
+    }
+  }
+}

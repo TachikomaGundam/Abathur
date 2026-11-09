@@ -1,0 +1,11 @@
+{
+  "wave_id": "demo-20261104",
+  "cells": [
+    {"cell_id": "alpha",   "brief_path": "tools/wave_engine/tests/fixtures/brief_alpha.md",   "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "gen"},
+    {"cell_id": "echo",    "brief_path": "tools/wave_engine/tests/fixtures/brief_beta.md",    "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "gen"},
+    {"cell_id": "gamma",   "brief_path": "tools/wave_engine/tests/fixtures/brief_gamma.md",   "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "doc"},
+    {"cell_id": "delta",   "brief_path": "tools/wave_engine/tests/fixtures/brief_delta.md",   "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "build", "deps": ["alpha"]},
+    {"cell_id": "epsilon", "brief_path": "tools/wave_engine/tests/fixtures/brief_epsilon.md", "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "build", "deps": ["alpha", "echo"]},
+    {"cell_id": "zeta",    "brief_path": "tools/wave_engine/tests/fixtures/brief_zeta.md",    "allowed_roots": ["/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures"], "cwd": "/home/lab/workspace/harness/Abathur/tools/wave_engine/tests/fixtures", "kind": "verify", "deps": ["delta"]}
+  ]
+}
