@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -37,8 +39,12 @@ jobs:
           node cli/abathur-v2.mjs rules validate
           node kernel/exec/spawn-gate.mjs
 
-      - name: Work-file boundary
-        run: node scripts/scan-workfiles.mjs
+      - name: Work-file boundary (tree and history)
+        run: |
+          set -euo pipefail
+          node scripts/scan-workfiles.mjs
+          git fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*" || true
+          node scripts/scan-workfiles.mjs --history
 
       - name: Package boundary
         run: |

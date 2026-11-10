@@ -1,0 +1,3 @@
+#!/bin/sh
+# Refuse pushes that make work artifacts reachable in this repo's history.
+exec node scripts/scan-workfiles.mjs --prepush
