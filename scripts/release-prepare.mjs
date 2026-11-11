@@ -101,9 +101,9 @@ ${log || "(no commits listed)"}
 
 由人运行：
 
-```sh
+\`\`\`sh
 cd "$(git rev-parse --show-toplevel)" && ./scripts/release.sh ${tag}
-```
+\`\`\`
 `;
 writeFileSync(releasePath, doc);
 git(["add", `docs/release/${tag}.md`]);
