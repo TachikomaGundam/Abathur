@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 const ROOT = process.cwd();
 const version = process.argv[2];
@@ -95,15 +95,15 @@ ${log || "(no commits listed)"}
 | 候选包 commit | \`${commit}\` |
 | \`npm pack\` | \`${candidate.files}\` 个文件 |
 | tarball sha256 | \`${candidate.sha256}\` |
-| 候选收据 | \`${candidate.receipt}\` |
+| 候选收据 | \`<state>/evidence/release-candidates/${basename(candidate.receipt)}\` |
 
 ## 怎么发
 
 由人运行：
 
-\`\`\`sh
-cd ${ROOT} && ./scripts/release.sh ${tag}
-\`\`\`
+```sh
+cd "$(git rev-parse --show-toplevel)" && ./scripts/release.sh ${tag}
+```
 `;
 writeFileSync(releasePath, doc);
 git(["add", `docs/release/${tag}.md`]);
