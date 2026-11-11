@@ -31,6 +31,7 @@ export const CONSTANTS = Object.freeze({
     ".opencode/plugins/sandbox-bash.js",
     "scripts/release-prepare.mjs",
     "scripts/scan-workfiles.mjs",
+    "scripts/scan-package.mjs",
   ]),
   TEST_HARNESS_PATHS: Object.freeze([
     "test/cli.test.mjs",

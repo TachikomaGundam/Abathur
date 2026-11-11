@@ -31,15 +31,19 @@ test("dispatch policy stays source-checkout-only until a new charter", () => {
   assert.equal(example.includes("MODEL-REGISTRY"), false);
 });
 
-test("publish workflow guards the tarball against tools and bytecode", () => {
-  const workflow = readFileSync(
+test("release paths use the single package-boundary scanner", () => {
+  const publish = readFileSync(
     resolve(ROOT, ".github", "workflows", "publish.yml"),
     "utf8",
   );
-  assert.match(workflow, /Guard tarball contents/);
-  assert.match(workflow, /tools/);
-  assert.match(workflow, /__pycache__/);
-  assert.match(workflow, /\.pyc/);
+  const integrity = readFileSync(
+    resolve(ROOT, ".github", "workflows", "integrity.yml"),
+    "utf8",
+  );
+  for (const workflow of [publish, integrity]) {
+    assert.match(workflow, /node scripts\/scan-package\.mjs/);
+    assert.doesNotMatch(workflow, /TARBALL-GUARD|PACKAGE-BOUNDARY: forbidden/);
+  }
 });
 
 test("dispatch doctrine names the policy and execution split", () => {

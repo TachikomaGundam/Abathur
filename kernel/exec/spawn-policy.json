@@ -36,6 +36,11 @@
       "reason": "Lists tracked files to enforce the work-file boundary; does not execute them."
     },
     {
+      "path": "scripts/scan-package.mjs",
+      "class": "trusted-controller",
+      "reason": "Runs npm pack --dry-run and inspects the reported file list; does not publish or execute package code."
+    },
+    {
       "path": "cli/abathur-v2.mjs",
       "class": "legacy-target",
       "reason": "Gate run executes rule check commands through /bin/sh -c.",
