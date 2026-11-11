@@ -1,11 +1,13 @@
-// sandbox-bash v4 —— 项目级 bash 沙箱（v2 原生）
+// sandbox-bash v5 —— 项目级 bash 沙箱（OpenCode V2 原生）
 //
-// 与 v1 的差别：不再无条件挂载 loop/bank.py 等 v1 专有路径。
-// 自保护挂载改为“存在才挂载”，因此树里没有 loop/ 时沙箱仍能启动。
-// 作用域铁律不变：只对 realpath(ctx.directory) 等于本仓根或位于其下的会话生效。
+// v4→v5：V1 `tool.execute.before` 工厂改为 V2 `ctx.shell.hook("create.before")`。
+// V2 的 shell 创建事件自带 command/cwd，作用域按 event.cwd 判定（此前按会话目录），
+// 与插件实例加载位置无关——别处的 shell 一律不包。
+// 自保护挂载保持"存在才挂载"；作用域铁律不变：只包 realpath(cwd) 位于本仓根或其下的 shell。
 //
 // 人类逃生阀：启动 opencode 前 `ABATHUR_SANDBOX=0`。
-// 网络档位：默认断网；人类在启动前设 `ABATHUR_SANDBOX_NET=host` 才出网。
+// 网络档位：默认断网；人类在启动前设 `ABATHUR_SANDBOX_NET=host` 才出网（审计脚本必须绿）。
+// V1 原版归档：/home/lab/workspace/debug/opencode-v1-plugins-archive-20261111/（见 README）。
 
 import path from "node:path";
 import fs from "node:fs";
@@ -19,6 +21,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOST_HOME = process.env.ABATHUR_HOST_HOME || os.homedir();
 const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap", "/usr/sbin/bwrap"];
 const LOG = "/tmp/opencode/abathur-sandbox.log";
+const COPY_MARKERS = ["--die-with-parent", "--unshare-all", "--unshare-user", "/usr/bin/bwrap ", "bwrap --"];
 
 export function isUnder(rootReal, dirReal) {
   if (!rootReal || !dirReal) return false;
@@ -123,45 +126,56 @@ function appendGateBlock(repoRoot, cls, gate, detail) {
   }
 }
 
-export const SandboxBash = async ({ directory }) => {
-  const repoRoot = path.resolve(HERE, "..", "..");
-  if (!shouldWrap(directory, repoRoot)) return {};
-  if (process.env.ABATHUR_SANDBOX === "0") { log("BYPASS env=ABATHUR_SANDBOX=0"); return {}; }
+const UNSANDBOXED_FLAG = "ABATHUR_SANDBOX_ALLOW_UNSANDBOXED";
 
-  const bwrap = resolveBwrap();
-  if (!bwrap) {
-    log("REFUSE no-trusted-bwrap");
-    return {
-      "tool.execute.before": async (input) => {
-        if (input?.tool !== "bash") return;
-        if (process.env.ABATHUR_SANDBOX_ALLOW_UNSANDBOXED === "1") return;
-        throw new Error("sandbox unavailable: no trusted bwrap (set ABATHUR_SANDBOX_ALLOW_UNSANDBOXED=1 to accept unsandboxed bash)");
-      },
-    };
-  }
-
-  let net = process.env.ABATHUR_SANDBOX_NET === "host" ? "host" : "none";
-  if (net === "host") {
-    const audit = path.join(repoRoot, "scripts", "port-exec-audit.sh");
-    if (fs.existsSync(audit)) {
-      const a = spawnSync("/bin/bash", [audit], { encoding: "utf8", timeout: 15000 });
-      if (a.status !== 0) { log(`REFUSE-host-tier audit_rc=${a.status}`); net = "none"; }
-    } else {
-      log("REFUSE-host-tier audit-script-absent");
-      net = "none";
+export default {
+  id: "abathur-sandbox-bash",
+  async setup(ctx) {
+    const repoRoot = path.resolve(HERE, "..", "..");
+    if (!ctx?.shell?.hook) {
+      // Fail-closed：没有 shell 钩子面就没有包裹能力，仓库 shell 不许裸奔。
+      log("FATAL no ctx.shell hook surface; refusing to load without wrap capability");
+      throw new Error("abathur-sandbox-bash: this OpenCode build exposes no ctx.shell hook; refusing to load fail-open");
     }
-  }
+    if (process.env.ABATHUR_SANDBOX === "0") { log("BYPASS env=ABATHUR_SANDBOX=0"); return; }
 
-  log(`BOOT bwrap=${bwrap} net=${net} dir=${directory}`);
-  const launcherStartedAt = new Date().toISOString();
-  let cageSeq = 0;
-  const COPY_MARKERS = ["--die-with-parent", "--unshare-all", "--unshare-user", "/usr/bin/bwrap ", "bwrap --"];
-  return {
-    "tool.execute.before": async (input, output) => {
-      if (input?.tool !== "bash") return;
-      const args = output?.args;
-      if (!args || typeof args.command !== "string") return;
-      const marker = COPY_MARKERS.find((m) => args.command.includes(m));
+    const bwrap = resolveBwrap();
+    let net = process.env.ABATHUR_SANDBOX_NET === "host" ? "host" : "none";
+    if (net === "host") {
+      const audit = path.join(repoRoot, "scripts", "port-exec-audit.sh");
+      if (fs.existsSync(audit)) {
+        const a = spawnSync("/bin/bash", [audit], { encoding: "utf8", timeout: 15000 });
+        if (a.status !== 0) { log(`REFUSE-host-tier audit_rc=${a.status}`); net = "none"; }
+      } else {
+        log("REFUSE-host-tier audit-script-absent");
+        net = "none";
+      }
+    }
+
+    log(`BOOT v5 bwrap=${bwrap ?? "none"} net=${net} loc=${ctx?.location?.directory ?? "?"}`);
+    const launcherStartedAt = new Date().toISOString();
+    let cageSeq = 0;
+
+    if (!bwrap) {
+      await ctx.shell.hook("create.before", (event) => {
+        if (!shouldWrap(event?.cwd, repoRoot)) return;
+        if (process.env[UNSANDBOXED_FLAG] === "1") return;
+        log(`REFUSE no-trusted-bwrap cwd=${event?.cwd}`);
+        throw new Error(`sandbox unavailable: no trusted bwrap (set ${UNSANDBOXED_FLAG}=1 to accept unsandboxed bash)`);
+      });
+      return;
+    }
+
+    await ctx.shell.hook("create.before", (event) => {
+      if (!shouldWrap(event?.cwd, repoRoot)) return;
+      const cmd = event?.command;
+      if (typeof cmd !== "string") {
+        if (process.env[UNSANDBOXED_FLAG] === "1") return;
+        log(`REFUSE command-shape cwd=${event?.cwd}`);
+        throw new Error("sandbox fail-closed: shell create event carries no string command");
+      }
+      if (cmd.startsWith(`${bwrap} `)) return; // already wrapped by this plugin (reload reentry guard)
+      const marker = COPY_MARKERS.find((m) => cmd.includes(m));
       if (marker) {
         log(`REFUSE copied-prefix marker=${marker}`);
         appendGateBlock(repoRoot, "bwrap-prefix-paste", "sandbox-bash.js", marker);
@@ -176,19 +190,17 @@ export const SandboxBash = async ({ directory }) => {
       } catch (error) {
         log(`RUN-RECORD-FAILED ${error?.message || error}`);
       }
-      log(`CAGE seq=${cageSeq} born=${bornAt} launcher=${launcherStartedAt} run=${runRecord?.record?.id ?? "none"}`);
-      args.command = wrapCommand({
+      log(`CAGE seq=${cageSeq} born=${bornAt} launcher=${launcherStartedAt} run=${runRecord?.record?.id ?? "none"} cwd=${event.cwd}`);
+      event.command = wrapCommand({
         bwrap,
-        workspace: directory,
-        cmd: args.command,
+        workspace: event.cwd,
+        cmd,
         net,
         bornAt,
         launcherStartedAt,
         runRecordPath: runRecord?.path,
         runId: runRecord?.record?.id,
       });
-    },
-  };
+    });
+  },
 };
-
-export default SandboxBash;
