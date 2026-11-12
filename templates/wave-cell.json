@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "wave-cell",
+  "net": "host",
+  "home": "/home/lab",
+  "exe_dir": "/home/lab/.npm-global/lib/node_modules/@opencode/cli/bin",
+  "xdg_config_dir_rel": "templates/wave-cell/xdg-config",
+  "masked": ["/home/lab/.ssh", "/home/lab/.aws", "/home/lab/.gnupg", "/home/lab/.config"],
+  "cell_env": { "LANG": "C.UTF-8" },
+  "notes": "Campaign B mount template. Human-sign this file's sha256 in wave-cell.SIGNATURES.json before any non-dry spawn. net=host keeps localhost vLLM; cells mounting sensitive read_roots must use the netclosed variant (ruling prerequisite 8)."
+}

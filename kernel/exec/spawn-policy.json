@@ -137,6 +137,11 @@
       "path": "test/surface-record.test.mjs",
       "class": "test-harness",
       "reason": "Spawns the CLI to test run records."
+    },
+    {
+      "path": "tools/wave_engine/cellwrap.mjs",
+      "class": "trusted-controller",
+      "reason": "Campaign B cell launcher: spawns the bwrap binary only; argv is built from a human-signed mount template with dual-fetch identity checks, and the cell payload executes inside the cage. Refuses unsigned templates fail-closed."
     }
   ]
 }

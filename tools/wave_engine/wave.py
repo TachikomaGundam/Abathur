@@ -10,10 +10,12 @@ cell's allowed_roots).
 Stdlib only. State lives under BASE (default ~/.local/state/abathur/waves).
 """
 import argparse
+import hashlib
 import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -573,8 +575,8 @@ def append_metric(base, entry):
 def cmd_done(args):
     cell = load_cell(args.base, args.wave_id, args.cell_id)
     require_state(cell, ["claimed"], "done")
-    if not args.receipt:
-        die("cell %s: done requires --receipt PATH" % cell["cell_id"])
+    if not args.receipt and not getattr(args, "from_spool", None):
+        die("cell %s: done requires --receipt PATH or --from-spool" % cell["cell_id"])
     cwd = require_cwd(cell)
     if cell.get("line_roots_sha256"):
         current = line_roots_sha256(cell["line_roots_path"])
@@ -586,11 +588,15 @@ def cmd_done(args):
         if bad:
             die("cell %s: allowed_roots/cwd outside --expect-root %r: %s"
                 % (cell["cell_id"], norm_abs(args.expect_root), ", ".join(bad)))
-    rp = norm_abs(args.receipt)
-    if not os.path.isfile(rp):
-        die("cell %s: receipt path does not exist: %s" % (cell["cell_id"], rp))
-    with open(rp, "r", encoding="utf-8", errors="replace") as fh:
-        text = fh.read()
+    if getattr(args, "from_spool", None):
+        rp, text, pair_fails = ingest_spool(args.base, args.wave_id, args.cell_id)
+    else:
+        pair_fails = []
+        rp = norm_abs(args.receipt)
+        if not os.path.isfile(rp):
+            die("cell %s: receipt path does not exist: %s" % (cell["cell_id"], rp))
+        with open(rp, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
     paths = extract_paths(text, cwd)
     read_mentions = [p for p in paths if under_any(p, cell.get("read_roots", []))]
     violations = [p for p in paths
@@ -605,6 +611,8 @@ def cmd_done(args):
                     forbidden_mentions.append(p)
     if forbidden_mentions:
         violations = sorted(set(violations + forbidden_mentions))
+    if pair_fails:
+        violations = sorted(set(violations + pair_fails))
     ts, iso = now_pair()
     cell["state"] = "done"
     cell["ended_at"] = iso
@@ -652,6 +660,152 @@ def cmd_fail(args):
         "ended_epoch": ts, "pollution": False,
     })
     print("failed %s/%s at %s" % (args.wave_id, args.cell_id, iso))
+
+
+def ingest_spool(base, wave_id, cell_id):
+    """Supervisor-side spool ingestion (Campaign B, prerequisite 4).
+
+    Reads receipt.json through a dirfd with O_NOFOLLOW and hashes every
+    declared artifact from the spool against its declared sha256. Pairing
+    proves transport integrity and ingest consistency ONLY: a cell that
+    forges both artifact and matching receipt passes pairing and can only
+    be caught by the blind audit (ruling must_fix#7 — never claim more).
+    """
+    spool = os.path.join(wave_dir(base, wave_id), "spool", cell_id)
+    if not os.path.isdir(spool):
+        die("cell %s: no spool at %s" % (cell_id, spool))
+    try:
+        dfd = os.open(spool, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError as exc:
+        die("cell %s: spool open failed: %s" % (cell_id, exc))
+    try:
+        try:
+            rfd = os.open("receipt.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+        except OSError as exc:
+            die("cell %s: receipt.json missing or not a regular file in spool: %s" % (cell_id, exc))
+        with os.fdopen(rfd, "rb") as fh:
+            raw = fh.read()
+        try:
+            rec = json.loads(raw.decode("utf-8", errors="replace"))
+        except ValueError:
+            die("cell %s: receipt.json is not valid JSON" % cell_id)
+        pair_fails = []
+        artifacts = rec.get("artifacts", []) if isinstance(rec, dict) else []
+        for art in artifacts:
+            name = art.get("path", "") if isinstance(art, dict) else ""
+            declared = art.get("sha256", "") if isinstance(art, dict) else ""
+            if not name or os.path.isabs(name) or ".." in name.split("/"):
+                pair_fails.append("SPOOL-PAIR-FAIL:%s (path escapes spool)" % name)
+                continue
+            try:
+                ofd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+            except OSError:
+                pair_fails.append("SPOOL-PAIR-FAIL:%s (missing in spool)" % name)
+                continue
+            with os.fdopen(ofd, "rb") as fh:
+                got = hashlib.sha256(fh.read()).hexdigest()
+            if got != declared:
+                pair_fails.append("SPOOL-PAIR-FAIL:%s (declared %s != ingested %s)" % (name, declared, got))
+    finally:
+        os.close(dfd)
+    dest = os.path.join(wave_dir(base, wave_id), cell_id + ".receipt.json")
+    tmp = dest + ".tmp"
+    with open(tmp, "wb") as fh:
+        fh.write(raw)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, dest)
+    if isinstance(rec, dict) and rec.get("receipt_text"):
+        text = str(rec["receipt_text"])
+    else:
+        text = raw.decode("utf-8", errors="replace")
+    return dest, text, pair_fails
+
+
+def deps_ready(cell, cells_by_id):
+    for dep in cell.get("deps", []):
+        d = cells_by_id.get(dep)
+        if d is None or d["state"] != "done":
+            return False
+    return True
+
+
+def cmd_spawn(args):
+    """launch + cellwrap in one step: wrap each ready cell as a bwrap process tree.
+
+    True-face only: bwrap and the opencode exe are invisible inside a seat
+    sandbox (probes 2026-11-12 19:54-19:55), so run this from a real terminal.
+    """
+    wdir = wave_dir(args.base, args.wave_id)
+    if not os.path.isdir(wdir):
+        die("no such wave: %s (%s)" % (args.wave_id, wdir))
+    meta = read_json(os.path.join(wdir, "meta.json"))
+    cells_by_id = {cid: load_cell(args.base, args.wave_id, cid) for cid in meta["cells"]}
+    if args.cells.strip().lower() == "all":
+        targets = [c for c in cells_by_id.values() if c["state"] == "new" and deps_ready(c, cells_by_id)]
+    else:
+        targets = [cells_by_id.get(cid.strip()) or die("no such cell: %s" % cid.strip())
+                   for cid in args.cells.split(",")]
+        for c in targets:
+            if c["state"] != "new":
+                die("cell %s: state is %s, spawn only applies to new" % (c["cell_id"], c["state"]))
+    if not targets:
+        print("nothing to spawn (no ready new cells)")
+        return
+    ts, iso = now_pair()
+    cellwrap = os.path.join(HERE, "cellwrap.mjs")
+    spawned = []
+    for c in targets:
+        spool = os.path.join(wdir, "spool", c["cell_id"])
+        os.makedirs(spool, exist_ok=True)
+        cmd = ["node", cellwrap, "spawn",
+               "--cell", cell_path(args.base, args.wave_id, c["cell_id"]),
+               "--spool", spool,
+               "--template", args.template,
+               "--signatures", args.signatures,
+               "--target", args.target]
+        if args.cmd:
+            cmd += ["--cmd", args.cmd]
+        if args.foreground:
+            cmd.append("--foreground")
+        if args.dry:
+            cmd.append("--dry")
+        if args.dry:
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            if r.returncode != 0:
+                die("cell %s: cellwrap dry failed: %s%s"
+                    % (c["cell_id"], r.stdout.strip(), r.stderr.strip()))
+            try:
+                plan = json.loads(r.stdout)
+                line = " ".join(plan.get("argv", [])) or r.stdout.strip()
+            except ValueError:
+                line = r.stdout.strip()
+            print("SPAWN-DRY %s: %s" % (c["cell_id"], line))
+            continue
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            die("cell %s: cellwrap failed (rc=%d): %s%s"
+                % (c["cell_id"], r.returncode, r.stdout.strip(), r.stderr.strip()))
+        try:
+            res = json.loads(r.stdout)
+        except ValueError:
+            res = {"raw": r.stdout.strip()}
+        c["state"] = "claimed"
+        c["claimed_at"] = iso
+        c["claimed_epoch"] = ts
+        c["claimed_by"] = "cellwrap"
+        c["spawn"] = res
+        save_cell(args.base, args.wave_id, c["cell_id"], c)
+        append_metric(args.base, {
+            "ts": iso, "ts_epoch": ts, "wave_id": args.wave_id, "cell_id": c["cell_id"],
+            "kind": c["kind"], "event": "spawn-claim", "state": "claimed",
+            "launched_epoch": c.get("launched_epoch"), "claimed_epoch": ts, "ended_epoch": None,
+            "pollution": False,
+        })
+        spawned.append(c["cell_id"])
+    print("spawn %s %d cell(s) of wave %s at %s%s"
+          % ("dry-plan" if args.dry else "claimed+started", len(targets), args.wave_id, iso,
+             (" [" + ", ".join(spawned) + "]") if spawned else ""))
 
 
 def cmd_requeue(args):
@@ -803,6 +957,19 @@ def build_parser():
     p.add_argument("--cells", default="all", help="comma list or 'all' (ready cells)")
     p.set_defaults(func=cmd_launch)
 
+    p = sub.add_parser("spawn", help="launch+wrap: start each ready cell as a bwrap process tree via cellwrap "
+                                     "(true-face terminal only: bwrap/opencode exe are not visible in seat sandboxes)")
+    p.add_argument("wave_id")
+    p.add_argument("--cells", default="all", help="comma list or 'all' (ready cells)")
+    p.add_argument("--template", default=os.path.join(REPO_ROOT, "templates", "wave-cell.json"))
+    p.add_argument("--signatures", default=os.path.join(REPO_ROOT, "templates", "wave-cell.SIGNATURES.json"))
+    p.add_argument("--target", choices=["opencode", "shell"], default="opencode")
+    p.add_argument("--cmd", default=None, help="shell command for --target shell (smoke probes)")
+    p.add_argument("--foreground", action="store_true", help="wait for the cell process (smoke)")
+    p.add_argument("--dry", action="store_true", help="preview the cellwrap plan without spawning; "
+                                                      "template signing is still required, only the bwrap probe is tolerated")
+    p.set_defaults(func=cmd_spawn)
+
     for name, func in (("claim", cmd_claim), ("done", cmd_done), ("fail", cmd_fail)):
         p = sub.add_parser(name)
         p.add_argument("wave_id")
@@ -812,6 +979,10 @@ def build_parser():
         if name == "done":
             p.add_argument("--expect-root", default=None,
                            help="fail-closed gate: allowed_roots/cwd must be under this root")
+            p.add_argument("--from-spool", action="store_true",
+                           help="supervisor-side spool ingestion: dirfd+O_NOFOLLOW reads and artifact hash "
+                                "pairing; pairing proves transport integrity only — self-consistent forgeries "
+                                "pass pairing and are the blind audit's job")
         p.set_defaults(func=func)
 
     p = sub.add_parser("requeue", help="failed -> new (retry path; done stays terminal)")

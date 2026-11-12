@@ -1,0 +1,4 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "//": "Cell-side XDG_CONFIG_HOME placeholder (mounted read-only at /wave/xdg-config). Point model/provider here per use; local vLLM needs no credentials. The real user config stays invisible inside the cell by design.",
+}

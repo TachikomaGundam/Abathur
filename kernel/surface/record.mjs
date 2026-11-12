@@ -75,13 +75,24 @@ export function readRunRecord(recordPath, env = process.env) {
   if (env.ABATHUR_RUN_ID !== record.id) {
     return { ok: false, code: "RUN-RECORD-MISMATCH", detail: "run id does not match the record" };
   }
+  let pidCheck = "alive";
   if (typeof record.pid === "number" && !defaultIsAlive(record.pid)) {
-    return { ok: false, code: "RUN-RECORD-EXPIRED", detail: "issuing process is gone" };
+    // /abathur-run.json records are re-issued per command by the live launcher;
+    // kill(pid, 0) cannot see host pids from inside a pid namespace, so ESRCH
+    // there is not evidence of death (arbitration 2026-11-12 18:31: pid dead in-cell
+    // ENOENT vs true-face State=S). Freshness (expiry check below) is the liveness
+    // proof on that path only; runs-dir records, checked from outside the
+    // namespace, keep the fail-closed pid semantics.
+    if (bindPath && Date.parse(record.issued_at) <= Date.now()) {
+      pidCheck = "advisory-bind-freshness";
+    } else {
+      return { ok: false, code: "RUN-RECORD-EXPIRED", detail: "issuing process is gone" };
+    }
   }
   if (Date.parse(record.expires_at) <= Date.now()) {
     return { ok: false, code: "RUN-RECORD-EXPIRED", detail: record.expires_at };
   }
-  return { ok: true, record };
+  return { ok: true, record, pid_check: pidCheck };
 }
 
 function defaultIsAlive(pid) {

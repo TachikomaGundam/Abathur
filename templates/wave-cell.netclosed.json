@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "wave-cell-netclosed",
+  "net": "closed",
+  "home": "/home/lab",
+  "exe_dir": "/home/lab/.npm-global/lib/node_modules/@opencode/cli/bin",
+  "xdg_config_dir_rel": "templates/wave-cell/xdg-config",
+  "masked": ["/home/lab/.ssh", "/home/lab/.aws", "/home/lab/.gnupg", "/home/lab/.config"],
+  "cell_env": { "LANG": "C.UTF-8" },
+  "notes": "Network-closed variant for cells with sensitive read_roots (ruling prerequisite 8). --unshare-net kills localhost too, including :8010 vLLM: this variant runs only cells that need no model endpoint, e.g. shell smoke probes."
+}

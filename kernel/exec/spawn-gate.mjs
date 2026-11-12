@@ -32,6 +32,7 @@ export const CONSTANTS = Object.freeze({
     "scripts/release-prepare.mjs",
     "scripts/scan-workfiles.mjs",
     "scripts/scan-package.mjs",
+    "tools/wave_engine/cellwrap.mjs",
   ]),
   TEST_HARNESS_PATHS: Object.freeze([
     "test/cli.test.mjs",
