@@ -17,6 +17,7 @@ import { checkInside, deny, resolveRun, reconcileRuns, stateDir } from "../kerne
 import { IN_REPO, findRepoRoot } from "../kernel/surface/containment.mjs";
 import { OpsError, initOps, sealContract } from "../kernel/ops/index.mjs";
 import { buildReport, formatHuman } from "../kernel/ops/report.mjs";
+import { healthReport, installCron, uninstallCron } from "../tools/wave_engine/cellrunner.mjs";
 
 const PACKAGE_ROOT = resolve(new URL("..", import.meta.url).pathname);
 const REPO_ROOT = findRepoRoot(process.cwd()) ?? process.cwd();
@@ -41,6 +42,9 @@ commands:
   lane check <path>
   lane attribute <path> --actor <name> --ts <iso> [--identity-ok]
   plan check <plan.md>
+  runner install [--print]      (owner key: installs cron tick for sandbox cell runner)
+  runner uninstall              (owner key: removes it)
+  runner status                 (is the sandbox cell runner alive; rc 3 when down)
   ops init [--root <dir>] [--force]
   ops seal [--root <dir>]
   ops audit [--root <dir>] [--json]
@@ -335,6 +339,20 @@ function main(argv) {
   if (command === "hygiene") return cmdHygiene(rest, flags);
   if (command === "lane") return cmdLane(rest, flags);
   if (command === "plan") return cmdPlan(rest);
+  if (command === "runner") {
+    const sub = rest[0];
+    if (sub === "install" || sub === "uninstall") {
+      const result = sub === "install" ? installCron({ print: flags.print !== undefined }) : uninstallCron();
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return result.ok ? 0 : 2;
+    }
+    if (sub === "status") {
+      const report = healthReport();
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return report.alive ? 0 : 3;
+    }
+    return usage();
+  }
   if (command === "ops") return cmdOps(rest, flags);
   if (command === "identity") return cmdIdentity(rest, flags);
   if (["promote", "tombstone", "publish"].includes(command)) {

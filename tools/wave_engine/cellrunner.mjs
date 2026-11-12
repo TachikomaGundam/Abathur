@@ -252,6 +252,70 @@ export function healthReport(opts = {}) {
   return { ts: new Date().toISOString(), heartbeat: hb, heartbeat_age_s: ageS, alive: ageS !== null && ageS <= 150, queue: { pending: count("pending"), running: count("running"), done_files: doneNames.length }, last_result: lastResult, last_boot: lastBoot };
 }
 
+// ---- cron installation (product entry: abathur runner install|uninstall) ----
+export const CRON_TAG = "# abathur-cellrunner";
+
+export function cronLine(opts = {}) {
+  const node = opts.node ?? "/usr/bin/node";
+  return `* * * * * cd ${REPO} && ${node} ${path.join(REPO, "tools/wave_engine/cellrunner.mjs")} serve --once >/dev/null 2>&1 ${CRON_TAG}`;
+}
+
+export function mergeCron(existing, line) {
+  const kept = String(existing ?? "").split("\n").filter((l) => !l.includes(CRON_TAG));
+  const body = kept.join("\n").trimEnd();
+  return `${body ? `${body}\n` : ""}${line}\n`;
+}
+
+/** Cage self-detection: our seat cage carries an AppArmor profile containing "bwrap".
+ *  Installing cron from inside the cage would silently target a masked /var — worse
+ *  than failing, it would be a false success. So: refuse from inside. */
+export function inCage(opts = {}) {
+  let profile = "";
+  try {
+    profile = fs.readFileSync(opts.attrCurrent ?? "/proc/self/attr/current", "utf8").trim();
+  } catch {
+    return { inside: true, profile: "unreadable" };
+  }
+  return { inside: /bwrap/i.test(profile), profile };
+}
+
+export function installCron(opts = {}) {
+  const cage = inCage(opts);
+  if (cage.inside) {
+    return { ok: false, code: "CAGE-DETECTED", detail: `apparmor=${cage.profile}`, fix: "run this command on the true face (owner shell), not from a seat" };
+  }
+  if (!fs.existsSync(opts.crondPid ?? "/run/crond.pid")) {
+    return { ok: false, code: "CRON-DAEMON-MISSING", fix: "start the cron daemon first (machine-level, owner key)" };
+  }
+  const line = cronLine(opts);
+  if (opts.print) return { ok: true, printed: line };
+  const cur = spawnSync("crontab", ["-l"], { encoding: "utf8" });
+  if (cur.status !== 0 && !/no crontab/i.test(cur.stderr ?? "")) {
+    return { ok: false, code: "CRONTAB-READ-FAILED", detail: (cur.stderr ?? "").trim() };
+  }
+  const write = spawnSync("crontab", ["-"], { encoding: "utf8", input: mergeCron(cur.stdout, line) });
+  if (write.status !== 0) return { ok: false, code: "CRONTAB-WRITE-FAILED", detail: (write.stderr ?? "").trim() };
+  const back = spawnSync("crontab", ["-l"], { encoding: "utf8" });
+  const verified = String(back.stdout ?? "").includes(CRON_TAG);
+  return { ok: verified, code: verified ? "INSTALLED" : "VERIFY-FAILED", installed: line, readback: verified };
+}
+
+export function uninstallCron(opts = {}) {
+  const cage = inCage(opts);
+  if (cage.inside) {
+    return { ok: false, code: "CAGE-DETECTED", detail: `apparmor=${cage.profile}`, fix: "run on the true face (owner shell)" };
+  }
+  const cur = spawnSync("crontab", ["-l"], { encoding: "utf8" });
+  if (cur.status !== 0 && !/no crontab/i.test(cur.stderr ?? "")) {
+    return { ok: false, code: "CRONTAB-READ-FAILED", detail: (cur.stderr ?? "").trim() };
+  }
+  const kept = String(cur.stdout ?? "").split("\n").filter((l) => !l.includes(CRON_TAG)).join("\n");
+  const write = spawnSync("crontab", ["-"], { encoding: "utf8", input: `${kept.trimEnd()}\n` });
+  if (write.status !== 0) return { ok: false, code: "CRONTAB-WRITE-FAILED", detail: (write.stderr ?? "").trim() };
+  const back = spawnSync("crontab", ["-l"], { encoding: "utf8" });
+  return { ok: !String(back.stdout ?? "").includes(CRON_TAG), code: "REMOVED" };
+}
+
 function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i += 1) {
@@ -285,6 +349,17 @@ export function main(argv) {
     process.stdout.write(`${JSON.stringify({ processed: serveOnce() })}\n`);
     return 0;
   }
+  if (mode === "install") {
+    const args = parseArgs(argv.slice(1));
+    const result = installCron({ print: Boolean(args.print) });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result.ok ? 0 : 2;
+  }
+  if (mode === "uninstall") {
+    const result = uninstallCron();
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result.ok ? 0 : 2;
+  }
   if (mode === "status") {
     const id = argv[1];
     if (id) {
@@ -297,7 +372,7 @@ export function main(argv) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return report.alive ? 0 : 3;
   }
-  process.stderr.write("usage: cellrunner.mjs submit --request <file> | serve --once|--loop | status [<id>]\n");
+  process.stderr.write("usage: cellrunner.mjs submit --request <file> | serve --once|--loop | install [--print] | uninstall | status [<id>]\n");
   return 2;
 }
 

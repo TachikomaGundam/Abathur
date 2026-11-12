@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..", "..");
-const { validateRequest, submit, serveOnce, healthReport } = await import(path.join(REPO, "tools/wave_engine/cellrunner.mjs"));
+const { validateRequest, submit, serveOnce, healthReport, inCage, installCron, cronLine, mergeCron } = await import(path.join(REPO, "tools/wave_engine/cellrunner.mjs"));
 
 function scratch() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cellrunner-"));
@@ -91,6 +91,21 @@ test("serveOnce claims, executes via cellwrap, answers with hashed result", () =
   assert.ok(fs.existsSync(result.output.path));
   assert.ok(!fs.existsSync(path.join(queue, "pending", "pipe-1.request.json")));
   assert.ok(fs.existsSync(path.join(queue, "done", "pipe-1.request.json")));
+});
+
+test("cron install refuses inside the cage; merge is idempotent", () => {
+  const s = scratch();
+  const attr = path.join(s.root, "attr");
+  fs.writeFileSync(attr, "bwrap (enforce)\n");
+  assert.equal(inCage({ attrCurrent: attr }).inside, true);
+  assert.equal(installCron({ attrCurrent: attr }).code, "CAGE-DETECTED");
+  fs.writeFileSync(attr, "unprivileged_userns (enforce)\n");
+  assert.equal(installCron({ attrCurrent: attr, crondPid: path.join(s.root, "nope.pid") }).code, "CRON-DAEMON-MISSING");
+  const line = cronLine({ node: "/usr/bin/node" });
+  const m1 = mergeCron("0 * * * * echo x\n", line);
+  const m2 = mergeCron(m1, line);
+  assert.equal(m2.split("\n").filter((l) => l.includes("abathur-cellrunner")).length, 1);
+  assert.ok(m2.includes("echo x"));
 });
 
 test("healthReport explains liveness from heartbeat; status CLI codes it", () => {
