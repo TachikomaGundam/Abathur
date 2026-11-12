@@ -206,7 +206,50 @@ export function serveOnce(opts = {}) {
     fs.renameSync(claimed, path.join(doneDir, `${result.id}.request.json`));
     processed.push(result.id);
   }
+  atomicWrite(path.join(queue, "heartbeat.json"), `${JSON.stringify({
+    ts: new Date().toISOString(),
+    pid: process.pid,
+    processed: processed.length,
+    pending_left: fs.readdirSync(pendingDir).filter((n) => n.endsWith(".request.json")).length,
+  })}\n`);
   return processed;
+}
+
+/** Health snapshot for seats: never fails, always explainable. */
+export function healthReport(opts = {}) {
+  const queue = opts.queue ?? QUEUE;
+  const readJsonSafe = (p) => {
+    try {
+      return JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch {
+      return null;
+    }
+  };
+  const count = (d) => {
+    try {
+      return fs.readdirSync(path.join(queue, d)).filter((n) => n.endsWith(".request.json")).length;
+    } catch {
+      return 0;
+    }
+  };
+  const hb = readJsonSafe(path.join(queue, "heartbeat.json"));
+  const ageS = hb ? Math.round((Date.now() - Date.parse(hb.ts)) / 1000) : null;
+  let lastBoot = null;
+  try {
+    const lines = fs.readFileSync(path.join(queue, "boot.log"), "utf8").trim().split("\n");
+    lastBoot = JSON.parse(lines[lines.length - 1]);
+  } catch { /* no boot record yet */ }
+  let doneNames = [];
+  try {
+    doneNames = fs.readdirSync(path.join(queue, "done")).filter((n) => n.endsWith(".result.json"));
+  } catch { /* none yet */ }
+  let lastResult = null;
+  if (doneNames.length > 0) {
+    const r = readJsonSafe(path.join(queue, "done", doneNames[doneNames.length - 1]));
+    if (r) lastResult = { id: r.id, rc: r.rc, finished_at: r.finished_at };
+  }
+  // Cron cadence is 60s; 150s tolerance covers two ticks plus slack.
+  return { ts: new Date().toISOString(), heartbeat: hb, heartbeat_age_s: ageS, alive: ageS !== null && ageS <= 150, queue: { pending: count("pending"), running: count("running"), done_files: doneNames.length }, last_result: lastResult, last_boot: lastBoot };
 }
 
 function parseArgs(argv) {
@@ -243,13 +286,18 @@ export function main(argv) {
     return 0;
   }
   if (mode === "status") {
-    const args = parseArgs(argv.slice(1));
-    const p = path.join(QUEUE, "done", `${args.id ?? argv[1]}.result.json`);
-    if (!fs.existsSync(p)) { process.stdout.write(`${JSON.stringify({ id: args.id ?? argv[1], state: "pending-or-absent" })}\n`); return 1; }
-    process.stdout.write(`${fs.readFileSync(p, "utf8")}`);
-    return 0;
+    const id = argv[1];
+    if (id) {
+      const p = path.join(QUEUE, "done", `${id}.result.json`);
+      if (!fs.existsSync(p)) { process.stdout.write(`${JSON.stringify({ id, state: "pending-or-absent" })}\n`); return 1; }
+      process.stdout.write(fs.readFileSync(p, "utf8"));
+      return 0;
+    }
+    const report = healthReport();
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    return report.alive ? 0 : 3;
   }
-  process.stderr.write("usage: cellrunner.mjs submit --request <file> | serve --once|--loop | status <id>\n");
+  process.stderr.write("usage: cellrunner.mjs submit --request <file> | serve --once|--loop | status [<id>]\n");
   return 2;
 }
 

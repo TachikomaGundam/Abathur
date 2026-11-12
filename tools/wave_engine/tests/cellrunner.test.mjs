@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..", "..");
-const { validateRequest, submit, serveOnce } = await import(path.join(REPO, "tools/wave_engine/cellrunner.mjs"));
+const { validateRequest, submit, serveOnce, healthReport } = await import(path.join(REPO, "tools/wave_engine/cellrunner.mjs"));
 
 function scratch() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cellrunner-"));
@@ -91,6 +91,26 @@ test("serveOnce claims, executes via cellwrap, answers with hashed result", () =
   assert.ok(fs.existsSync(result.output.path));
   assert.ok(!fs.existsSync(path.join(queue, "pending", "pipe-1.request.json")));
   assert.ok(fs.existsSync(path.join(queue, "done", "pipe-1.request.json")));
+});
+
+test("healthReport explains liveness from heartbeat; status CLI codes it", () => {
+  const s = scratch();
+  const queue = path.join(s.root, "queue");
+  let h = healthReport({ queue });
+  assert.equal(h.alive, false);
+  assert.equal(h.heartbeat_age_s, null);
+  serveOnce({ queue }); // empty tick still heartbeats
+  h = healthReport({ queue });
+  assert.equal(h.alive, true);
+  assert.ok(h.heartbeat_age_s <= 5);
+  assert.deepEqual(h.queue, { pending: 0, running: 0, done_files: 0 });
+  let rc = 0;
+  try {
+    execFileSync(process.execPath, [path.join(REPO, "tools/wave_engine/cellrunner.mjs"), "status"], { encoding: "utf8" });
+  } catch (error) {
+    rc = error.status; // default repo queue has no heartbeat yet -> 3, not a crash
+  }
+  assert.ok(rc === 0 || rc === 3, `unexpected rc ${rc}`);
 });
 
 test("CLI submit on a bad request exits nonzero (spawned like the seat would)", () => {
