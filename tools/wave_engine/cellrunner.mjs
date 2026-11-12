@@ -1,0 +1,263 @@
+#!/usr/bin/env node
+// Cell runner: the registered out-of-cage executor for seat-driven sandbox tests.
+// Why: from inside the seat cage, CLONE_NEWNS is EPERM even after CLONE_NEWUSER
+// (measured 2026-11-12 20:20:37), so the seat cannot build its own test cages.
+// The runner starts once on the true face (owner key), then every sandbox test
+// is queued, executed, and collected by the seat itself.
+//
+// Contract (fail-closed):
+//   submit  validates a request against a strict schema and drops it in
+//           .omo/spawn-queue/pending/. Only: signed mount template under
+//           <repo>/templates, target=shell, roots inside the allowlist.
+//   serve   --once/--loop claims pending requests (atomic rename), runs them
+//           through cellwrap (which enforces template signatures), and writes
+//           a hashed result to done/. The runner never executes host commands.
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, "..", "..");
+export const QUEUE = path.join(REPO, ".omo", "spawn-queue");
+export const EXTRA_ROOT = "/home/lab/tmp/opencode";
+export const TIMEOUT_CAP_S = 600;
+const ID_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+
+export function sha256File(p) {
+  return createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+}
+
+function realContained(p, rootReal) {
+  let real;
+  try {
+    real = fs.realpathSync(p);
+  } catch {
+    return { ok: false, why: `cannot resolve: ${p}` };
+  }
+  const rel = path.relative(rootReal, real);
+  return { ok: rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel)), real, why: `escapes ${rootReal}: ${p}` };
+}
+
+/** Pure validator (unit-tested). Returns {ok, errors, rootsReal}. */
+export function validateRequest(req, opts = {}) {
+  const repoRoot = opts.repoRoot ?? REPO;
+  const extraRoot = opts.extraRoot ?? EXTRA_ROOT;
+  const repoReal = fs.realpathSync(repoRoot);
+  const extraReal = fs.existsSync(extraRoot) ? fs.realpathSync(extraRoot) : null;
+  const errors = [];
+  if (!req || typeof req !== "object") return { ok: false, errors: ["request must be an object"], rootsReal: [] };
+  if (typeof req.id !== "string" || !ID_RE.test(req.id)) errors.push(`id must match ${ID_RE}`);
+  if (req.target !== "shell") errors.push("v1 runner accepts target=shell only");
+  if (typeof req.cmd !== "string" || req.cmd.length === 0 || req.cmd.length > 8192) errors.push("cmd must be a 1..8192 char string");
+  const timeout = req.timeout_s ?? 120;
+  if (!(typeof timeout === "number" && timeout > 0 && timeout <= TIMEOUT_CAP_S)) errors.push(`timeout_s must be 1..${TIMEOUT_CAP_S}`);
+
+  const insideRoots = [];
+  for (const key of ["template", "signatures"]) {
+    const c = realContained(req[key] ?? "", repoReal);
+    if (!c.ok || !c.real.startsWith(path.join(repoReal, "templates"))) errors.push(`${key} must be under ${repoReal}/templates (${req[key]})`);
+  }
+  const roots = Array.isArray(req.allowed_roots) ? req.allowed_roots : [];
+  const rootsReal = [];
+  for (const r of roots) {
+    const c = realContained(r, repoReal);
+    const e = extraReal ? realContained(r, extraReal) : { ok: false };
+    if (c.ok) rootsReal.push(c.real);
+    else if (e.ok) rootsReal.push(e.real);
+    else errors.push(`allowed_root outside allowlist (repo|${extraRoot}): ${r}`);
+  }
+  if (rootsReal.length === 0) errors.push("allowed_roots must contain at least one existing in-allowlist root");
+  const cwdC = [...rootsReal].some((rr) => {
+    const c = realContained(req.cwd ?? "", rr);
+    return c.ok;
+  });
+  if (!cwdC) errors.push(`cwd must exist inside one allowed root: ${req.cwd}`);
+  if (req.brief_path !== undefined) {
+    const c = realContained(req.brief_path, repoReal);
+    const e = extraReal ? realContained(req.brief_path, extraReal) : { ok: false };
+    if (!c.ok && !e.ok) errors.push(`brief_path outside allowlist: ${req.brief_path}`);
+  }
+  for (const r of req.read_roots ?? []) {
+    const c = realContained(r, repoReal);
+    if (!c.ok) errors.push(`read_root must exist inside the repo (v1): ${r}`);
+  }
+  return { ok: errors.length === 0, errors, rootsReal, timeout_s: timeout };
+}
+
+function atomicWrite(p, text) {
+  const tmp = `${p}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, p);
+}
+
+export function submit(req, opts = {}) {
+  const queue = opts.queue ?? QUEUE;
+  const v = opts.validate === false ? { ok: true, errors: [] } : validateRequest(req, opts.validateOpts ?? {});
+  if (!v.ok) return { ok: false, errors: v.errors };
+  fs.mkdirSync(path.join(queue, "pending"), { recursive: true });
+  const dest = path.join(queue, "pending", `${req.id}.request.json`);
+  try {
+    fs.writeFileSync(dest, `${JSON.stringify(req, null, 2)}\n`, { flag: "wx" });
+  } catch (error) {
+    if (error.code === "EEXIST") return { ok: false, errors: [`request id already used: ${req.id}`] };
+    throw error;
+  }
+  return { ok: true, path: dest, request_sha256: sha256File(dest) };
+}
+
+function bootLine() {
+  fs.mkdirSync(QUEUE, { recursive: true });
+  const line = {
+    ts: new Date().toISOString(),
+    pid: process.pid,
+    node: process.version,
+    exe: process.execPath,
+    exe_sha256: sha256File(process.execPath),
+    runner_sha256: sha256File(fileURLToPath(import.meta.url)),
+  };
+  fs.appendFileSync(path.join(QUEUE, "boot.log"), `${JSON.stringify(line)}\n`);
+  return line;
+}
+
+/** Claim + execute one request file. Pure enough to unit-test the plumbing. */
+export function runRequest(requestPath, opts = {}) {
+  const queue = opts.queue ?? QUEUE;
+  const req = JSON.parse(fs.readFileSync(requestPath, "utf8"));
+  const request_sha256 = sha256File(requestPath);
+  const runDir = path.join(queue, "runs", req.id);
+  fs.mkdirSync(runDir, { recursive: true });
+  const cell = {
+    cell_id: req.id,
+    cwd: req.cwd,
+    allowed_roots: req.allowed_roots,
+    read_roots: req.read_roots ?? [],
+    forbidden_surfaces: req.forbidden_surfaces ?? [],
+  };
+  if (req.brief_path) cell.brief_path = req.brief_path;
+  const cellPath = path.join(runDir, "cell.json");
+  fs.writeFileSync(cellPath, `${JSON.stringify(cell, null, 2)}\n`);
+  const started = new Date().toISOString();
+  const argv = [
+    path.join(HERE, "cellwrap.mjs"), "spawn",
+    "--cell", cellPath,
+    "--spool", path.join(runDir, "spool"),
+    "--template", req.template,
+    "--signatures", req.signatures,
+    "--target", "shell",
+    "--cmd", req.cmd,
+    "--foreground",
+  ];
+  const r = spawnSync(process.execPath, argv, {
+    timeout: Math.round((req.timeout_s ?? 120) * 1000),
+    maxBuffer: 8 * 1024 * 1024,
+    encoding: "utf8",
+  });
+  const finished = new Date().toISOString();
+  const outPath = path.join(runDir, "output.log");
+  atomicWrite(outPath, `${r.stdout ?? ""}${r.stderr ? `\n---stderr---\n${r.stderr}` : ""}`);
+  const spoolFiles = [];
+  const spoolDir = path.join(runDir, "spool");
+  if (fs.existsSync(spoolDir)) {
+    for (const name of fs.readdirSync(spoolDir)) {
+      const fp = path.join(spoolDir, name);
+      if (fs.statSync(fp).isFile()) spoolFiles.push({ name, sha256: sha256File(fp), bytes: fs.statSync(fp).size });
+    }
+  }
+  const result = {
+    id: req.id,
+    request_sha256,
+    rc: r.status === null || r.status === undefined ? -1 : r.status,
+    signal: r.signal ?? null,
+    error: r.error ? String(r.error.message ?? r.error) : null,
+    started_at: started,
+    finished_at: finished,
+    output: { path: outPath, sha256: sha256File(outPath) },
+    spool: spoolFiles,
+    template_sha256: sha256File(req.template),
+  };
+  return result;
+}
+
+export function serveOnce(opts = {}) {
+  const queue = opts.queue ?? QUEUE;
+  const pendingDir = path.join(queue, "pending");
+  const runningDir = path.join(queue, "running");
+  const doneDir = path.join(queue, "done");
+  for (const d of [pendingDir, runningDir, doneDir]) fs.mkdirSync(d, { recursive: true });
+  const processed = [];
+  for (const name of fs.readdirSync(pendingDir).sort()) {
+    if (!name.endsWith(".request.json")) continue;
+    const pending = path.join(pendingDir, name);
+    const claimed = path.join(runningDir, name);
+    try {
+      fs.renameSync(pending, claimed); // atomic claim; loser sees ENOENT and skips
+    } catch {
+      continue;
+    }
+    let result;
+    try {
+      result = runRequest(claimed, { queue });
+    } catch (error) {
+      result = { id: name.replace(".request.json", ""), rc: -2, error: `runner: ${error.message}`, started_at: new Date().toISOString(), finished_at: new Date().toISOString() };
+    }
+    atomicWrite(path.join(doneDir, `${result.id}.result.json`), `${JSON.stringify(result, null, 2)}\n`);
+    fs.renameSync(claimed, path.join(doneDir, `${result.id}.request.json`));
+    processed.push(result.id);
+  }
+  return processed;
+}
+
+function parseArgs(argv) {
+  const out = { _: [] };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a.startsWith("--")) {
+      const nxt = argv[i + 1];
+      out[a.slice(2)] = nxt !== undefined && !nxt.startsWith("--") ? argv[++i] : true;
+    } else out._.push(a);
+  }
+  return out;
+}
+
+export function main(argv) {
+  const mode = argv[0];
+  if (mode === "submit") {
+    const args = parseArgs(argv.slice(1));
+    const req = JSON.parse(fs.readFileSync(path.resolve(args.request), "utf8"));
+    const res = submit(req);
+    process.stdout.write(`${JSON.stringify(res, null, 2)}\n`);
+    return res.ok ? 0 : 2;
+  }
+  if (mode === "serve") {
+    const args = parseArgs(argv.slice(1));
+    bootLine();
+    if (args.loop) {
+      for (;;) {
+        serveOnce();
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+      }
+    }
+    process.stdout.write(`${JSON.stringify({ processed: serveOnce() })}\n`);
+    return 0;
+  }
+  if (mode === "status") {
+    const args = parseArgs(argv.slice(1));
+    const p = path.join(QUEUE, "done", `${args.id ?? argv[1]}.result.json`);
+    if (!fs.existsSync(p)) { process.stdout.write(`${JSON.stringify({ id: args.id ?? argv[1], state: "pending-or-absent" })}\n`); return 1; }
+    process.stdout.write(`${fs.readFileSync(p, "utf8")}`);
+    return 0;
+  }
+  process.stderr.write("usage: cellrunner.mjs submit --request <file> | serve --once|--loop | status <id>\n");
+  return 2;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1])) {
+  try {
+    process.exitCode = main(process.argv.slice(2)) ?? 0;
+  } catch (error) {
+    process.stderr.write(`CELLRUNNER-FAIL ${error.code ?? "ERROR"}: ${error.message}\n`);
+    process.exitCode = 2;
+  }
+}

@@ -33,6 +33,7 @@ export const CONSTANTS = Object.freeze({
     "scripts/scan-workfiles.mjs",
     "scripts/scan-package.mjs",
     "tools/wave_engine/cellwrap.mjs",
+    "tools/wave_engine/cellrunner.mjs",
   ]),
   TEST_HARNESS_PATHS: Object.freeze([
     "test/cli.test.mjs",
@@ -45,6 +46,7 @@ export const CONSTANTS = Object.freeze({
     "test/release-candidate.test.mjs",
     "test/surface-cwd.test.mjs",
     "test/surface-record.test.mjs",
+    "tools/wave_engine/tests/cellrunner.test.mjs",
   ]),
   LEGACY_BASELINE_PATHS: Object.freeze([
     "cli/abathur-v2.mjs",
@@ -57,7 +59,7 @@ export const CONSTANTS = Object.freeze({
     "scripts/copy-gate.mjs",
   ]),
   LEGACY_TARGET_BASELINE: 8,
-  TEST_HARNESS_BASELINE: 10,
+  TEST_HARNESS_BASELINE: 11, // 2026-11-12: + tools/wave_engine/tests/cellrunner.test.mjs
 });
 
 const CLASSES = new Set(["runner", "trusted-controller", "legacy-target", "test-harness"]);

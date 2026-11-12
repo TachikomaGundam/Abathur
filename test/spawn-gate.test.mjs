@@ -35,15 +35,15 @@ function entry(path, cls, extra = {}) {
   return { path, class: cls, reason: "test", ...extra };
 }
 
-test("the live tree passes with exactly 27 registered files", () => {
+test("the live tree passes with exactly 29 registered files", () => {
   const result = runGate(ROOT);
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.discovered.length, 27); // + tools/wave_engine/cellwrap.mjs (Campaign B launcher, registered 2026-11-12)
+  assert.equal(result.discovered.length, 29); // + tools/wave_engine/tests/cellrunner.test.mjs (registered 2026-11-12)
   assert.deepEqual(result.counts, {
     runner: 1,
-    "trusted-controller": 8,
+    "trusted-controller": 9,
     "legacy-target": 8,
-    "test-harness": 10,
+    "test-harness": 11,
   });
 });
 
@@ -174,7 +174,7 @@ test("a planted unregistered file fails the full gate", () => {
 test("the live registry constants are the documented baseline", () => {
   assert.equal(CONSTANTS.RUNNER_PATH, "kernel/exec/runner.mjs");
   assert.equal(CONSTANTS.LEGACY_TARGET_BASELINE, 8);
-  assert.equal(CONSTANTS.TEST_HARNESS_BASELINE, 10);
-  assert.equal(CONSTANTS.TRUSTED_PATHS.length, 8);
-  assert.equal(CONSTANTS.TEST_HARNESS_PATHS.length, 10);
+  assert.equal(CONSTANTS.TEST_HARNESS_BASELINE, 11);
+  assert.equal(CONSTANTS.TRUSTED_PATHS.length, 9);
+  assert.equal(CONSTANTS.TEST_HARNESS_PATHS.length, 11);
 });

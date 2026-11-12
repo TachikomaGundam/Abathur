@@ -142,6 +142,16 @@
       "path": "tools/wave_engine/cellwrap.mjs",
       "class": "trusted-controller",
       "reason": "Campaign B cell launcher: spawns the bwrap binary only; argv is built from a human-signed mount template with dual-fetch identity checks, and the cell payload executes inside the cage. Refuses unsigned templates fail-closed."
+    },
+    {
+      "path": "tools/wave_engine/cellrunner.mjs",
+      "class": "trusted-controller",
+      "reason": "Registered out-of-cage executor for seat-driven sandbox tests: spawns only 'node cellwrap.mjs spawn' (bwrap cells from signed templates, shell target, root allowlist); never executes request payloads as host commands."
+    },
+    {
+      "path": "tools/wave_engine/tests/cellrunner.test.mjs",
+      "class": "test-harness",
+      "reason": "Unit tests for cellrunner: spawn the runner CLI in a child process to assert validator fail-closed behavior."
     }
   ]
 }
