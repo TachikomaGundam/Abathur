@@ -55,7 +55,7 @@ cd "$(git rev-parse --show-toplevel)" && node cli/abathur-v2.mjs rules validate
 cd "$(git rev-parse --show-toplevel)" && node cli/abathur-v2.mjs gate run
 cd "$(git rev-parse --show-toplevel)" && node kernel/exec/spawn-gate.mjs
 cd "$(git rev-parse --show-toplevel)" && node scripts/scan-workfiles.mjs
-cd "$(git rev-parse --show-toplevel)" && node scripts/plan-check.mjs <state>/plans/refactor-abathur-v2.md
+cd "$(git rev-parse --show-toplevel)" && node scripts/plan-check.mjs plans/refactor-abathur-v2.md
 cd "$(git rev-parse --show-toplevel)" && python3 -m pytest tools/wave_engine/tests -q
 ```
 

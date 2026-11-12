@@ -19,6 +19,14 @@ test("a ledger outside the evidence roots is refused", () => {
   assert.throws(() => appendEntry("/tmp/outside-evidence.jsonl", { n: 1 }), /EVIDENCE-OUTSIDE-ROOT/);
 });
 
+test("a missing parent directory is created (fresh state tree must not block the first entry)", () => {
+  counter += 1;
+  const path = join(BASE, "evidence", "sub-not-created", `ledger-${counter}.jsonl`);
+  const e = appendEntry(path, { wave: "first" }, { writer: "abathur", ts: "2026-11-12T00:00:00Z" });
+  assert.equal(e.seq, 1);
+  assert.deepEqual(verifyChain(path), []);
+});
+
 test("an untouched chain verifies", () => {
   const path = ledger();
   appendEntry(path, { wave: "W2" }, { writer: "abathur", ts: "2026-11-03T00:00:00Z", now: undefined });

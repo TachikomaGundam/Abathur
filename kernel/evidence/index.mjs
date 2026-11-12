@@ -1,4 +1,5 @@
-import { appendFileSync, closeSync, existsSync, fsyncSync, openSync, readFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { checkInside, deny, evidenceRoots } from "../surface/index.mjs";
 
@@ -48,6 +49,9 @@ export function appendEntry(path, body, options = {}) {
   const prev = lastEntry(path)?.hash ?? GENESIS;
   const entry = { seq: (lastEntry(path)?.seq ?? 0) + 1, ts, writer, body: body ?? null, prev };
   entry.hash = entryHash(entry.prev, entry.body, entry.writer, entry.ts);
+  // A fresh state tree must not block the first entry: create the ledger's parent
+  // directory on demand (regression 2026-11-12: ENOENT when evidence/ was absent).
+  mkdirSync(dirname(path), { recursive: true });
   const fd = openSync(path, "a");
   try {
     appendFileSync(fd, `${JSON.stringify(entry)}\n`);
