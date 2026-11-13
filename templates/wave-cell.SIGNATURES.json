@@ -10,6 +10,11 @@
       "sha256": "abdee6180fc899ce9d1c778c56eb60f0b1b40bcbe9088624b0eacbfadf8f4203",
       "template": "templates/wave-cell.netclosed.json",
       "signed_by": "lab@2026-11-13T14:02:10.776Z"
+    },
+    {
+      "sha256": "d4dd538e8b89a68e99e26f478aa3ae0df9a6fb1382abea0bab35e28b84957929",
+      "template": "templates/wave-cell.oc.json",
+      "signed_by": "lab@2026-11-13T14:47:50.910Z"
     }
   ]
 }
