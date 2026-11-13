@@ -149,7 +149,7 @@ export function buildTargetArgv({ template, cell, waveId, target, shellCmd }) {
   const seed = template.xdg_config_dir_rel
     ? "mkdir -p /wave/home/.config/opencode && cp -R /wave/xdg-config/opencode/. /wave/home/.config/opencode/; "
     : "";
-  return ["/usr/bin/env", "bash", "-lc", `${seed}exec "$@"`, "cellseed", exe, prompt];
+  return ["/usr/bin/env", "bash", "-lc", `${seed}exec "$@"`, "cellseed", exe, "run", prompt];
 }
 
 export function buildRunRecord({ cell, waveId, template, bwrapProbe, cellwrapSha256 }) {

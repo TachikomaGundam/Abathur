@@ -112,7 +112,8 @@ test("target: shell needs a command; opencode builds a spool-instructed prompt",
   assert.ok(oc[3].startsWith("mkdir -p /wave/home/.config/opencode") && oc[3].endsWith('exec "$@"'));
   assert.equal(oc[4], "cellseed");
   assert.ok(oc[5].endsWith("opencode.exe"));
-  assert.ok(oc[6].includes("/wave/spool/receipt.json"));
+  assert.equal(oc[6], "run");
+  assert.ok(oc[7].includes("/wave/spool/receipt.json"));
   // template without xdg seed: no copy preamble
   const oc2 = buildTargetArgv({ template: { ...baseTpl, xdg_config_dir_rel: undefined }, cell: baseCell, waveId: "w1", target: "opencode" });
   assert.equal(oc2[3], 'exec "$@"');
