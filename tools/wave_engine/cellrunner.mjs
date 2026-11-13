@@ -351,20 +351,23 @@ export function main(argv) {
   if (mode === "submit") {
     const args = parseArgs(argv.slice(1));
     const req = JSON.parse(fs.readFileSync(path.resolve(args.request), "utf8"));
-    const res = submit(req);
+    const q = args.queue ? path.resolve(String(args.queue)) : undefined;
+    const res = submit(req, q ? { queue: q } : {});
     process.stdout.write(`${JSON.stringify(res, null, 2)}\n`);
     return res.ok ? 0 : 2;
   }
   if (mode === "serve") {
     const args = parseArgs(argv.slice(1));
+    const q = args.queue ? path.resolve(String(args.queue)) : undefined;
+    const opts = q ? { queue: q } : {};
     bootLine();
     if (args.loop) {
       for (;;) {
-        serveOnce();
+        serveOnce(opts);
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
       }
     }
-    process.stdout.write(`${JSON.stringify({ processed: serveOnce() })}\n`);
+    process.stdout.write(`${JSON.stringify({ processed: serveOnce(opts) })}\n`);
     return 0;
   }
   if (mode === "install") {

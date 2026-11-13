@@ -62,6 +62,25 @@ Retry: `cd <repo> && python3 tools/wave_engine/wave.py requeue <wave> <cell>`
 (failed -> new; done stays terminal).
 Tests: `cd <repo> && python3 -m pytest tools/wave_engine/tests -q`.
 
+### Fan-out A: run a wave through the cellrunner queue
+
+Seat sessions cannot exec bwrap, so plain `spawn` only works from a true-face
+terminal. `--via-queue` routes each ready cell through the registered
+out-of-cage executor (cron `cellrunner.mjs serve --once`) instead:
+
+1. `cd <repo> && python3 tools/wave_engine/wave.py spawn <wave> --cells all --via-queue`
+   — per cell writes the request (brief inlined, opencode cells default to the
+   signed oc template), submits via `cellrunner.mjs submit --queue <root>`,
+   and claims the cell with `claimed_by=queue`.
+2. Once the executor processed it (heartbeat: `abathur runner status`):
+   `cd <repo> && python3 tools/wave_engine/wave.py collect <wave>`
+   — same spool pairing and pollution verification as `done --from-spool`,
+   plus a result-vs-claim request-hash pairing (`QUEUE-PAIR-FAIL`).
+
+The queue is an execution channel, not a receipt side: pairing proves
+transport integrity only; self-consistent forgeries remain the blind
+audit's job.
+
 ## Manifest shape
 
 ```json

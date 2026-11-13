@@ -597,20 +597,7 @@ def cmd_done(args):
             die("cell %s: receipt path does not exist: %s" % (cell["cell_id"], rp))
         with open(rp, "r", encoding="utf-8", errors="replace") as fh:
             text = fh.read()
-    paths = extract_paths(text, cwd)
-    read_mentions = [p for p in paths if under_any(p, cell.get("read_roots", []))]
-    violations = [p for p in paths
-                  if not under_any(p, cell["allowed_roots"])
-                  and not under_any(p, cell.get("read_roots", []))]
-    forbidden_mentions = []
-    for entry in cell.get("forbidden_surfaces", []):
-        surface = entry.get("path")
-        for p in paths:
-            if p == surface or p.startswith(surface + os.sep):
-                if p not in forbidden_mentions:
-                    forbidden_mentions.append(p)
-    if forbidden_mentions:
-        violations = sorted(set(violations + forbidden_mentions))
+    violations, read_mentions, forbidden_mentions = scan_text_violations(text, cell, cwd)
     if pair_fails:
         violations = sorted(set(violations + pair_fails))
     ts, iso = now_pair()
@@ -662,33 +649,31 @@ def cmd_fail(args):
     print("failed %s/%s at %s" % (args.wave_id, args.cell_id, iso))
 
 
-def ingest_spool(base, wave_id, cell_id):
-    """Supervisor-side spool ingestion (Campaign B, prerequisite 4).
+def ingest_spool_dir(spool, label):
+    """Read receipt.json via dirfd+O_NOFOLLOW and pair declared artifact hashes.
 
-    Reads receipt.json through a dirfd with O_NOFOLLOW and hashes every
-    declared artifact from the spool against its declared sha256. Pairing
-    proves transport integrity and ingest consistency ONLY: a cell that
-    forges both artifact and matching receipt passes pairing and can only
-    be caught by the blind audit (ruling must_fix#7 — never claim more).
+    Pairing proves transport integrity and ingest consistency ONLY: a cell
+    that forges both artifact and matching receipt passes pairing and can
+    only be caught by the blind audit (ruling must_fix#7 — never claim more).
+    Returns (raw_bytes, receipt_obj, receipt_text, pair_fails).
     """
-    spool = os.path.join(wave_dir(base, wave_id), "spool", cell_id)
     if not os.path.isdir(spool):
-        die("cell %s: no spool at %s" % (cell_id, spool))
+        die("cell %s: no spool at %s" % (label, spool))
     try:
         dfd = os.open(spool, os.O_RDONLY | os.O_DIRECTORY)
     except OSError as exc:
-        die("cell %s: spool open failed: %s" % (cell_id, exc))
+        die("cell %s: spool open failed: %s" % (label, exc))
     try:
         try:
             rfd = os.open("receipt.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
         except OSError as exc:
-            die("cell %s: receipt.json missing or not a regular file in spool: %s" % (cell_id, exc))
+            die("cell %s: receipt.json missing or not a regular file in spool: %s" % (label, exc))
         with os.fdopen(rfd, "rb") as fh:
             raw = fh.read()
         try:
             rec = json.loads(raw.decode("utf-8", errors="replace"))
         except ValueError:
-            die("cell %s: receipt.json is not valid JSON" % cell_id)
+            die("cell %s: receipt.json is not valid JSON" % label)
         pair_fails = []
         artifacts = rec.get("artifacts", []) if isinstance(rec, dict) else []
         for art in artifacts:
@@ -708,17 +693,48 @@ def ingest_spool(base, wave_id, cell_id):
                 pair_fails.append("SPOOL-PAIR-FAIL:%s (declared %s != ingested %s)" % (name, declared, got))
     finally:
         os.close(dfd)
-    dest = os.path.join(wave_dir(base, wave_id), cell_id + ".receipt.json")
+    if isinstance(rec, dict) and rec.get("receipt_text"):
+        text = str(rec["receipt_text"])
+    else:
+        text = raw.decode("utf-8", errors="replace")
+    return raw, rec, text, pair_fails
+
+
+def copy_receipt(raw, dest):
     tmp = dest + ".tmp"
     with open(tmp, "wb") as fh:
         fh.write(raw)
         fh.flush()
         os.fsync(fh.fileno())
     os.replace(tmp, dest)
-    if isinstance(rec, dict) and rec.get("receipt_text"):
-        text = str(rec["receipt_text"])
-    else:
-        text = raw.decode("utf-8", errors="replace")
+
+
+def scan_text_violations(text, cell, cwd):
+    """Paths mentioned in a receipt outside allowed/read roots, or on forbidden
+    surfaces. Returns (violations, read_mentions, forbidden_mentions)."""
+    paths = extract_paths(text, cwd)
+    read_mentions = [p for p in paths if under_any(p, cell.get("read_roots", []))]
+    violations = [p for p in paths
+                  if not under_any(p, cell["allowed_roots"])
+                  and not under_any(p, cell.get("read_roots", []))]
+    forbidden_mentions = []
+    for entry in cell.get("forbidden_surfaces", []):
+        surface = entry.get("path")
+        for p in paths:
+            if p == surface or p.startswith(surface + os.sep):
+                if p not in forbidden_mentions:
+                    forbidden_mentions.append(p)
+    if forbidden_mentions:
+        violations = sorted(set(violations + forbidden_mentions))
+    return violations, read_mentions, forbidden_mentions
+
+
+def ingest_spool(base, wave_id, cell_id):
+    """Wave-local spool ingestion (Campaign B, prerequisite 4)."""
+    spool = os.path.join(wave_dir(base, wave_id), "spool", cell_id)
+    raw, _rec, text, pair_fails = ingest_spool_dir(spool, cell_id)
+    dest = os.path.join(wave_dir(base, wave_id), cell_id + ".receipt.json")
+    copy_receipt(raw, dest)
     return dest, text, pair_fails
 
 
@@ -751,6 +767,10 @@ def cmd_spawn(args):
                 die("cell %s: state is %s, spawn only applies to new" % (c["cell_id"], c["state"]))
     if not targets:
         print("nothing to spawn (no ready new cells)")
+        return
+
+    if args.via_queue:
+        cmd_spawn_queue(args, wdir, targets)
         return
     ts, iso = now_pair()
     cellwrap = os.path.join(HERE, "cellwrap.mjs")
@@ -806,6 +826,161 @@ def cmd_spawn(args):
     print("spawn %s %d cell(s) of wave %s at %s%s"
           % ("dry-plan" if args.dry else "claimed+started", len(targets), args.wave_id, iso,
              (" [" + ", ".join(spawned) + "]") if spawned else ""))
+
+
+def queue_id(wave_id, cell_id):
+    """cellrunner queue id for a wave cell: deterministic, validator-safe."""
+    raw = ("%s--%s" % (wave_id, cell_id)).lower()
+    cleaned = re.sub(r"[^a-z0-9._-]", "-", raw)[:64].strip("-.") or "cell"
+    if not re.match(r"^[a-z0-9]", cleaned):
+        cleaned = "w-" + cleaned
+    return cleaned
+
+
+def cmd_spawn_queue(args, wdir, targets):
+    """Fan cells out through the registered cellrunner queue (fan-out A).
+
+    Seat sandboxes cannot exec bwrap, so requests go to the out-of-cage
+    executor (cron serve --once) instead of a direct cellwrap spawn. The
+    queue is an execution channel, not a receipt side: cmd_collect applies
+    the same pairing and pollution verification as done --from-spool, plus
+    a request-hash pairing between claim and result."""
+    queue_root = args.queue_root or os.path.join(REPO_ROOT, ".omo", "spawn-queue")
+    runner = os.path.join(HERE, "cellrunner.mjs")
+    template = args.template
+    if template == os.path.join(REPO_ROOT, "templates", "wave-cell.json") and args.target == "opencode":
+        template = os.path.join(REPO_ROOT, "templates", "wave-cell.oc.json")
+    ts, iso = now_pair()
+    queued = []
+    for c in targets:
+        bp = c.get("brief_path") or ""
+        brief = ""
+        if os.path.isfile(bp):
+            with open(bp, "r", encoding="utf-8", errors="replace") as fh:
+                brief = fh.read(16385)
+        if not (1 <= len(brief) <= 16384):
+            die("cell %s: --via-queue needs a 1..16384 char brief (got %d from %s)"
+                % (c["cell_id"], len(brief), bp or "unset brief_path"))
+        req = {
+            "id": queue_id(args.wave_id, c["cell_id"]),
+            "target": args.target,
+            "cwd": c["cwd"],
+            "allowed_roots": c["allowed_roots"],
+            "read_roots": c.get("read_roots", []),
+            "forbidden_surfaces": [e.get("path") for e in c.get("forbidden_surfaces", []) if e.get("path")],
+            "timeout_s": args.timeout_s,
+            "template": template,
+            "signatures": args.signatures,
+            "kind": c.get("kind", "gen"),
+        }
+        if args.target == "shell":
+            if not args.cmd:
+                die("cell %s: --via-queue with --target shell needs --cmd" % c["cell_id"])
+            req["cmd"] = args.cmd
+        else:
+            req["brief"] = brief
+        req_file = os.path.join(wdir, req["id"] + ".request.json")
+        atomic_write(req_file, req)
+        r = subprocess.run(["node", runner, "submit", "--request", req_file, "--queue", queue_root],
+                           capture_output=True, text=True)
+        try:
+            res = json.loads(r.stdout)
+        except ValueError:
+            res = {}
+        if r.returncode != 0 or not res.get("ok"):
+            die("cell %s: queue submit rejected: %s %s"
+                % (c["cell_id"], (r.stdout or "").strip()[:400], (r.stderr or "").strip()[:200]))
+        c["state"] = "claimed"
+        c["claimed_at"] = iso
+        c["claimed_epoch"] = ts
+        c["claimed_by"] = "queue"
+        c["queue_id"] = req["id"]
+        c["request_sha256"] = res.get("request_sha256")
+        save_cell(args.base, args.wave_id, c["cell_id"], c)
+        append_metric(args.base, {
+            "ts": iso, "ts_epoch": ts, "wave_id": args.wave_id, "cell_id": c["cell_id"],
+            "kind": c["kind"], "event": "queue-claim", "state": "claimed",
+            "launched_epoch": c.get("launched_epoch"), "claimed_epoch": ts, "ended_epoch": None,
+            "pollution": False,
+        })
+        queued.append(req["id"])
+        print("queued %s/%s as %s (request %s)" % (args.wave_id, c["cell_id"], req["id"],
+                                                   (res.get("request_sha256") or "")[:12]))
+    print("queued %d cell(s) of wave %s via %s; collect with: wave.py collect %s --queue-root %s"
+          % (len(queued), args.wave_id, queue_root, args.wave_id, queue_root))
+
+
+def cmd_collect(args):
+    """Collect queue-claimed cells (fan-out A counterpart of done --from-spool).
+
+    No result yet: the cell stays claimed. Nonzero rc: failed. rc==0: the
+    spool is ingested through the same pairing + pollution verification,
+    plus a result-vs-claim request-hash pairing. Pairing proves transport
+    integrity only — self-consistent forgeries remain the blind audit's job."""
+    wdir = wave_dir(args.base, args.wave_id)
+    if not os.path.isdir(wdir):
+        die("no such wave: %s (%s)" % (args.wave_id, wdir))
+    queue_root = args.queue_root or os.path.join(REPO_ROOT, ".omo", "spawn-queue")
+    meta = read_json(os.path.join(wdir, "meta.json"))
+    for cid in meta["cells"]:
+        c = load_cell(args.base, args.wave_id, cid)
+        if c["state"] != "claimed" or c.get("claimed_by") != "queue":
+            continue
+        qid = c.get("queue_id") or queue_id(args.wave_id, cid)
+        rj = os.path.join(queue_root, "done", qid + ".result.json")
+        if not os.path.isfile(rj):
+            print("pending %s/%s (queue %s: no result yet)" % (args.wave_id, cid, qid))
+            continue
+        result = read_json(rj)
+        ts, iso = now_pair()
+        if result.get("rc") != 0:
+            c["state"] = "failed"
+            c["ended_at"] = iso
+            c["ended_epoch"] = ts
+            c["notes"].append("collect: queue rc=%s error=%s" % (result.get("rc"), result.get("error") or "n/a"))
+            save_cell(args.base, args.wave_id, cid, c)
+            append_metric(args.base, {
+                "ts": iso, "ts_epoch": ts, "wave_id": args.wave_id, "cell_id": cid,
+                "kind": c["kind"], "event": "collect-fail", "state": "failed",
+                "launched_epoch": c.get("launched_epoch"), "claimed_epoch": c.get("claimed_epoch"),
+                "ended_epoch": ts, "pollution": False,
+            })
+            print("failed %s/%s at %s (queue rc=%s)" % (args.wave_id, cid, iso, result.get("rc")))
+            continue
+        raw, _rec, text, pair_fails = ingest_spool_dir(os.path.join(queue_root, "runs", qid, "spool"), cid)
+        cwd = require_cwd(c)
+        violations, read_mentions, forbidden = scan_text_violations(text, c, cwd)
+        if pair_fails:
+            violations = sorted(set(violations + pair_fails))
+        got_req = result.get("request_sha256") or ""
+        want_req = c.get("request_sha256") or ""
+        if got_req and want_req and got_req != want_req:
+            violations = sorted(set(violations + [
+                "QUEUE-PAIR-FAIL:result references %s != claim %s" % (got_req, want_req)]))
+        dest = os.path.join(wdir, cid + ".receipt.json")
+        copy_receipt(raw, dest)
+        c["state"] = "done"
+        c["ended_at"] = iso
+        c["ended_epoch"] = ts
+        c["receipt"] = dest
+        c["read_mentions"] = read_mentions
+        c["forbidden_mentions"] = forbidden
+        c["pollution"] = bool(violations)
+        c["pollution_violations"] = violations
+        save_cell(args.base, args.wave_id, cid, c)
+        append_metric(args.base, {
+            "ts": iso, "ts_epoch": ts, "wave_id": args.wave_id, "cell_id": cid,
+            "kind": c["kind"], "event": "collect", "state": "done",
+            "launched_epoch": c.get("launched_epoch"), "claimed_epoch": c.get("claimed_epoch"),
+            "ended_epoch": ts, "pollution": bool(violations),
+        })
+        if violations:
+            print("DONE-POLLUTED %s/%s at %s — collected receipt violations:" % (args.wave_id, cid, iso))
+            for v in violations:
+                print("  VIOLATION: " + v)
+        else:
+            print("collected %s/%s at %s (receipt clean; %d read-only mention(s))"
+                  % (args.wave_id, cid, iso, len(read_mentions)))
 
 
 def cmd_requeue(args):
@@ -968,7 +1143,19 @@ def build_parser():
     p.add_argument("--foreground", action="store_true", help="wait for the cell process (smoke)")
     p.add_argument("--dry", action="store_true", help="preview the cellwrap plan without spawning; "
                                                       "template signing is still required, only the bwrap probe is tolerated")
+    p.add_argument("--via-queue", action="store_true",
+                   help="route cells through the cellrunner queue instead of direct cellwrap "
+                        "(seat seats cannot exec bwrap; the registered out-of-cage executor runs them)")
+    p.add_argument("--timeout-s", type=int, default=600,
+                   help="queue request timeout in seconds (default 600; runner caps at its own limit)")
+    p.add_argument("--queue-root", default=None, help="queue root (default <repo>/.omo/spawn-queue)")
     p.set_defaults(func=cmd_spawn)
+
+    p = sub.add_parser("collect", help="collect queue-claimed cells: ingest spool with the same pairing "
+                                       "and pollution verification, plus result-vs-claim request pairing")
+    p.add_argument("wave_id")
+    p.add_argument("--queue-root", default=None, help="queue root (default <repo>/.omo/spawn-queue)")
+    p.set_defaults(func=cmd_collect)
 
     for name, func in (("claim", cmd_claim), ("done", cmd_done), ("fail", cmd_fail)):
         p = sub.add_parser(name)
