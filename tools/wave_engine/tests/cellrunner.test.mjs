@@ -47,7 +47,7 @@ test("validator rejects: escapes, wrong target, bad id, timeout cap, long cmd", 
   const cases = [
     [{ allowed_roots: ["/etc"] }, /allowlist/],
     [{ allowed_roots: [path.join(s.repo, "nope-does-not-exist")] }, /allowlist|resolve/],
-    [{ target: "opencode" }, /target=shell/],
+    [{ target: "python" }, /target must be/],
     [{ id: "BAD ID" }, /id must match/],
     [{ timeout_s: 99999 }, /timeout_s/],
     [{ cmd: "x".repeat(9000) }, /cmd/],
@@ -59,6 +59,25 @@ test("validator rejects: escapes, wrong target, bad id, timeout cap, long cmd", 
     assert.equal(v.ok, false, `should reject ${JSON.stringify(patch)}`);
     assert.match(v.errors.join("; "), re, `wrong reason for ${JSON.stringify(patch)}: ${v.errors.join("; ")}`);
   }
+});
+
+test("opencode target: brief required, cmd banned, template must declare exe_dir", () => {
+  const s = scratch();
+  const ocBase = { ...good(s), target: "opencode" };
+  delete ocBase.cmd;
+  // template t.json is "{}" -> no exe_dir
+  let v = validateRequest({ ...ocBase, brief: "do the job" }, s.opts);
+  assert.equal(v.ok, false);
+  assert.match(v.errors.join("; "), /exe_dir/);
+  fs.writeFileSync(ocBase.template, JSON.stringify({ exe_dir: "/usr/bin" }));
+  v = validateRequest({ ...ocBase, brief: "do the job" }, s.opts);
+  assert.equal(v.ok, true, v.errors.join("; "));
+  v = validateRequest({ ...ocBase, brief: "x", cmd: "echo nope" }, s.opts);
+  assert.equal(v.ok, false);
+  assert.match(v.errors.join("; "), /takes no cmd/);
+  v = validateRequest({ ...ocBase }, s.opts); // brief missing
+  assert.equal(v.ok, false);
+  assert.match(v.errors.join("; "), /brief/);
 });
 
 test("submit writes pending; duplicate id refused; queue injected for tests", () => {
@@ -108,6 +127,24 @@ test("cron install refuses inside the cage; merge is idempotent", () => {
   assert.ok(m2.includes("echo x"));
 });
 
+test("opencode runRequest branch: brief lands in cell, cellwrap gate still refuses unsigned", () => {
+  const s = scratch();
+  const queue = path.join(s.root, "queue");
+  fs.writeFileSync(path.join(s.repo, "templates", "t.json"), JSON.stringify({ exe_dir: "/usr/bin" }));
+  const req = { ...good(s), target: "opencode", brief: "reply OK" };
+  delete req.cmd;
+  const res = submit(req, { queue, validateOpts: s.opts });
+  assert.equal(res.ok, true, (res.errors ?? []).join("; "));
+  serveOnce({ queue });
+  const result = JSON.parse(fs.readFileSync(path.join(queue, "done", "t-1.result.json"), "utf8"));
+  assert.notEqual(result.rc, 0); // TEMPLATE-UNSIGNED: gate holds even on the new branch
+  const out = fs.readFileSync(result.output.path, "utf8");
+  assert.match(out, /TEMPLATE-UNSIGNED/);
+  assert.ok(fs.existsSync(path.join(queue, "runs", "t-1", "brief.md")));
+  const cell = JSON.parse(fs.readFileSync(path.join(queue, "runs", "t-1", "cell.json"), "utf8"));
+  assert.ok(cell.brief_path.endsWith("brief.md"));
+});
+
 test("healthReport explains liveness from heartbeat; status CLI codes it", () => {
   const s = scratch();
   const queue = path.join(s.root, "queue");
@@ -142,5 +179,5 @@ test("CLI submit on a bad request exits nonzero (spawned like the seat would)", 
     }
   })();
   assert.notEqual(rc, 0);
-  assert.match(out, /target=shell/);
+  assert.match(out, /takes no cmd|brief|templates/);
 });

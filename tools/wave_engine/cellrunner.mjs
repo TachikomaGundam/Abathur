@@ -8,7 +8,8 @@
 // Contract (fail-closed):
 //   submit  validates a request against a strict schema and drops it in
 //           .omo/spawn-queue/pending/. Only: signed mount template under
-//           <repo>/templates, target=shell, roots inside the allowlist.
+//           <repo>/templates, target=shell (cmd) or opencode (brief, template
+//           must declare exe_dir), roots inside the allowlist.
 //   serve   --once/--loop claims pending requests (atomic rename), runs them
 //           through cellwrap (which enforces template signatures), and writes
 //           a hashed result to done/. The runner never executes host commands.
@@ -49,8 +50,13 @@ export function validateRequest(req, opts = {}) {
   const errors = [];
   if (!req || typeof req !== "object") return { ok: false, errors: ["request must be an object"], rootsReal: [] };
   if (typeof req.id !== "string" || !ID_RE.test(req.id)) errors.push(`id must match ${ID_RE}`);
-  if (req.target !== "shell") errors.push("v1 runner accepts target=shell only");
-  if (typeof req.cmd !== "string" || req.cmd.length === 0 || req.cmd.length > 8192) errors.push("cmd must be a 1..8192 char string");
+  if (req.target !== "shell" && req.target !== "opencode") errors.push('target must be "shell" or "opencode"');
+  if (req.target === "shell") {
+    if (typeof req.cmd !== "string" || req.cmd.length === 0 || req.cmd.length > 8192) errors.push("cmd must be a 1..8192 char string");
+  } else if (req.target === "opencode") {
+    if (req.cmd !== undefined) errors.push("opencode target takes no cmd; the cell works from its brief");
+    if (typeof req.brief !== "string" || req.brief.length === 0 || req.brief.length > 16384) errors.push("brief must be a 1..16384 char string for opencode target");
+  }
   const timeout = req.timeout_s ?? 120;
   if (!(typeof timeout === "number" && timeout > 0 && timeout <= TIMEOUT_CAP_S)) errors.push(`timeout_s must be 1..${TIMEOUT_CAP_S}`);
 
@@ -58,6 +64,14 @@ export function validateRequest(req, opts = {}) {
   for (const key of ["template", "signatures"]) {
     const c = realContained(req[key] ?? "", repoReal);
     if (!c.ok || !c.real.startsWith(path.join(repoReal, "templates"))) errors.push(`${key} must be under ${repoReal}/templates (${req[key]})`);
+  }
+  if (req.target === "opencode") {
+    try {
+      const t = JSON.parse(fs.readFileSync(req.template, "utf8"));
+      if (!t.exe_dir) errors.push(`template ${req.template} lacks exe_dir required by the opencode target`);
+    } catch (error) {
+      errors.push(`template unreadable: ${error.message}`);
+    }
   }
   const roots = Array.isArray(req.allowed_roots) ? req.allowed_roots : [];
   const rootsReal = [];
@@ -136,6 +150,11 @@ export function runRequest(requestPath, opts = {}) {
     forbidden_surfaces: req.forbidden_surfaces ?? [],
   };
   if (req.brief_path) cell.brief_path = req.brief_path;
+  if (req.target === "opencode" && typeof req.brief === "string") {
+    const briefPath = path.join(runDir, "brief.md");
+    fs.writeFileSync(briefPath, req.brief.endsWith("\n") ? req.brief : `${req.brief}\n`);
+    cell.brief_path = briefPath;
+  }
   const cellPath = path.join(runDir, "cell.json");
   fs.writeFileSync(cellPath, `${JSON.stringify(cell, null, 2)}\n`);
   const started = new Date().toISOString();
@@ -145,10 +164,9 @@ export function runRequest(requestPath, opts = {}) {
     "--spool", path.join(runDir, "spool"),
     "--template", req.template,
     "--signatures", req.signatures,
-    "--target", "shell",
-    "--cmd", req.cmd,
-    "--foreground",
   ];
+  if (req.target === "opencode") argv.push("--target", "opencode", "--foreground");
+  else argv.push("--target", "shell", "--cmd", req.cmd, "--foreground");
   const r = spawnSync(process.execPath, argv, {
     timeout: Math.round((req.timeout_s ?? 120) * 1000),
     maxBuffer: 8 * 1024 * 1024,

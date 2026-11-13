@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "wave-cell-opencode",
+  "net": "host",
+  "home": "/home/lab",
+  "exe_dir": "/home/lab/.npm-global/lib/node_modules/@opencode/cli/bin",
+  "xdg_config_dir_rel": "templates/wave-cell.oc/xdg-config",
+  "masked": ["/home/lab/.ssh", "/home/lab/.aws", "/home/lab/.gnupg", "/home/lab/.config"],
+  "cell_env": { "LANG": "C.UTF-8" },
+  "notes": "opencode-target host template: model endpoint lives on loopback :8010, so net=host is required (netclosed kills localhost too). Cell config pinned at templates/wave-cell.oc/xdg-config. Owner signature covers this file only; the xdg dir hash gap is a named todo."
+}

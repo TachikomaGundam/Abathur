@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "//": "Cell-side XDG_CONFIG_HOME for opencode-target cells (net=host). Endpoint pinned to loopback sanitizer proxy; mirrors the host-verified provider block. Gap named: this dir is outside the template-file hash coverage (L-SINGLE-SOURCE follow-up on the todo list).",
+  "provider": {
+    "local-qwen": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local vLLM",
+      "options": {
+        "baseURL": "http://127.0.0.1:8010/v1",
+        "apiKey": "dummy",
+        "name": "local-qwen"
+      },
+      "models": {
+        "qwen3.8-flash-next": {
+          "name": "Qwen3.8 Flash FP8"
+        }
+      }
+    }
+  },
+  "model": "local-qwen/qwen3.8-flash-next",
+  "autoupdate": false,
+  "share": "disabled"
+}
