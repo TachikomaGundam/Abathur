@@ -1,4 +1,15 @@
 {
   "$comment": "Human signature registry for wave-cell mount templates. Fail-closed: cellwrap refuses any template whose sha256 is not an entry here with a non-empty signed_by. The machine owner adds entries by hand. Print a template hash with: cd \"$(git rev-parse --show-toplevel)\" && node tools/wave_engine/cellwrap.mjs template-sha templates/wave-cell.json",
-  "entries": []
+  "entries": [
+    {
+      "sha256": "5f0ecddf2dad591b32bb1444df44af81459e10409c65e34f35bef8b10f380786",
+      "template": "templates/wave-cell.json",
+      "signed_by": "lab@2026-11-13T14:02:10.775Z"
+    },
+    {
+      "sha256": "abdee6180fc899ce9d1c778c56eb60f0b1b40bcbe9088624b0eacbfadf8f4203",
+      "template": "templates/wave-cell.netclosed.json",
+      "signed_by": "lab@2026-11-13T14:02:10.776Z"
+    }
+  ]
 }
