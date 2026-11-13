@@ -120,7 +120,7 @@ export function buildCellArgv({ template, cell, paths }) {
   const env = {
     PATH: "/usr/local/bin:/usr/bin:/bin",
     HOME: "/wave/home",
-    XDG_CONFIG_HOME: "/wave/xdg-config",
+    XDG_CONFIG_HOME: "/wave/home/.config", // writable tmpfs; signed config lands here via the seed copy
     ...(template.cell_env ?? {}),
   };
   argv.push("--clearenv");
@@ -142,7 +142,14 @@ export function buildTargetArgv({ template, cell, waveId, target, shellCmd }) {
     "binds fail visibly. When finished write /wave/spool/receipt.json containing " +
     '{status:"done", receipt_text:"...", artifacts:[{path:"<file under /wave/spool>",sha256:"<its sha256>"}]}; ' +
     'on failure write {status:"failed", note:"..."}. Do not touch wave state directly; the supervisor ingests the spool.';
-  return [exe, "run", prompt];
+  // The signed config dir arrives read-only at /wave/xdg-config (seed); opencode
+  // writes inside $XDG_CONFIG_HOME/opencode at runtime, so copy the seed onto
+  // the cage's writable tmpfs first, then exec the exe with the prompt kept as
+  // a real argv element (no shell re-quoting of the prompt).
+  const seed = template.xdg_config_dir_rel
+    ? "mkdir -p /wave/home/.config/opencode && cp -R /wave/xdg-config/opencode/. /wave/home/.config/opencode/; "
+    : "";
+  return ["/usr/bin/env", "bash", "-lc", `${seed}exec "$@"`, "cellseed", exe, prompt];
 }
 
 export function buildRunRecord({ cell, waveId, template, bwrapProbe, cellwrapSha256 }) {
