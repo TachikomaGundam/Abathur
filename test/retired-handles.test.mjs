@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { randomBytes } from "node:crypto";
 import { findRegistryHits, fullTokens, prefixesOf, loadRegistry, scan } from "../scripts/scan-retired-handles.mjs";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
@@ -26,9 +27,11 @@ test("registry is well formed and records the 20261110 purge", () => {
 });
 
 test("a registered full ID and its short prefix both match", () => {
-  const full = "6cd3446048e97d6719fde59b292f04fcbc7f5d85";
+  // Fixtures are derived from the registry at runtime: a literal retired ID in
+  // this file would itself be a handle and the scan would fail closed on it.
+  const full = registry.handles.find((handle) => handle.prefix.length === 40).prefix;
   assert.equal(findRegistryHits(`see ${full} for details`, prefixes).length, 1);
-  assert.equal(findRegistryHits("see 6cd3446 for details", prefixes).length, 1);
+  assert.equal(findRegistryHits(`see ${full.slice(0, 7)} for details`, prefixes).length, 1);
   assert.equal(findRegistryHits("unrelated a1b2c3d4e5f", prefixes).length, 0);
 });
 
@@ -51,7 +54,8 @@ test("scan fails closed on a planted retired handle in a tracked file", () => {
   run(["config", "user.name", "t"]);
   mkdirSync(join(dir, "config"));
   copyFileSync(join(ROOT, "config", "retired-handles.json"), join(dir, "config", "retired-handles.json"));
-  writeFileSync(join(dir, "doc.md"), "release built from 6cd3446\n");
+  const short = registry.handles.find((handle) => handle.prefix.length === 40).prefix.slice(0, 7);
+  writeFileSync(join(dir, "doc.md"), `release built from ${short}\n`);
   run(["add", "."]);
   const planted = scan(dir);
   assert.equal(planted.violations.length, 1);
@@ -67,7 +71,7 @@ test("scan fails closed on an unregistered full handle that does not resolve", (
   run(["config", "user.name", "t"]);
   mkdirSync(join(dir, "config"));
   copyFileSync(join(ROOT, "config", "retired-handles.json"), join(dir, "config", "retired-handles.json"));
-  const orphan = "0123456789abcdef0123456789abcdef01234567";
+  const orphan = randomBytes(20).toString("hex");
   writeFileSync(join(dir, "doc.md"), `orphan ${orphan}\n`);
   run(["add", "."]);
   const planted = scan(dir);
