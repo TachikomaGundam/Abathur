@@ -121,6 +121,21 @@ def test_collect_pending_then_clean_done(tmp_path):
     assert (wdir / "alpha.receipt.json").is_file()
 
 
+def test_collect_queue_timeout_marks_failed(tmp_path):
+    qroot, wdir, r = make_queued_wave(tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    r = run(tmp_path, "collect", "w1", "--queue-root", str(qroot))
+    assert "pending w1/alpha" in r.stdout, r.stdout
+    cell_p = wdir / "alpha.json"
+    c = json.loads(cell_p.read_text())
+    assert c["queue_timeout_s"] == 600
+    c["claimed_epoch"] -= 900  # claim looks 15 minutes old (> 600+120 grace)
+    cell_p.write_text(json.dumps(c))
+    r = run(tmp_path, "collect", "w1", "--queue-root", str(qroot))
+    assert "queue timeout" in r.stdout and "still-pending" in r.stdout, r.stdout
+    assert load_cell(wdir, "alpha")["state"] == "failed"
+
+
 def test_collect_nonzero_rc_marks_failed(tmp_path):
     qroot, wdir, r = make_queued_wave(tmp_path)
     assert r.returncode == 0, r.stdout + r.stderr

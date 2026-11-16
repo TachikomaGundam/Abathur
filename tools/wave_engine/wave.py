@@ -895,6 +895,7 @@ def cmd_spawn_queue(args, wdir, targets):
         c["claimed_epoch"] = ts
         c["claimed_by"] = "queue"
         c["queue_id"] = req["id"]
+        c["queue_timeout_s"] = args.timeout_s
         c["request_sha256"] = res.get("request_sha256")
         save_cell(args.base, args.wave_id, c["cell_id"], c)
         append_metric(args.base, {
@@ -929,7 +930,31 @@ def cmd_collect(args):
         qid = c.get("queue_id") or queue_id(args.wave_id, cid)
         rj = os.path.join(queue_root, "done", qid + ".result.json")
         if not os.path.isfile(rj):
-            print("pending %s/%s (queue %s: no result yet)" % (args.wave_id, cid, qid))
+            timeout = c.get("queue_timeout_s") or 600
+            claimed_ts = c.get("claimed_epoch")
+            if claimed_ts and (time.time() - claimed_ts) > timeout + 120:
+                if os.path.exists(os.path.join(queue_root, "pending", qid + ".request.json")):
+                    stage = "still-pending(executor not running?)"
+                elif os.path.exists(os.path.join(queue_root, "running", qid + ".request.json")):
+                    stage = "stuck-in-running(executor died mid-run?)"
+                else:
+                    stage = "request-untraced"
+                ts, iso = now_pair()
+                c["state"] = "failed"
+                c["ended_at"] = iso
+                c["ended_epoch"] = ts
+                c["notes"].append("collect: queue timeout after %ss (%s)" % (timeout, stage))
+                save_cell(args.base, args.wave_id, cid, c)
+                append_metric(args.base, {
+                    "ts": iso, "ts_epoch": ts, "wave_id": args.wave_id, "cell_id": cid,
+                    "kind": c["kind"], "event": "collect-timeout", "state": "failed",
+                    "launched_epoch": c.get("launched_epoch"), "claimed_epoch": c.get("claimed_epoch"),
+                    "ended_epoch": ts, "pollution": False,
+                })
+                print("failed %s/%s at %s (queue timeout %ss exceeded; %s)"
+                      % (args.wave_id, cid, iso, timeout, stage))
+            else:
+                print("pending %s/%s (queue %s: no result yet)" % (args.wave_id, cid, qid))
             continue
         result = read_json(rj)
         ts, iso = now_pair()
