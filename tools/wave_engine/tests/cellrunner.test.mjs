@@ -145,6 +145,30 @@ test("opencode runRequest branch: brief lands in cell, cellwrap gate still refus
   assert.ok(cell.brief_path.endsWith("brief.md"));
 });
 
+test("serveOnce reclaims only stale claims, never fresh in-flight ones", () => {
+  const s = scratch();
+  const queue = path.join(s.root, "queue3");
+  const runningDir = path.join(queue, "running");
+  const doneDir = path.join(queue, "done");
+  fs.mkdirSync(runningDir, { recursive: true });
+  fs.mkdirSync(doneDir, { recursive: true });
+  const stale = { ...good(s), id: "stale-1", timeout_s: 60 };
+  const fresh = { ...good(s), id: "fresh-1", timeout_s: 60 };
+  for (const r of [stale, fresh]) {
+    fs.writeFileSync(path.join(runningDir, `${r.id}.request.json`), JSON.stringify(r));
+  }
+  const old = new Date(Date.now() - 400 * 1000); // 60s timeout + 300s grace + 40s
+  fs.utimesSync(path.join(runningDir, "stale-1.request.json"), old, old);
+  const processed = serveOnce({ queue });
+  assert.deepEqual(processed, []);
+  const result = JSON.parse(fs.readFileSync(path.join(doneDir, "stale-1.result.json"), "utf8"));
+  assert.equal(result.rc, 124);
+  assert.match(result.error, /stale-claim reclaimed/);
+  assert.ok(fs.existsSync(path.join(doneDir, "stale-1.request.json")));
+  assert.ok(!fs.existsSync(path.join(doneDir, "fresh-1.result.json")));
+  assert.ok(fs.existsSync(path.join(runningDir, "fresh-1.request.json")));
+});
+
 test("healthReport explains liveness from heartbeat; status CLI codes it", () => {
   const s = scratch();
   const queue = path.join(s.root, "queue");

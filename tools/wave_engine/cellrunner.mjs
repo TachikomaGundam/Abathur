@@ -198,12 +198,61 @@ export function runRequest(requestPath, opts = {}) {
   return result;
 }
 
+/**
+ * Reclaim orphaned claims: a request left in running/ by a dead executor never
+ * gets a result, so wave-side collect waits forever (wound W-2026-11-16-D).
+ * A claim is orphaned only when its file has sat untouched past the request's
+ * own timeout plus a grace window; live-but-slow cells always get killed by
+ * their own timeout first, so this never steals from a running executor.
+ */
+export function reclaimStaleClaims(queue, runningDir, doneDir, graceS = 300) {
+  const reclaimed = [];
+  const nowMs = Date.now();
+  for (const name of fs.readdirSync(runningDir).sort()) {
+    if (!name.endsWith(".request.json")) continue;
+    const p = path.join(runningDir, name);
+    let st;
+    try {
+      st = fs.statSync(p);
+    } catch {
+      continue;
+    }
+    let req = {};
+    try {
+      req = JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch {
+      // unreadable claim: still reclaimable by age alone
+    }
+    const timeoutS = Number.isFinite(req.timeout_s) ? req.timeout_s : TIMEOUT_CAP_S;
+    const ageS = (nowMs - st.mtimeMs) / 1000;
+    if (ageS <= timeoutS + graceS) continue;
+    const id = name.replace(".request.json", "");
+    const result = {
+      id,
+      request_sha256: req.request_sha256 ?? null,
+      rc: 124,
+      signal: null,
+      error: `stale-claim reclaimed: ${Math.round(ageS)}s idle > timeout ${timeoutS}s + ${graceS}s grace (executor died mid-run?)`,
+      started_at: null,
+      finished_at: new Date().toISOString(),
+    };
+    const resultPath = path.join(doneDir, `${id}.result.json`);
+    if (!fs.existsSync(resultPath)) {
+      atomicWrite(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+      reclaimed.push(id);
+    }
+    fs.renameSync(p, path.join(doneDir, `${id}.request.json`));
+  }
+  return reclaimed;
+}
+
 export function serveOnce(opts = {}) {
   const queue = opts.queue ?? QUEUE;
   const pendingDir = path.join(queue, "pending");
   const runningDir = path.join(queue, "running");
   const doneDir = path.join(queue, "done");
   for (const d of [pendingDir, runningDir, doneDir]) fs.mkdirSync(d, { recursive: true });
+  const reclaimed = reclaimStaleClaims(queue, runningDir, doneDir);
   const processed = [];
   for (const name of fs.readdirSync(pendingDir).sort()) {
     if (!name.endsWith(".request.json")) continue;
@@ -228,6 +277,7 @@ export function serveOnce(opts = {}) {
     ts: new Date().toISOString(),
     pid: process.pid,
     processed: processed.length,
+    reclaimed: reclaimed.length,
     pending_left: fs.readdirSync(pendingDir).filter((n) => n.endsWith(".request.json")).length,
   })}\n`);
   return processed;
