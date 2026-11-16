@@ -102,6 +102,18 @@ export function buildCellArgv({ template, cell, paths }) {
     "--symlink", "/usr/lib64", "/lib64",
     "--tmpfs", home,
   );
+  // Diagnostic purity (root cause closed 2026-11-16): im-config's initializer is
+  // sourced by every login shell via /etc/profile.d and picks systemd-cat as its
+  // logger whenever the binary exists; its logger_debug fires even with
+  // IM_CONFIG_VERBOSE="false" (non-empty-string check), so a journal-less cage
+  // printed 'Failed to create stream fd' lines onto every cell's stderr. Neuter
+  // the journal loggers inside the disposable cage so receipts carry only the
+  // subject's own output. Nothing is filtered post hoc (L-FIDELITY).
+  for (const loggerBinary of ["/usr/bin/systemd-cat", "/usr/bin/logger"]) {
+    if (fs.existsSync(loggerBinary) && fs.existsSync("/usr/bin/true")) {
+      argv.push("--ro-bind", "/usr/bin/true", loggerBinary);
+    }
+  }
   for (const m of template.masked ?? []) argv.push("--ro-bind", paths.maskDir, m);
   argv.push("--tmpfs", "/wave");
   argv.push("--bind", paths.spool, "/wave/spool"); // the only durable writable surface
