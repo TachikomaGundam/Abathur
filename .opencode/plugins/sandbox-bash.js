@@ -500,7 +500,7 @@ export default {
       }
     }
 
-    log(`BOOT v5 bwrap=${bwrap ?? "none"} net=${net} loc=${ctx?.location?.directory ?? "?"}`);
+    log(`BOOT v6 bwrap=${bwrap ?? "none"} net=${net} loc=${ctx?.location?.directory ?? "?"}`);
     const launcherStartedAt = new Date().toISOString();
     let cageSeq = 0;
 
