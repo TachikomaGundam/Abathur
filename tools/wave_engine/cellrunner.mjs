@@ -397,7 +397,17 @@ export function main(argv) {
   return 2;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1])) {
+function isDirectRun() {
+  const entry = process.argv[1];
+  if (!entry || entry === "-") return false; // stdin/eval imports must not fire main()
+  try {
+    return fileURLToPath(import.meta.url) === fs.realpathSync(entry);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   try {
     process.exitCode = main(process.argv.slice(2)) ?? 0;
   } catch (error) {
