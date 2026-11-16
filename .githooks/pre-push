@@ -1,3 +1,5 @@
 #!/bin/sh
 # Refuse pushes that make work artifacts reachable in this repo's history.
-exec node scripts/scan-workfiles.mjs --prepush
+node scripts/scan-workfiles.mjs --prepush || exit 1
+# Refuse pushes that reference object IDs retired by a history purge.
+exec node scripts/scan-retired-handles.mjs

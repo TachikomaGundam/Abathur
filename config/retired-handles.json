@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "generated_note": "Single authority for object IDs retired by a history purge. Read with JSON.parse. The scanner scripts/scan-retired-handles.mjs fails closed on any unregistered appearance and on any full 40-hex token that no longer resolves to a local object.",
+  "invariant": "A history purge retires the entire old object namespace. No retained artifact (tree file, commit message, tag) may reference a retired object ID, because a published ID is a retrieval handle: unreachable is not the same as deleted.",
+  "purges": [
+    {
+      "purge_id": "rewrite-20261110",
+      "date": "2026-11-10",
+      "scope": "all refs and tags of the six public repos; Abathur all-refs rewrite with filter-repo --invert-paths",
+      "record": ".omo/evidence/incident-containment-docket.md",
+      "handles_found_after_purge": 24
+    }
+  ],
+  "handles": [
+    {
+      "prefix": "5ed6e8cfecd703e0a420c926e457475715549cf1",
+      "seen_in": ["docs/release/v0.5.0.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "b8cd59e",
+      "seen_in": ["docs/release/v0.5.1.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "b645060f78d4dc3134e18e25126e7b462718e9aa",
+      "seen_in": ["docs/release/v0.5.5.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "3ccdbc1626cf",
+      "seen_in": ["docs/release/v0.5.5.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "98cbb9c49c6224fba1c469b960739c81e8804818",
+      "seen_in": ["docs/release/v0.5.6.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "b2e9ca9e3e12320677b0a25e81a1b8cecef19631",
+      "seen_in": ["docs/release/v0.5.7.md", "docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "6cd3446048e97d6719fde59b292f04fcbc7f5d85",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "d869548",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "aaac6cd",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "8f75f21",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "40fd3ed",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "1239560",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "aa82cbd",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "90a3be8",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "17c05aa",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "25780d2",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "751c4cf",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "473e8c6",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "85e545b",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "fe5fac9",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "068a214",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "e3b7287",
+      "seen_in": ["docs/release/v0.5.8.md"],
+      "disposition": "redacted-in-tree",
+      "redacted_at": "2026-11-16"
+    },
+    {
+      "prefix": "43117e7",
+      "seen_in": ["commit 5ef6e6abbf283921ad33ad5be46ffce9fdf2828a message"],
+      "disposition": "accepted-residual"
+    },
+    {
+      "prefix": "dc9a6fe4",
+      "seen_in": ["commit bfd74bfd3a7edf1a6de3dda57f331799dd271e46 message"],
+      "disposition": "accepted-residual"
+    }
+  ],
+  "accepted_residuals": [
+    {
+      "kind": "commit-message",
+      "commit": "5ef6e6abbf283921ad33ad5be46ffce9fdf2828a",
+      "prefix": "43117e7",
+      "why": "Commit message is part of retained public history; the referenced ID was already public since 2026-10-12 and removing the mention requires a full history rewrite that would not delete the remote object. Documented residual, reviewed 2026-11-16."
+    },
+    {
+      "kind": "commit-message",
+      "commit": "bfd74bfd3a7edf1a6de3dda57f331799dd271e46",
+      "prefix": "dc9a6fe4",
+      "why": "Same class as 43117e7: the ID named the retired AGENTISM.md content and was public since 2026-10-18. Documented residual, reviewed 2026-11-16."
+    }
+  ]
+}

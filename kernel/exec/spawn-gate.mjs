@@ -31,6 +31,7 @@ export const CONSTANTS = Object.freeze({
     ".opencode/plugins/sandbox-bash.js",
     "scripts/release-prepare.mjs",
     "scripts/scan-workfiles.mjs",
+    "scripts/scan-retired-handles.mjs",
     "scripts/scan-package.mjs",
     "tools/wave_engine/cellwrap.mjs",
     "tools/wave_engine/cellrunner.mjs",
@@ -47,6 +48,7 @@ export const CONSTANTS = Object.freeze({
     "test/surface-cwd.test.mjs",
     "test/surface-record.test.mjs",
     "tools/wave_engine/tests/cellrunner.test.mjs",
+    "test/retired-handles.test.mjs",
   ]),
   LEGACY_BASELINE_PATHS: Object.freeze([
     "cli/abathur-v2.mjs",
@@ -59,7 +61,7 @@ export const CONSTANTS = Object.freeze({
     "scripts/copy-gate.mjs",
   ]),
   LEGACY_TARGET_BASELINE: 8,
-  TEST_HARNESS_BASELINE: 11, // 2026-11-12: + tools/wave_engine/tests/cellrunner.test.mjs
+  TEST_HARNESS_BASELINE: 12, // 2026-11-12: + cellrunner.test.mjs; 2026-11-16: + retired-handles.test.mjs
 });
 
 const CLASSES = new Set(["runner", "trusted-controller", "legacy-target", "test-harness"]);

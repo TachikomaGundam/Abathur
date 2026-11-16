@@ -1,6 +1,6 @@
 # Generated rules — do not edit by hand
 
-registry-sha256: 9d9558bcc286cdc0727ddb2b6fbdf4746fb4b6da71e91134738f24def458d0e1
+registry-sha256: 094c0d4755a6a57171d4b46d3c4423986efebffbcfbfde0c3468c25bed131afd
 registry-version: 1
 
 ## A-IDENTITY-01 (A)
@@ -58,6 +58,14 @@ The receipt index lists every closed wave with absolute paths and hashes; missin
 - check: `node --test test/receipts.test.mjs` expects rc=0
 - exam: SR4-78
 - evidence: `/evidence/not-published/refactor-v2-w6/receipt-index.log`
+
+## C-RETIRED-HANDLE-01 (C)
+
+After a history purge retires object IDs, no retained artifact (tracked file, commit message, tag) may reference a retired ID; a registry of retired handles is the single source and the scan fails closed on unregistered appearances and on full 40-hex tokens that no longer resolve.
+
+- check: `node --test test/retired-handles.test.mjs` expects rc=0
+- exam exemption: Provenance infrastructure check: it needs a real purge registry and the repository's own history, which an exam sandbox cannot own.
+- evidence: `/evidence/not-published/incident-20261116/retired-handles.log`
 
 ## D-DEFECT-LEDGER-01 (D)
 

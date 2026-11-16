@@ -46,5 +46,8 @@ jobs:
           git fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*" || true
           node scripts/scan-workfiles.mjs --history
 
+      - name: Retired-handle boundary (tree, messages, tags)
+        run: node scripts/scan-retired-handles.mjs
+
       - name: Package boundary
         run: node scripts/scan-package.mjs
