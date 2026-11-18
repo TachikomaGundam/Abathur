@@ -111,6 +111,8 @@ test("W-C fail-closed: truncated/over-deep/nulled inputs never silently allow", 
 test("W-C wiring: hook rejects nested launch and wraps mention-only command", async () => {
   delete process.env.ABATHUR_SANDBOX;
   process.env.ABATHUR_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "abathur-wc-"));
+  // 证据卫生（W-E U3）：测试心跳/包裹日志必须离开共享 /tmp/opencode/abathur-sandbox.log
+  process.env.ABATHUR_SANDBOX_LOG = path.join(process.env.ABATHUR_STATE_DIR, "plugin-test.log");
   const repoRoot = path.resolve(import.meta.dirname, "..");
   const handlers = [];
   await pluginDefault.setup({ shell: { hook: async (evt, fn) => { if (evt === "create.before") handlers.push(fn); } }, location: { directory: repoRoot } });

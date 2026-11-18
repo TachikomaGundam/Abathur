@@ -13,6 +13,13 @@
 // 人类逃生阀：启动 opencode 前 `ABATHUR_SANDBOX=0`。
 // 网络档位：默认断网；人类在启动前设 `ABATHUR_SANDBOX_NET=host` 才出网（审计脚本必须绿）。
 // V1 原版归档：/home/lab/workspace/debug/opencode-v1-plugins-archive-20261111/（见 README）。
+//
+// 引擎兼容标记（2026-11-18 机主逐字令「改接线，旧版加标记适用哪个版本的opencode」）：
+//   本文件（默认导出 {id, setup} 对象形 = V2 契约）适用 opencode ≥2.3.0（本机 2.3.0 实测面）。
+//   V1 契约（函数形默认导出）的最后快照 = git 提交 d93f077，适用 opencode <2.3；
+//   取回：git show d93f077:.opencode/plugins/sandbox-bash.js。
+//   心跳哨兵：模块被 import 时写 MODULE-LOAD，setup 执行时写 BOOT——两条皆无 =
+//   引擎未实例化本插件，笼子全开，禁止开炮并上报（伤案 W-2026-11-17-E）。
 
 import path from "node:path";
 import fs from "node:fs";
@@ -25,6 +32,8 @@ import { createRunRecord, pruneRuns } from "../../kernel/surface/record.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOST_HOME = process.env.ABATHUR_HOST_HOME || os.homedir();
 const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap", "/usr/sbin/bwrap"];
+// ABATHUR_SANDBOX_LOG：测试/诊断用日志重定向。缺省仍为共享 LOG——
+// 证据卫生（W-E U3 定案）：测试曾把 BOOT/CAGE 写进真实日志污染归因面，测试必须设此变量。
 const LOG = "/tmp/opencode/abathur-sandbox.log";
 
 export function isUnder(rootReal, dirReal) {
@@ -109,7 +118,10 @@ export function wrapCommand({ bwrap, workspace, cmd, net, bornAt, launcherStarte
     .join(" ");
 }
 
-function log(line) { try { fs.appendFileSync(LOG, `${new Date().toISOString()} ${line}\n`); } catch { /* log is best-effort */ } }
+function log(line) { const L = process.env.ABATHUR_SANDBOX_LOG || LOG; try { fs.appendFileSync(L, `${new Date().toISOString()} ${line}\n`); } catch { /* log is best-effort */ } }
+
+// 心跳哨兵（W-2026-11-17-E 归因面）：import 成功即写此行；setup 未随之执行 = 引擎侧失配。
+log(`MODULE-LOAD v6.1 contract=v2 pid=${process.pid} ppid=${process.ppid}`);
 
 function appendGateBlock(repoRoot, cls, gate, detail) {
   try {
