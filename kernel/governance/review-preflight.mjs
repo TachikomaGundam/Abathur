@@ -50,6 +50,13 @@ export function reviewPreflight(ticket, io = {}) {
     return refuse("artifactAuthor-empty");
   }
   const isSeatArt = t.artifactAuthor.startsWith("seat:");
+  if (!isSeatArt && !t.artifactAuthor.startsWith("other:")) {
+    return refuse("artifactAuthor-format"); // unprefixed author strings used to fail open as foreign work
+  }
+  // normalize: convenerSession carries a bare engine id; artifactAuthor carries a
+  // discipline prefix. Raw string equality across the two formats never matched —
+  // live ticket 2026-11-19 proved the author check silently failed open.
+  const authorId = isSeatArt ? t.artifactAuthor.slice("seat:".length).trim() : null;
   const convener =
     typeof t.convenerSession === "string" && t.convenerSession.trim() !== ""
       ? t.convenerSession.trim()
@@ -57,7 +64,7 @@ export function reviewPreflight(ticket, io = {}) {
   if (convener === null && (typeof t.engineProof !== "string" || t.engineProof.trim() === "")) {
     return refuse("convener-unknown");
   }
-  if (isSeatArt && convener !== null && convener === t.artifactAuthor) {
+  if (isSeatArt && convener !== null && convener === authorId) {
     return refuse("convener-is-author");
   }
 
@@ -93,7 +100,7 @@ export function reviewPreflight(ticket, io = {}) {
   }
   if (fail.length > 0) return { verdict: "REFUSE", reasons: fail, flags: {} };
 
-  const independent = !isSeatArt || (convener !== null && convener !== t.artifactAuthor);
+  const independent = !isSeatArt || (convener !== null && convener !== authorId);
   const flags = { ownerOrdered: ordered !== null, independentChain: independent, mechanical: true };
   if (independent && ordered !== null) {
     return { verdict: "PASS", reasons: ["owner-ordered + independent-chain + probe-evidence-verified"], flags };

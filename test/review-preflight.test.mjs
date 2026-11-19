@@ -32,10 +32,10 @@ test("PASS: owner-ordered, independent chain, receipts verify", () => {
   assert.equal(r.flags.mechanical, true);
 });
 
-test("REFUSE: convener is the artifact author (seat chain)", () => {
+test("REFUSE: convener is the artifact author (seat chain; bare id vs seat: prefix must still match)", () => {
   const t = base();
   t.artifactAuthor = "seat:run-x";
-  t.convenerSession = "seat:run-x";
+  t.convenerSession = "run-x"; // realistic shape: convener carries bare engine id
   const r = reviewPreflight(t, io);
   assert.equal(r.verdict, "REFUSE");
   assert.match(r.reasons[0], /convener-is-author/);
@@ -93,6 +93,23 @@ test("relative receipt path rejected (receipts are contract anchors)", () => {
   const t = base();
   t.probeAttempts = [{ question: "q", receiptPath: "relative/path.txt", receiptSha256: recSha }];
   assert.match(reviewPreflight(t, io).reasons[0], /receiptPath-not-absolute/);
+});
+
+test("REFUSE: artifactAuthor without seat:/other: prefix (used to fail open as foreign work)", () => {
+  const t = base();
+  t.artifactAuthor = "run-x"; // bare, unprefixed
+  const r = reviewPreflight(t, io);
+  assert.equal(r.verdict, "REFUSE");
+  assert.match(r.reasons.join("|"), /artifactAuthor-format/);
+});
+
+test("live 2026-11-19 regression: bare convener id == seat-prefixed author must NOT pass", () => {
+  const t = base();
+  t.artifactAuthor = "seat:ses_e1c5d7513ffeWygXY4rgC0P5KB";
+  t.convenerSession = "ses_e1c5d7513ffeWygXY4rgC0P5KB";
+  const r = reviewPreflight(t, io);
+  assert.equal(r.verdict, "REFUSE");
+  assert.match(r.reasons[0], /convener-is-author/);
 });
 
 rmSync(dir, { recursive: true, force: true });
