@@ -101,3 +101,38 @@ test("host picture but fresh heartbeat → DISPUTED (contradiction, not silent D
   });
   assert.equal(r.verdict, "DISPUTED");
 });
+
+// D-1 fixtures (2026-11-19): true caged self-view — masked /proc shows a
+// single NSpid and the heartbeat log sits on the host /tmp (invisible in cage).
+test("caged self-view (single NSpid + tmpfs home + run record, no log) → LIVE", () => {
+  const r = checkCagePresence({
+    env: {
+      CAGE_BORN_AT: freshIso(5000), LAUNCHER_STARTED_AT: freshIso(6000),
+      ABATHUR_RUN_ID: "run-x",
+    },
+    hostHome: HOME,
+    logPath: "/tmp/opencode/abathur-sandbox.log",
+    exists: (p) => p === "/abathur-run.json",
+    read: (p) => {
+      if (p === "/proc/self/status") return "NSpid:\t1\n";
+      if (p === "/proc/mounts") return `tmpfs ${HOME} tmpfs rw 0 0\nproc /proc proc rw 0 0\n`;
+      throw new Error("ENOENT " + p);
+    },
+  });
+  assert.equal(r.verdict, "LIVE");
+});
+
+test("forged env + tmpfs home but no strong signal → DISPUTED (no silent LIVE)", () => {
+  const r = checkCagePresence({
+    env: { CAGE_BORN_AT: "x", LAUNCHER_STARTED_AT: "y" },
+    hostHome: HOME,
+    logPath: "/missing",
+    exists: () => false,
+    read: (p) => {
+      if (p === "/proc/self/status") return "NSpid:\t1\n";
+      if (p === "/proc/mounts") return `tmpfs ${HOME} tmpfs rw 0 0\n`;
+      throw new Error("ENOENT");
+    },
+  });
+  assert.equal(r.verdict, "DISPUTED");
+});

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import pluginDefault, { buildArgv, shouldWrap, wrapCommand, detectNestedBwrap, COPY_MARKERS } from "../.opencode/plugins/sandbox-bash.js";
+import pluginDefault, { buildArgv, shouldWrap, wrapCommand, detectNestedBwrap, COPY_MARKERS, resolveBwrap } from "../.opencode/plugins/sandbox-bash.js";
 
 function tmpWorkspace() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "abathur-cage-"));
@@ -108,7 +108,15 @@ test("W-C fail-closed: truncated/over-deep/nulled inputs never silently allow", 
   assert.doesNotThrow(() => detectNestedBwrap(null));
 });
 
-test("W-C wiring: hook rejects nested launch and wraps mention-only command", async () => {
+test("W-C wiring: hook rejects nested launch and wraps mention-only command", async (t) => {
+  if (!resolveBwrap()) {
+    // Caged view: bwrap under userns maps the binary's owner uid ≠ 0, so the
+    // trust probe (root-owned + unwritable) cannot pass from inside. The
+    // wiring itself (setup→create.before→classifier) is verified on any host
+    // with a trusted bwrap; classifier rows above run everywhere.
+    t.skip("no trusted bwrap in this view (userns-mapped uid): wiring needs unsandboxed host");
+    return;
+  }
   delete process.env.ABATHUR_SANDBOX;
   process.env.ABATHUR_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "abathur-wc-"));
   // 证据卫生（W-E U3）：测试心跳/包裹日志必须离开共享 /tmp/opencode/abathur-sandbox.log

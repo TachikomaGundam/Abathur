@@ -78,12 +78,20 @@ export function checkCagePresence({
   checks.hookHeartbeat = heartbeat;
 
   // verdict: fail-closed toward honesty, never "live" on partials.
-  // env vars alone cannot prove cage (host can export them); kernel signals
-  // (pid ns, tmpfs mount) require a real cage, so LIVE needs envSig + one kernel.
-  const kernelCage = checks.pidNs === true || checks.homeTmpfs === true;
+  // D-1 (2026-11-19): from INSIDE the cage the kernel masks the NSpid chain
+  // (multi-value NSpid is only visible to the PARENT namespace), so a real
+  // caged self-check always sees pidNs=false. LIVE therefore keys on
+  // envSig + tmpfs-over-home (visible in own mounts) + one strong signal
+  // (run record file at cage root / externally-observed pid ns / fresh
+  // heartbeat). env forgery alone still can never produce LIVE.
+  const kernelCage = checks.homeTmpfs === true || checks.pidNs === true;
+  const strong = checks.pidNs === true || checks.runRecord === true || checks.hookHeartbeat === true;
   let verdict;
-  if (checks.envSig && kernelCage && checks.pidNs !== false && checks.homeTmpfs !== false) {
-    verdict = checks.hookHeartbeat === false ? "DISPUTED" : "LIVE";
+  if (checks.envSig && checks.homeTmpfs === true) {
+    verdict = checks.hookHeartbeat === false ? "DISPUTED" : strong ? "LIVE" : "DISPUTED";
+  } else if (checks.envSig && kernelCage && checks.pidNs === true) {
+    // external-observer picture (sees nested pid ns, no home mount view)
+    verdict = checks.hookHeartbeat === false ? "DISPUTED" : strong ? "LIVE" : "DISPUTED";
   } else if (!checks.envSig && checks.pidNs === false && checks.homeTmpfs === false) {
     // full host picture: env absent is conclusive only if both kernel signals
     // confirm host namespace AND no fresh heartbeat contradicts
